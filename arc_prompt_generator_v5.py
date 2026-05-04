@@ -1,6 +1,7 @@
 """
 ARC-AGI Prompt Generator with Transformation Rules
-v9: Added connectivity hint to TIPS (4-conn vs 8-conn — generic, not puzzle-specific)
+v10: Added cluster-property propagation hint (cell-level reasoning is atomic,
+     but cluster-level properties like edge-touching are component-wide facts)
 """
 
 import json
@@ -58,6 +59,10 @@ Before writing code, scan the inputs:
   apply per-cell logic.
 - When checking adjacency, consider whether the rule includes diagonals
   (8-connectivity) or only cardinal neighbors (4-connectivity).
+- A property describing a connected component (e.g. "this cluster is
+  edge-touching" or "this cluster is reachable from the seed") applies to all
+  cells of the cluster equally. Compute it once at cluster-classification
+  time; don't re-derive it per cell.
 
 Avoid magic-number thresholds (>=80%, size > N, exactly K clusters).
 Prefer rules expressed in terms of topology (reachability, adjacency,
@@ -117,7 +122,7 @@ if __name__ == "__main__":
     size = save_prompt(puzzle, output_file)
 
     print("=" * 80)
-    print("PROMPT GENERATOR v9 - TIPS now includes 4-conn vs 8-conn hint")
+    print("PROMPT GENERATOR v10 - TIPS now includes cluster-property propagation")
     print("=" * 80)
     print(f"\nTraining examples: {len(puzzle['train'])}")
     print(f"Prompt size: {size:,} characters")
