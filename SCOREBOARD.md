@@ -18,7 +18,7 @@ Each row records how many iterations each model needed to reach training 3/3
 
 | Puzzle ID | Substrate prompt | GPT | Claude | Gemini | Grok | Solver |
 |---|---|---|---|---|---|---|
-| [8f3a5a89](https://arcprize.org/tasks/8f3a5a89) | [✅](Substrate%20Prompts/8f3a5a89.txt) | **2** ✅ | — | WIP 4 (2/3) | — | [seeded_reachable_floodfill_trace](Solvers/seeded_reachable_floodfill_trace.py) |
+| [8f3a5a89](https://arcprize.org/tasks/8f3a5a89) | [✅](Substrate%20Prompts/8f3a5a89.txt) | **2** ✅ | — | **5** ✅ | — | [seeded_contour_fill](Solvers/seeded_contour_fill.py) |
 
 ## Update protocol
 
