@@ -1,0 +1,55 @@
+Grok's narrative response started by hand-computing a hardcoded test output
+grid (which happened to look correct). After pressing 'execute' button, this
+is the actual Python code Grok produced and that we ran:
+
+```python
+def solve(input_grid):
+    h = len(input_grid)
+    w = len(input_grid[0])
+    wall_col = 10
+    output = [[8 for _ in range(w)] for _ in range(h)]
+
+    for r in range(h):
+        for c in range(w):
+            if input_grid[r][c] == 6:
+                output[r][c] = 6
+            elif input_grid[r][c] == 1 and c <= wall_col:
+                output[r][c] = 1
+
+    for c in range(wall_col):
+        if output[0][c] == 8:
+            output[0][c] = 7
+    for c in range(wall_col):
+        if output[h-1][c] == 8:
+            output[h-1][c] = 7
+    for r in range(h):
+        if output[r][0] == 8:
+            output[r][0] = 7
+
+    for r in range(h):
+        for c in range(wall_col):
+            if output[r][c] == 8:
+                for dr in [-1, 0, 1]:
+                    for dc in [-1, 0, 1]:
+                        if dr == 0 and dc == 0:
+                            continue
+                        nr = r + dr
+                        nc = c + dc
+                        if 0 <= nr < h and 0 <= nc < w and output[nr][nc] == 1:
+                            output[r][c] = 7
+                            break
+                    else:
+                        continue
+                    break
+
+    return output
+```
+
+Validator result: training 0/3, test FAIL. The code hardcodes `wall_col = 10`,
+which only matches the test grid shape (12x12). The training pairs have
+different shapes (16x16, 10x10, 20x20) with walls in different columns, so
+even the basic structure breaks.
+
+Note: this iter ran on the v5 substrate prompt (without explicit 'no
+hardcoded dimensions' warning). The v6 prompt and the iter feedback's WHAT
+TO DO NEXT block both call this out for iter 2.
