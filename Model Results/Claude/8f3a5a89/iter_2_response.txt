@@ -1,0 +1,139 @@
+Looking at the validation feedback, my approach completely failed. Let me analyze the pattern more carefully.Based on my analysis of the training examples and the validation feedback, I've developed a refined understanding of the transformation pattern:
+
+## Key Pattern Insights:
+
+1. **Structural Lines**: Only full-spanning edge-touching lines (vertical lines spanning ≥80% of height, or horizontal lines spanning ≥80% of width) are considered "structural" and preserved.
+
+2. **Remove Non-Structural 1s**: All small isolated groups of 1s that don't meet the structural criteria are removed (converted to 8).
+
+3. **Border Drawing**: A rectangular border of 7s is drawn ONLY in the region that contains the marker (6), which is always at the leftmost position.
+
+4. **Regional Partitioning**: When there's a structural vertical line, it divides the grid into left and right regions. The border is drawn only in the region containing the marker.
+
+Here's the final solution:
+
+```python
+def solve(input_grid):
+    rows = len(input_grid)
+    cols = len(input_grid[0])
+    output = [row[:] for row in input_grid]
+    
+    # Find marker
+    marker_pos = None
+    for r in range(rows):
+        for c in range(cols):
+            if input_grid[r][c] == 6:
+                marker_pos = (r, c)
+                break
+    
+    if not marker_pos:
+        return output
+    
+    marker_row, marker_col = marker_pos
+    
+    # Find all 1 clusters using flood fill
+    def get_cluster(start_r, start_c, visited):
+        stack = [(start_r, start_c)]
+        cluster = []
+        while stack:
+            r, c = stack.pop()
+            if (r, c) in visited or r < 0 or r >= rows or c < 0 or c >= cols:
+                continue
+            if input_grid[r][c] != 1:
+                continue
+            visited.add((r, c))
+            cluster.append((r, c))
+            for dr, dc in [(0,1), (0,-1), (1,0), (-1,0)]:
+                stack.append((r + dr, c + dc))
+        return cluster
+    
+    visited = set()
+    clusters = []
+    for r in range(rows):
+        for c in range(cols):
+            if input_grid[r][c] == 1 and (r, c) not in visited:
+                cluster = get_cluster(r, c, visited)
+                if cluster:
+                    clusters.append(cluster)
+    
+    # Identify structural clusters (full-spanning lines or very large shapes)
+    structural = set()
+    for cluster in clusters:
+        touches_edge = any(r in [0, rows-1] or c in [0, cols-1] for r, c in cluster)
+        if not touches_edge:
+            continue
+        
+        rows_in_cluster = set(r for r, c in cluster)
+        cols_in_cluster = set(c for r, c in cluster)
+        
+        is_full_vert = (len(cols_in_cluster) == 1 and len(rows_in_cluster) >= rows * 0.8)
+        is_full_horiz = (len(rows_in_cluster) == 1 and len(cols_in_cluster) >= cols * 0.8)
+        is_very_large = len(cluster) >= max(rows * cols * 0.15, 20)
+        
+        if is_full_vert or is_full_horiz or is_very_large:
+            structural.update(cluster)
+    
+    # Remove non-structural 1s
+    for r in range(rows):
+        for c in range(cols):
+            if output[r][c] == 1 and (r, c) not in structural:
+                output[r][c] = 8
+    
+    # Find vertical dividers
+    vertical_dividers = []
+    for c in range(cols):
+        cells = [(r, c) for r in range(rows) if (r, c) in structural]
+        if len(cells) >= rows * 0.5:
+            vertical_dividers.append(c)
+    
+    # Draw border in marker's region
+    if vertical_dividers:
+        divider = min(vertical_dividers, key=lambda vc: abs(vc - marker_col))
+        
+        if marker_col < divider:
+            left_bound, right_bound = 0, divider - 1
+        else:
+            left_bound, right_bound = divider + 1, cols - 1
+        
+        for c in range(left_bound, right_bound + 1):
+            if output[0][c] == 8:
+                output[0][c] = 7
+            if output[rows-1][c] == 8:
+                output[rows-1][c] = 7
+        
+        for r in range(rows):
+            if output[r][left_bound] == 8:
+                output[r][left_bound] = 7
+            if output[r][right_bound] == 8:
+                output[r][right_bound] = 7
+    else:
+        for c in range(cols):
+            if output[0][c] == 8:
+                output[0][c] = 7
+            if output[rows-1][c] == 8:
+                output[rows-1][c] = 7
+        for r in range(rows):
+            if output[r][0] == 8:
+                output[r][0] = 7
+            if output[r][cols-1] == 8:
+                output[r][cols-1] = 7
+    
+    output[marker_pos[0]][marker_pos[1]] = 6
+    return output
+```
+
+**TEST OUTPUT:**
+```
+[[7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 1, 8],
+ [7, 8, 8, 8, 8, 8, 8, 8, 7, 8, 1, 8],
+ [7, 8, 8, 8, 8, 8, 8, 8, 7, 8, 1, 8],
+ [7, 8, 8, 8, 8, 8, 8, 8, 7, 8, 1, 8],
+ [7, 8, 8, 8, 8, 8, 8, 1, 1, 1, 1, 8],
+ [7, 8, 8, 8, 8, 8, 8, 1, 1, 1, 1, 8],
+ [7, 8, 8, 8, 8, 8, 8, 8, 1, 1, 1, 8],
+ [7, 8, 8, 8, 8, 8, 8, 8, 7, 8, 1, 8],
+ [7, 8, 8, 8, 8, 8, 8, 8, 7, 8, 1, 8],
+ [7, 8, 8, 8, 8, 8, 8, 8, 7, 1, 1, 1],
+ [7, 8, 8, 8, 8, 8, 8, 8, 7, 1, 1, 1],
+ [6, 7, 7, 7, 7, 7, 7, 7, 7, 1, 1, 1]]
+```
