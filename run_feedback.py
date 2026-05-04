@@ -31,6 +31,30 @@ HISTORY_FILE = f"{PUZZLE_ID}_history.json"
 OUT_FILE = f"feedback_{PUZZLE_ID}.txt"
 
 
+CODE_REMINDER = """\
+================================================================================
+WHAT TO DO NEXT — read this before reading the diagnostics
+================================================================================
+
+Read the per-pair diagnostics below, identify what your code did wrong on each
+failed pair, then submit a REVISED `def solve(input_grid):` function.
+
+REQUIREMENTS for your next response:
+- MUST contain a `def solve(input_grid):` function. We run your code; we do
+  not read hand-computed grids. Responses without a solve() function cannot
+  be validated and you receive no further feedback.
+- The function must work on grids of ANY size — do not hardcode dimensions,
+  row indices, or column indices. The validator runs your code on grids of
+  different sizes (the training pairs and the test input each have their own
+  shape).
+- Return a 2D list of integers (colors 0-9).
+
+DO NOT manually write out a test output grid. The grid that gets submitted is
+solve(test_input), computed by us. Your job is to write the algorithm.
+
+"""
+
+
 def load_history():
     p = Path(HISTORY_FILE)
     if p.exists():
@@ -123,7 +147,10 @@ def main():
         + header + "\n\n"
     )
 
-    feedback_blocks = [history_block + summary] if history_block else [summary]
+    # Reminder block only when iteration is needed
+    reminder = "" if all_train_pass else CODE_REMINDER
+
+    feedback_blocks = [history_block + summary + reminder] if history_block else [summary + reminder]
     for i, passed, pair, actual in train_results:
         if not passed:
             feedback_blocks.append(
