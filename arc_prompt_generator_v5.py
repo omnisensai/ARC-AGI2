@@ -3,6 +3,7 @@ ARC-AGI Prompt Generator with Transformation Rules
 v6: Strengthen output-format requirements
     - mandatory `def solve(input_grid):` function (no hand-computed grids)
     - explicit "do not hardcode dimensions/indices" — must work on any size
+    - minimal generic TIPS section to nudge models away from per-cell heuristics
 """
 
 import json
@@ -65,6 +66,20 @@ Transformation rule symbols:
 
 Your task: study the transformation rule across all training examples,
 write Python that applies the same rule to any input grid.
+
+================================================================================
+TIPS
+================================================================================
+
+Before writing code, scan the inputs:
+- Look for anchor cells (unique colors, single markers, distinctive objects).
+- Look for barriers (walls, lines, obstacles).
+- Many ARC rules radiate outward from an anchor (BFS, flood-fill) rather than
+  apply per-cell logic.
+
+Avoid magic-number thresholds (>=80%, size > N, exactly K clusters).
+Prefer rules expressed in terms of topology (reachability, adjacency,
+connectivity) anchored at a recognizable element.
 
 """
     for idx, example in enumerate(puzzle['train'], 1):
