@@ -1,0 +1,80 @@
+Looking at the errors, I see the pattern now - the borders in Examples 2 and 3 are NOT simple rectangles but **contour borders** that trace around the structural 1s clusters! The borders follow the outer edges of each cluster.
+
+Let me implement this properly:
+
+```python
+def solve(input_grid):
+    rows = len(input_grid)
+    cols = len(input_grid[0])
+    output = [row[:] for row in input_grid]
+    
+    marker_pos = None
+    for r in range(rows):
+        for c in range(cols):
+            if input_grid[r][c] == 6:
+                marker_pos = (r, c)
+                break
+    
+    if not marker_pos:
+        return output
+    
+    # Find all edge-touching 1s (these are ALL structural in examples 2 & 3)
+    def is_edge_touching(r, c):
+        return r == 0 or r == rows-1 or c == 0 or c == cols-1
+    
+    structural = set()
+    for r in range(rows):
+        for c in range(cols):
+            if input_grid[r][c] == 1 and is_edge_touching(r, c):
+                # Flood fill to get entire cluster
+                stack = [(r, c)]
+                visited_local = set()
+                while stack:
+                    rr, cc = stack.pop()
+                    if (rr, cc) in visited_local or (rr, cc) in structural:
+                        continue
+                    if rr < 0 or rr >= rows or cc < 0 or cc >= cols:
+                        continue
+                    if input_grid[rr][cc] != 1:
+                        continue
+                    structural.add((rr, cc))
+                    visited_local.add((rr, cc))
+                    for dr, dc in [(0,1), (0,-1), (1,0), (-1,0)]:
+                        stack.append((rr + dr, cc + dc))
+    
+    # For cells adjacent to structural 1s, draw border (7)
+    for r in range(rows):
+        for c in range(cols):
+            if output[r][c] == 8:  # Only on background
+                # Check if adjacent to any structural 1
+                is_adjacent = False
+                for dr, dc in [(0,1), (0,-1), (1,0), (-1,0), (1,1), (1,-1), (-1,1), (-1,-1)]:
+                    nr, nc = r + dr, c + dc
+                    if 0 <= nr < rows and 0 <= nc < cols:
+                        if (nr, nc) in structural:
+                            is_adjacent = True
+                            break
+                if is_adjacent:
+                    output[r][c] = 7
+    
+    # Preserve marker
+    output[marker_pos[0]][marker_pos[1]] = 6
+    
+    return output
+```
+
+**TEST OUTPUT:**
+```
+[[7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 1, 7],
+ [7, 8, 8, 8, 8, 8, 8, 8, 8, 7, 1, 7],
+ [7, 8, 8, 8, 8, 8, 8, 8, 8, 7, 1, 7],
+ [7, 8, 8, 8, 8, 8, 8, 8, 8, 7, 1, 7],
+ [7, 8, 8, 8, 8, 8, 8, 7, 7, 1, 1, 7],
+ [7, 8, 8, 8, 8, 8, 8, 7, 1, 1, 1, 7],
+ [7, 8, 8, 8, 8, 8, 8, 7, 7, 1, 1, 7],
+ [7, 8, 8, 8, 8, 8, 8, 8, 8, 7, 1, 7],
+ [7, 8, 8, 8, 8, 8, 8, 8, 8, 7, 1, 7],
+ [7, 8, 8, 8, 8, 8, 8, 8, 7, 1, 1, 1],
+ [7, 8, 8, 8, 8, 8, 8, 8, 7, 1, 1, 1],
+ [6, 7, 7, 1, 1, 1, 1, 7, 7, 1, 1, 1]]
+```
