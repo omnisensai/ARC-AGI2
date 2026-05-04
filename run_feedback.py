@@ -6,6 +6,9 @@ Competition validator for ARC-AGI:
 If training fails, generate substrate feedback per failed training pair, plus a
 test self-inspection block so the LLM sees what its current code would submit.
 
+Iteration history is persisted to <puzzle_id>_history.json and rendered at the
+top of every feedback file so the LLM sees how its understanding evolved.
+
 Usage:
   1. Save the LLM's solve() function to a file (e.g. gpt_solution.py)
   2. Edit PUZZLE_FILE / SOLUTION_MODULE / OUT_FILE below
@@ -14,15 +17,46 @@ Usage:
 
 import json
 import importlib
+from pathlib import Path
 
 from complete_substrate_feedback import (
     generate_complete_substrate_feedback,
     generate_test_self_inspection,
 )
 
-PUZZLE_FILE = "puzzle.json"          # ARC puzzle JSON
-SOLUTION_MODULE = "gpt_solution"     # module exposing solve(input_grid)
-OUT_FILE = "feedback.txt"            # combined feedback output
+PUZZLE_FILE = "puzzle.json"
+PUZZLE_ID = "puzzle"
+SOLUTION_MODULE = "gpt_solution"
+HISTORY_FILE = f"{PUZZLE_ID}_history.json"
+OUT_FILE = f"feedback_{PUZZLE_ID}.txt"
+
+
+def load_history():
+    p = Path(HISTORY_FILE)
+    if p.exists():
+        return json.loads(p.read_text())
+    return []
+
+
+def save_history(history):
+    Path(HISTORY_FILE).write_text(json.dumps(history, indent=2))
+
+
+def render_history(past_history, current_iter):
+    if not past_history:
+        return ""
+    lines = ["=" * 80, "ITERATION HISTORY", "=" * 80, ""]
+    for entry in past_history:
+        marks = "  ".join(
+            f"Pair {i+1} {'PASS' if p else 'FAIL'}"
+            for i, p in enumerate(entry["pairs"])
+        )
+        lines.append(
+            f"Iter {entry['iter']}: {marks}  ({entry['passed']}/{entry['total']})"
+        )
+    lines.append(f"Iter {current_iter} (current): see full diagnostics below")
+    lines.append("")
+    return "\n".join(lines) + "\n"
 
 
 def main():
@@ -31,9 +65,11 @@ def main():
     with open(PUZZLE_FILE) as f:
         puzzle = json.load(f)
 
-    # Phase 1: training validation
+    history = load_history()
+    current_iter = len(history) + 1
+
     print("=" * 80)
-    print("TRAINING VALIDATION")
+    print(f"ITERATION {current_iter} - TRAINING VALIDATION")
     print("=" * 80)
     train_results = []
     for i, pair in enumerate(puzzle["train"], 1):
@@ -47,14 +83,9 @@ def main():
     all_train_pass = train_pass_count == len(train_results)
     print(f"\nTraining: {train_pass_count}/{len(train_results)}")
 
-    # Always run code on test input - this is the hypothesis we'd submit
     test_input = puzzle["test"][0]["input"]
     solve_test_output = solve(test_input)
 
-    # Verdict
-    print("\n" + "=" * 80)
-    print("VERDICT")
-    print("=" * 80)
     if all_train_pass:
         verdict = "SUBMIT"
         header = (
@@ -68,20 +99,31 @@ def main():
             f"Your transformation rule did not generalize across all training "
             f"pairs (failed on pair(s) {failing}). Iterate."
         )
-    print(verdict)
+    print("\nVERDICT:", verdict)
     print(header)
 
-    # Build feedback file
+    history.append({
+        "iter": current_iter,
+        "pairs": [bool(p) for _, p, _, _ in train_results],
+        "passed": train_pass_count,
+        "total": len(train_results),
+        "verdict": verdict,
+    })
+    save_history(history)
+
+    history_block = render_history(history[:-1], current_iter)
+
     summary = (
         "=" * 80 + "\n"
         "VALIDATION SUMMARY\n"
         + "=" * 80 + "\n\n"
+        + f"Iteration: {current_iter}\n"
         + f"Verdict: {verdict}\n"
         + f"Training: {train_pass_count}/{len(train_results)} pairs pass\n\n"
         + header + "\n\n"
     )
 
-    feedback_blocks = [summary]
+    feedback_blocks = [history_block + summary] if history_block else [summary]
     for i, passed, pair, actual in train_results:
         if not passed:
             feedback_blocks.append(
@@ -99,8 +141,8 @@ def main():
     with open(OUT_FILE, "w") as f:
         f.write(combined)
 
-    print(f"\nSaved {len(combined):,} chars of feedback to {OUT_FILE}")
-    print(f"Failed train pairs: {[i for i, p, _, _ in train_results if not p]}")
+    print(f"\nSaved {len(combined):,} chars to {OUT_FILE}")
+    print(f"History persisted to {HISTORY_FILE} ({len(history)} iter(s))")
 
 
 if __name__ == "__main__":
