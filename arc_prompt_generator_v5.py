@@ -1,7 +1,6 @@
 """
 ARC-AGI Prompt Generator with Transformation Rules
-v8: TIPS section + minimal one-line MANDATORY OUTPUT FORMAT at bottom
-    (was a long top-section; LLMs respond better to recency-anchored brevity)
+v9: Added connectivity hint to TIPS (4-conn vs 8-conn — generic, not puzzle-specific)
 """
 
 import json
@@ -57,6 +56,8 @@ Before writing code, scan the inputs:
 - Look for barriers (walls, lines, obstacles).
 - Many ARC rules radiate outward from an anchor (BFS, flood-fill) rather than
   apply per-cell logic.
+- When checking adjacency, consider whether the rule includes diagonals
+  (8-connectivity) or only cardinal neighbors (4-connectivity).
 
 Avoid magic-number thresholds (>=80%, size > N, exactly K clusters).
 Prefer rules expressed in terms of topology (reachability, adjacency,
@@ -116,7 +117,7 @@ if __name__ == "__main__":
     size = save_prompt(puzzle, output_file)
 
     print("=" * 80)
-    print("PROMPT GENERATOR v8 - TIPS + minimal mandatory format reminder")
+    print("PROMPT GENERATOR v9 - TIPS now includes 4-conn vs 8-conn hint")
     print("=" * 80)
     print(f"\nTraining examples: {len(puzzle['train'])}")
     print(f"Prompt size: {size:,} characters")
