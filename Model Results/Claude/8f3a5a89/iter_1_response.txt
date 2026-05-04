@@ -1,0 +1,98 @@
+Looking at this puzzle, I need to figure out the transformation rule.
+
+**Analysis:**
+
+The `6` is an anchor. Looking at the three training examples:
+
+**Example 1**: A vertical wall of 1s at column 6 splits the grid. The 6 is at (15,0). Only the region containing 6 gets a 7 border, and 1-shapes in the unreachable region are erased.
+
+**Example 2 & 3**: 1-shapes don't fully partition the grid. All 1-shapes are preserved, and 7s appear along the grid edges and around 1-shapes.
+
+**Rule extraction:**
+1. Find the `6` anchor
+2. Flood-fill from 6 through `8`-cells (4-adjacency) → reachable region R
+3. For each 1-cell: if its connected component touches R (any cell has a 4-neighbor in R), preserve it; otherwise turn to 8
+4. For each 8-cell in R: if on grid edge OR has a 1 in its 8-neighborhood (including diagonals), turn to 7; otherwise stay 8
+5. 8-cells outside R stay as 8
+
+**Verification on Example 3**: Triangle interior cells like (7,0) with all-1 neighbors are preserved because their *component* touches R elsewhere. ✓
+
+**Verification on Example 2**: Cell (3,1) becomes 7 due to diagonal neighbor (4,0)=1. Cell (3,2) stays 8 (no 1 in 8-neighborhood). ✓
+
+```python
+def solve(input_grid):
+    from collections import deque
+    H = len(input_grid)
+    W = len(input_grid[0])
+    
+    anchor = None
+    for r in range(H):
+        for c in range(W):
+            if input_grid[r][c] == 6:
+                anchor = (r, c)
+                break
+        if anchor: break
+    
+    R = set()
+    if anchor:
+        R.add(anchor)
+        queue = deque([anchor])
+        while queue:
+            r, c = queue.popleft()
+            for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
+                nr, nc = r+dr, c+dc
+                if 0 <= nr < H and 0 <= nc < W and (nr,nc) not in R:
+                    if input_grid[nr][nc] in (8, 6):
+                        R.add((nr,nc))
+                        queue.append((nr,nc))
+    
+    visited = set()
+    preserved = set()
+    for r in range(H):
+        for c in range(W):
+            if input_grid[r][c] == 1 and (r,c) not in visited:
+                comp = []
+                q = deque([(r,c)])
+                visited.add((r,c))
+                touches = False
+                while q:
+                    x, y = q.popleft()
+                    comp.append((x,y))
+                    for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
+                        nx, ny = x+dr, y+dc
+                        if 0 <= nx < H and 0 <= ny < W:
+                            if (nx,ny) in R:
+                                touches = True
+                            elif input_grid[nx][ny] == 1 and (nx,ny) not in visited:
+                                visited.add((nx,ny))
+                                q.append((nx,ny))
+                if touches:
+                    preserved.update(comp)
+    
+    output = [[0]*W for _ in range(H)]
+    for r in range(H):
+        for c in range(W):
+            v = input_grid[r][c]
+            if v == 6:
+                output[r][c] = 6
+            elif v == 1:
+                output[r][c] = 1 if (r,c) in preserved else 8
+            elif v == 8:
+                if (r,c) in R:
+                    edge = (r == 0 or r == H-1 or c == 0 or c == W-1)
+                    has_one = False
+                    for dr in [-1,0,1]:
+                        for dc in [-1,0,1]:
+                            if dr == 0 and dc == 0: continue
+                            nr, nc = r+dr, c+dc
+                            if 0 <= nr < H and 0 <= nc < W and (nr,nc) in preserved:
+                                has_one = True
+                                break
+                        if has_one: break
+                    output[r][c] = 7 if (edge or has_one) else 8
+                else:
+                    output[r][c] = 8
+            else:
+                output[r][c] = v
+    return output
+```
