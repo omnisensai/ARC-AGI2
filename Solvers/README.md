@@ -13,7 +13,7 @@ pair** of its source puzzle, verified by `run_feedback.py`.
 
 | Rule | Source | One-line description |
 |---|---|---|
-| [`seeded_reachable_floodfill_trace`](seeded_reachable_floodfill_trace.py) | [8f3a5a89](https://arcprize.org/tasks/8f3a5a89) | Flood-fill from a unique seed; classify wall components into structural (edge-touching, halo'd), interior (preserved without halo), or unreachable (removed); paint a halo on the exposed perimeter of the reachable region. |
+| [`seeded_contour_fill`](seeded_contour_fill.py) | [8f3a5a89](https://arcprize.org/tasks/8f3a5a89) | Flood-fill from a unique seed treating only edge-touching 1-clusters as barriers; draw the contour of the reachable region in 7; preserve 1-clusters that touch or lie inside the region, remove all others. |
 
 ## Solver structure
 
