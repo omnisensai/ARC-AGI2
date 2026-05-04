@@ -41,17 +41,22 @@ def code_reminder(passing_pairs, failing_pairs):
     fail_list = ", ".join(str(i) for i in failing_pairs) if failing_pairs else "none"
     return f"""\
 ================================================================================
-WHAT TO DO NEXT — read this before reading the diagnostics
+NEXT STEP: UPDATE YOUR PYTHON
 ================================================================================
 
 Read the per-pair diagnostics below, identify what your code did wrong on each
-failed pair, then submit a REVISED `def solve(input_grid):` function.
+failed pair, then return an UPDATED `def solve(input_grid):` function.
+
+You MUST update your Python. Do NOT respond with prose only, hand-computed
+grids, or partial pseudocode. We run your code; we do not read narratives.
+If your response does not contain a `def solve(input_grid):` function, the
+iteration is invalid and you receive no further feedback.
 
 CURRENT STATUS:
 - Pair(s) PASSING: {pass_list}  ← MUST CONTINUE TO PASS. Do not regress.
 - Pair(s) FAILING: {fail_list}  ← Fix these.
 
-CRITICAL: Your next code MUST keep producing correct output for the passing
+CRITICAL: Your updated code MUST keep producing correct output for the passing
 pair(s) AND fix the failing pair(s). If your fix breaks a previously passing
 pair, the score does not improve — you only swap which pair fails.
 
@@ -66,7 +71,7 @@ REQUIREMENTS for your next response:
 - Return a 2D list of integers (colors 0-9).
 
 DO NOT manually write out a test output grid. The grid that gets submitted is
-solve(test_input), computed by us. Your job is to write the algorithm.
+solve(test_input), computed by us. Your job is to update the algorithm.
 
 """
 
@@ -168,7 +173,7 @@ def main():
         verdict = "DO NOT SUBMIT"
         header = (
             f"Your transformation rule did not generalize across all training "
-            f"pairs (failed on pair(s) {failing_pairs}). Iterate."
+            f"pairs (failed on pair(s) {failing_pairs}). Update your Python."
         )
     print("\nVERDICT:", verdict)
     print(header)
