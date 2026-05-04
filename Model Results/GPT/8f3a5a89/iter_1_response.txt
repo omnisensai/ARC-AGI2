@@ -1,0 +1,113 @@
+```python
+def solve(input_grid):
+    from collections import deque
+
+    h, w = len(input_grid), len(input_grid[0])
+
+    # Find the start marker.
+    start = None
+    for r in range(h):
+        for c in range(w):
+            if input_grid[r][c] == 6:
+                start = (r, c)
+                break
+        if start:
+            break
+
+    dirs4 = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+    dirs8 = [
+        (dr, dc)
+        for dr in (-1, 0, 1)
+        for dc in (-1, 0, 1)
+        if not (dr == 0 and dc == 0)
+    ]
+
+    # Region reachable from 6 through non-1 cells.
+    reachable = {start}
+    q = deque([start])
+
+    while q:
+        r, c = q.popleft()
+        for dr, dc in dirs4:
+            nr, nc = r + dr, c + dc
+            if (
+                0 <= nr < h
+                and 0 <= nc < w
+                and (nr, nc) not in reachable
+                and input_grid[nr][nc] != 1
+            ):
+                reachable.add((nr, nc))
+                q.append((nr, nc))
+
+    output_grid = [[8 for _ in range(w)] for _ in range(h)]
+
+    # Draw 7 on reachable background boundary cells.
+    for r, c in reachable:
+        if input_grid[r][c] == 6:
+            output_grid[r][c] = 6
+        else:
+            is_boundary = False
+            for dr, dc in dirs8:
+                nr, nc = r + dr, c + dc
+                if not (0 <= nr < h and 0 <= nc < w) or (nr, nc) not in reachable:
+                    is_boundary = True
+                    break
+            output_grid[r][c] = 7 if is_boundary else 8
+
+    # Preserve full 1-components that touch the reachable region.
+    seen = set()
+    for r in range(h):
+        for c in range(w):
+            if input_grid[r][c] != 1 or (r, c) in seen:
+                continue
+
+            comp = []
+            q = deque([(r, c)])
+            seen.add((r, c))
+
+            while q:
+                x, y = q.popleft()
+                comp.append((x, y))
+                for dr, dc in dirs4:
+                    nx, ny = x + dr, y + dc
+                    if (
+                        0 <= nx < h
+                        and 0 <= ny < w
+                        and input_grid[nx][ny] == 1
+                        and (nx, ny) not in seen
+                    ):
+                        seen.add((nx, ny))
+                        q.append((nx, ny))
+
+            keep = any(
+                (x + dr, y + dc) in reachable
+                for x, y in comp
+                for dr, dc in dirs8
+            )
+
+            if keep:
+                for x, y in comp:
+                    output_grid[x][y] = 1
+
+    return output_grid
+```
+
+Result on test input (claimed by GPT):
+```python
+[
+    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 1, 8],
+    [7, 8, 8, 8, 8, 8, 8, 8, 8, 7, 1, 8],
+    [7, 8, 8, 8, 8, 8, 8, 8, 8, 7, 1, 8],
+    [7, 8, 8, 8, 8, 8, 7, 7, 7, 7, 1, 8],
+    [7, 8, 8, 8, 8, 8, 7, 1, 1, 1, 1, 8],
+    [7, 8, 8, 8, 8, 8, 7, 1, 1, 1, 1, 8],
+    [7, 8, 8, 8, 8, 8, 7, 7, 1, 1, 1, 8],
+    [7, 8, 8, 8, 8, 8, 8, 7, 7, 7, 1, 8],
+    [7, 8, 8, 8, 8, 8, 8, 8, 7, 7, 1, 8],
+    [7, 8, 8, 8, 8, 8, 8, 8, 7, 1, 1, 1],
+    [7, 7, 7, 7, 7, 7, 7, 8, 7, 1, 1, 1],
+    [6, 7, 1, 1, 1, 1, 7, 7, 7, 1, 1, 1],
+]
+```
+
+Validator result: training 2/3 (Pair 1 PASS, Pair 2 PASS, Pair 3 FAIL with 14 errors). Test happens to pass — false positive (interior wall cluster of pair 3 doesn't appear in test, so the bug is invisible there).
