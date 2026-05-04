@@ -1,17 +1,23 @@
 """
 Puzzle: 8f3a5a89
-Rule name: seeded_reachable_floodfill_trace
+Rule name: seeded_contour_fill
 
 Transformation rule:
-Flood-fill from the unique seed (6) through background, treating walls (1)
-as blockers. Each wall component falls into one of three cases:
-  - Does NOT touch the reachable region        -> removed (becomes background)
-  - Touches reachable region AND a grid edge   -> structural; gets a halo
-  - Touches reachable region but NO grid edge  -> preserved without halo
-                                                  (interior obstacle)
-Paint the halo (7) on every reachable cell that is either on the grid edge
-or adjacent (8-neighborhood) to a structural wall. Everything else in the
-output is background (8). The seed itself is preserved.
+Starting from the unique 6 marker, flood-fill through the background while
+treating only edge-touching 1-clusters as barriers. Draw the exposed boundary
+of that reachable region in 7. Preserve the 6 marker and any 1-clusters that
+touch or lie inside the reachable region; remove all others.
+
+The edge-barrier insight implicitly handles three wall cases:
+  - 1-clusters touching the grid edge        -> block the flood (barriers)
+                                                 and form the contour walls
+                                                 the 7 halo wraps against
+  - 1-clusters NOT touching the grid edge    -> reached by the flood,
+                                                 preserved as walls but do
+                                                 NOT cause halo around them
+                                                 (interior obstacles)
+  - 1-clusters not adjacent to the reachable
+    region at all                            -> removed (become background)
 
 Validation: training 3/3 + test pass on the official puzzle JSON.
 """
