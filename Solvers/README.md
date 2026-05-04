@@ -13,7 +13,7 @@ pair** of its source puzzle, verified by `run_feedback.py`.
 
 | Rule | Source | One-line description |
 |---|---|---|
-| [`seeded_contour_fill`](seeded_contour_fill.py) | [8f3a5a89](https://arcprize.org/tasks/8f3a5a89) | Flood-fill from a unique seed treating only edge-touching 1-clusters as barriers; draw the contour of the reachable region in 7; preserve 1-clusters that touch or lie inside the region, remove all others. |
+| [`seeded_reachable_wall_contouring`](seeded_reachable_wall_contouring.py) | [8f3a5a89](https://arcprize.org/tasks/8f3a5a89) | From a unique seed, flood-fill the reachable region; only edge-touching 1-clusters act as wall barriers; draw the contour in 7; preserve walls adjacent to or inside the region, remove unreachable walls. |
 
 ## Solver structure
 

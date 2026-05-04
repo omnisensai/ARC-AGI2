@@ -5,6 +5,9 @@ Competition validator for ARC-AGI:
 
 If training fails, generate substrate feedback per failed training pair, plus a
 test self-inspection block so the LLM sees what its current code would submit.
+Also includes confirmation blocks for passing pairs so the LLM is anchored on
+what its current rule already gets right and does NOT regress when fixing
+the failing pairs.
 
 Iteration history is persisted to <puzzle_id>_history.json and rendered at the
 top of every feedback file so the LLM sees how its understanding evolved.
@@ -23,12 +26,83 @@ from complete_substrate_feedback import (
     generate_complete_substrate_feedback,
     generate_test_self_inspection,
 )
+from transformation_grid import generate_transformation_grid
 
 PUZZLE_FILE = "puzzle.json"
 PUZZLE_ID = "puzzle"
 SOLUTION_MODULE = "gpt_solution"
 HISTORY_FILE = f"{PUZZLE_ID}_history.json"
 OUT_FILE = f"feedback_{PUZZLE_ID}.txt"
+
+
+def code_reminder(passing_pairs, failing_pairs):
+    """Reminder block — varies based on which pairs pass / fail."""
+    pass_list = ", ".join(str(i) for i in passing_pairs) if passing_pairs else "none"
+    fail_list = ", ".join(str(i) for i in failing_pairs) if failing_pairs else "none"
+    return f"""\
+================================================================================
+NEXT STEP: UPDATE YOUR PYTHON
+================================================================================
+
+Read the per-pair diagnostics below, identify what your code did wrong on each
+failed pair, then return an UPDATED `def solve(input_grid):` function.
+
+You MUST update your Python. Do NOT respond with prose only, hand-computed
+grids, or partial pseudocode. We run your code; we do not read narratives.
+If your response does not contain a `def solve(input_grid):` function, the
+iteration is invalid and you receive no further feedback.
+
+CURRENT STATUS:
+- Pair(s) PASSING: {pass_list}  ← MUST CONTINUE TO PASS. Do not regress.
+- Pair(s) FAILING: {fail_list}  ← Fix these.
+
+CRITICAL: Your updated code MUST keep producing correct output for the passing
+pair(s) AND fix the failing pair(s). If your fix breaks a previously passing
+pair, the score does not improve — you only swap which pair fails.
+
+REQUIREMENTS for your next response:
+- MUST contain a `def solve(input_grid):` function. We run your code; we do
+  not read hand-computed grids. Responses without a solve() function cannot
+  be validated and you receive no further feedback.
+- The function must work on grids of ANY size — do not hardcode dimensions,
+  row indices, or column indices. The validator runs your code on grids of
+  different sizes (the training pairs and the test input each have their own
+  shape).
+- Return a 2D list of integers (colors 0-9).
+
+DO NOT manually write out a test output grid. The grid that gets submitted is
+solve(test_input), computed by us. Your job is to update the algorithm.
+
+"""
+
+
+def render_passing_pair(pair_number, input_grid, output_grid):
+    """
+    Confirmation block for a passing pair — reminds the LLM that its current
+    rule produces this exact output, which matches expected. The transformation
+    grid encoding is included as the canonical anchor.
+    """
+    out = "=" * 80 + "\n"
+    out += f"PAIR {pair_number} - PASSING (preserve this behavior)\n"
+    out += "=" * 80 + "\n\n"
+    out += "Your code already produces the correct output for this pair. The\n"
+    out += "transformation rule applied below is what your algorithm got right.\n"
+    out += "Whatever you change next must keep producing this exact output here.\n\n"
+
+    out += "INPUT:\n"
+    for row in input_grid:
+        out += "[" + ", ".join(f"{v:>2}" for v in row) + "]\n"
+    out += "\nCORRECT OUTPUT (your code matches this):\n"
+    for row in output_grid:
+        out += "[" + ", ".join(f"{v:>2}" for v in row) + "]\n"
+
+    trans, _ = generate_transformation_grid(input_grid, output_grid)
+    out += "\nTRANSFORMATION RULE (correct):\n"
+    out += "Symbols: . = unchanged, = = preserved, + = activated, - = removed\n\n"
+    for row in trans:
+        out += "[" + ", ".join(row) + "]\n"
+
+    return out
 
 
 def load_history():
@@ -86,6 +160,9 @@ def main():
     test_input = puzzle["test"][0]["input"]
     solve_test_output = solve(test_input)
 
+    passing_pairs = [i for i, p, _, _ in train_results if p]
+    failing_pairs = [i for i, p, _, _ in train_results if not p]
+
     if all_train_pass:
         verdict = "SUBMIT"
         header = (
@@ -93,11 +170,10 @@ def main():
             "is our hypothesis. No more iteration needed."
         )
     else:
-        failing = [i for i, p, _, _ in train_results if not p]
         verdict = "DO NOT SUBMIT"
         header = (
             f"Your transformation rule did not generalize across all training "
-            f"pairs (failed on pair(s) {failing}). Iterate."
+            f"pairs (failed on pair(s) {failing_pairs}). Update your Python."
         )
     print("\nVERDICT:", verdict)
     print(header)
@@ -123,7 +199,15 @@ def main():
         + header + "\n\n"
     )
 
-    feedback_blocks = [history_block + summary] if history_block else [summary]
+    reminder = "" if all_train_pass else code_reminder(passing_pairs, failing_pairs)
+
+    feedback_blocks = [history_block + summary + reminder] if history_block else [summary + reminder]
+
+    # Order: passing pairs first (anchor what's right), then failing pairs (what to fix).
+    for i, passed, pair, actual in train_results:
+        if passed and not all_train_pass:
+            feedback_blocks.append(render_passing_pair(i, pair["input"], pair["output"]))
+
     for i, passed, pair, actual in train_results:
         if not passed:
             feedback_blocks.append(
