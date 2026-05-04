@@ -1,0 +1,125 @@
+```python
+import numpy as np
+
+def solve(input_grid):
+    """
+    Transforms the grid based on the 'Active Room' logic:
+    1. Identifies the Active Room (azure component connected to the pink marker).
+    2. Identifies and preserves blue wall clusters adjacent to the Active Room.
+    3. Prunes (removes) blue wall clusters not adjacent to the Active Room.
+    4. Outlines cells in the Active Room with orange if they are on the grid edge 
+       or adjacent to an edge-touching preserved wall cluster.
+    """
+    grid = np.array(input_grid)
+    rows, cols = grid.shape
+
+    # 1. Find the Pink Marker (6)
+    pink_pos = np.argwhere(grid == 6)
+    if len(pink_pos) == 0:
+        return input_grid
+    pr, pc = pink_pos[0]
+
+    # 2. Identify Active Room (Azure/8 connected component near Pink)
+    # Start with Azure cells 8-way adjacent to the Pink marker as seeds.
+    active_room_mask = np.zeros_like(grid, dtype=bool)
+    seeds = []
+    for dr in [-1, 0, 1]:
+        for dc in [-1, 0, 1]:
+            nr, nc = pr + dr, pc + dc
+            if 0 <= nr < rows and 0 <= nc < cols and grid[nr, nc] == 8:
+                if not active_room_mask[nr, nc]:
+                    active_room_mask[nr, nc] = True
+                    seeds.append((nr, nc))
+    
+    # Standard 4-way flood fill from the seeds to identify the whole room
+    q = seeds
+    while q:
+        r, c = q.pop(0)
+        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < rows and 0 <= nc < cols:
+                if grid[nr, nc] == 8 and not active_room_mask[nr, nc]:
+                    active_room_mask[nr, nc] = True
+                    q.append((nr, nc))
+
+    # 3. Identify all Wall Clusters (Blue/1) using 8-connectivity
+    visited_walls = np.zeros_like(grid, dtype=bool)
+    wall_clusters = []
+    for r in range(rows):
+        for c in range(cols):
+            if grid[r, c] == 1 and not visited_walls[r, c]:
+                cluster = []
+                cq = [(r, c)]
+                visited_walls[r, c] = True
+                while cq:
+                    curr_r, curr_c = cq.pop(0)
+                    cluster.append((curr_r, curr_c))
+                    for dr in [-1, 0, 1]:
+                        for dc in [-1, 0, 1]:
+                            nr, nc = curr_r + dr, curr_c + dc
+                            if 0 <= nr < rows and 0 <= nc < cols:
+                                if grid[nr, nc] == 1 and not visited_walls[nr, nc]:
+                                    visited_walls[nr, nc] = True
+                                    cq.append((nr, nc))
+                wall_clusters.append(cluster)
+
+    # 4. Determine which Wall Clusters to preserve and identify edge-touchers
+    preserved_wall_mask = np.zeros_like(grid, dtype=bool)
+    edge_touching_wall_mask = np.zeros_like(grid, dtype=bool)
+
+    for cluster in wall_clusters:
+        # A wall cluster is preserved if ANY of its cells is 8-way adjacent to the Active Room
+        is_adjacent_to_active = False
+        for wr, wc in cluster:
+            for dr in [-1, 0, 1]:
+                for dc in [-1, 0, 1]:
+                    nr, nc = wr + dr, wc + dc
+                    if 0 <= nr < rows and 0 <= nc < cols and active_room_mask[nr, nc]:
+                        is_adjacent_to_active = True
+                        break
+                if is_adjacent_to_active: break
+        
+        if is_adjacent_to_active:
+            # Wall is kept; check if this cluster touches the boundary of the grid
+            is_on_edge = False
+            for wr, wc in cluster:
+                preserved_wall_mask[wr, wc] = True
+                if wr == 0 or wr == rows-1 or wc == 0 or wc == cols-1:
+                    is_on_edge = True
+            
+            # If any cell in a preserved cluster touches the edge, the whole cluster is 'edge-touching'
+            if is_on_edge:
+                for wr, wc in cluster:
+                    edge_touching_wall_mask[wr, wc] = True
+
+    # 5. Construct the final transformed grid
+    result = grid.copy()
+    
+    # A. Prune walls: Blue cells not adjacent to the Active Room are converted to Azure
+    for r in range(rows):
+        for c in range(cols):
+            if grid[r, c] == 1 and not preserved_wall_mask[r, c]:
+                result[r, c] = 8
+    
+    # B. Outline the Active Room: Apply Orange (7) to specific Azure cells in the Active Room
+    for r in range(rows):
+        for c in range(cols):
+            if active_room_mask[r, c]:
+                # Halo condition: Edge of the grid OR adjacent to an edge-touching preserved wall
+                is_halo = (r == 0 or r == rows-1 or c == 0 or c == cols-1)
+                
+                if not is_halo:
+                    for dr in [-1, 0, 1]:
+                        for dc in [-1, 0, 1]:
+                            nr, nc = r + dr, c + dc
+                            if 0 <= nr < rows and 0 <= nc < cols and edge_touching_wall_mask[nr, nc]:
+                                is_halo = True
+                                break
+                
+                if is_halo:
+                    result[r, c] = 7
+
+    return result.tolist()
+```
+
+Validator result: training 3/3 + test PASS. **SUBMIT**.
