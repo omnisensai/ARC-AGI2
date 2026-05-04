@@ -1,0 +1,128 @@
+GPT's analysis: "The failure reveals the missing distinction: internal 1-clusters are not obstacles for drawing the 7 contour. They can be preserved, but the contour should not wrap them."
+
+```python
+def solve(input_grid):
+    from collections import deque
+
+    h, w = len(input_grid), len(input_grid[0])
+    dirs4 = [(1,0), (-1,0), (0,1), (0,-1)]
+    dirs8 = [
+        (dr, dc)
+        for dr in (-1, 0, 1)
+        for dc in (-1, 0, 1)
+        if not (dr == 0 and dc == 0)
+    ]
+
+    # Locate marker 6.
+    start = None
+    for r in range(h):
+        for c in range(w):
+            if input_grid[r][c] == 6:
+                start = (r, c)
+                break
+        if start is not None:
+            break
+
+    # Find all color-1 components.
+    one_comps = []
+    comp_id = {}
+    seen = set()
+
+    for r in range(h):
+        for c in range(w):
+            if input_grid[r][c] != 1 or (r, c) in seen:
+                continue
+
+            q = deque([(r, c)])
+            seen.add((r, c))
+            comp = []
+
+            while q:
+                x, y = q.popleft()
+                comp_id[(x, y)] = len(one_comps)
+                comp.append((x, y))
+
+                for dr, dc in dirs4:
+                    nx, ny = x + dr, y + dc
+                    if (
+                        0 <= nx < h and 0 <= ny < w
+                        and input_grid[nx][ny] == 1
+                        and (nx, ny) not in seen
+                    ):
+                        seen.add((nx, ny))
+                        q.append((nx, ny))
+
+            one_comps.append(comp)
+
+    # Only edge-touching 1-components act as barriers.
+    edge_touching = set()
+    for i, comp in enumerate(one_comps):
+        if any(r == 0 or r == h - 1 or c == 0 or c == w - 1 for r, c in comp):
+            edge_touching.add(i)
+
+    def is_barrier(r, c):
+        return input_grid[r][c] == 1 and comp_id[(r, c)] in edge_touching
+
+    # Flood-fill the drawable region from 6, blocking only edge-touching 1-components.
+    reachable = {start}
+    q = deque([start])
+
+    while q:
+        r, c = q.popleft()
+        for dr, dc in dirs4:
+            nr, nc = r + dr, c + dc
+            if (
+                0 <= nr < h and 0 <= nc < w
+                and (nr, nc) not in reachable
+                and not is_barrier(nr, nc)
+            ):
+                reachable.add((nr, nc))
+                q.append((nr, nc))
+
+    output_grid = [[8 for _ in range(w)] for _ in range(h)]
+
+    # Preserve 6.
+    sr, sc = start
+    output_grid[sr][sc] = 6
+
+    # Draw the 7 contour of the reachable region.
+    for r, c in reachable:
+        if input_grid[r][c] != 8:
+            continue
+
+        boundary = False
+        for dr, dc in dirs8:
+            nr, nc = r + dr, c + dc
+            if not (0 <= nr < h and 0 <= nc < w) or (nr, nc) not in reachable:
+                boundary = True
+                break
+
+        if boundary:
+            output_grid[r][c] = 7
+
+    # Preserve 1-components that belong to / touch the selected region.
+    for comp in one_comps:
+        keep = False
+
+        for r, c in comp:
+            # Internal 1s reached by the flood are preserved but do not create contour.
+            if (r, c) in reachable:
+                keep = True
+                break
+
+            # Barrier 1s are preserved only when adjacent to the reachable region.
+            for dr, dc in dirs8:
+                if (r + dr, c + dc) in reachable:
+                    keep = True
+                    break
+            if keep:
+                break
+
+        if keep:
+            for r, c in comp:
+                output_grid[r][c] = 1
+
+    return output_grid
+```
+
+Validator result: training 3/3 + test PASS. **SUBMIT**.

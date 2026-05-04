@@ -11,14 +11,14 @@ Each row records how many iterations each model needed to reach training 3/3
 - **Number** = iterations to reach 3/3 training (SUBMIT)
 - `—` = not yet attempted
 - `DNF` = did not finish within iteration budget
-- `WIP` = currently iterating
+- `WIP N` = currently iterating, on iter N
 - **Solver** = filename in `Solvers/` (rule name) once a clean Python solver is extracted
 
 ## Puzzles
 
 | Puzzle ID | Substrate prompt | GPT | Claude | Gemini | Grok | Solver |
 |---|---|---|---|---|---|---|
-| [8f3a5a89](https://arcprize.org/tasks/8f3a5a89) | [✅](Substrate%20Prompts/8f3a5a89.txt) | — | — | — | — | [seeded_reachable_floodfill_trace](Solvers/seeded_reachable_floodfill_trace.py) |
+| [8f3a5a89](https://arcprize.org/tasks/8f3a5a89) | [✅](Substrate%20Prompts/8f3a5a89.txt) | **2** ✅ | — | WIP 4 (2/3) | — | [seeded_reachable_floodfill_trace](Solvers/seeded_reachable_floodfill_trace.py) |
 
 ## Update protocol
 
