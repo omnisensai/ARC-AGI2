@@ -349,7 +349,132 @@ Framework success rate: 75% (3/4 models)
 Traditional success rate: ~75%
 ```
 
-**Validation:** Framework tracks traditional difficulty!
+### **Puzzle 8f3a5a89 (75% traditional difficulty):**
+
+```
+Opus 4.7:    3/3 training in 2 iterations  ✅
+Grok:        3/3 training in ~5 iterations ✅
+Gemini:      3/3 training in 5 iterations  ✅ (after mechanistic upgrade)
+Sonnet 4.6:  3/3 training in 9 iterations  ✅ (after lockdown v2 upgrade)
+
+Framework success rate: 100% (4/4 models)
+```
+
+**Validation:** Framework tracks traditional difficulty. Lockdown v2 brought Sonnet across the line — see findings below.
+
+---
+
+## 🔬 Lockdown v2 — Findings from Sonnet 4.6 on 8f3a5a89
+
+### **The arc**
+
+Sonnet's per-iter pass count on 8f3a5a89:
+```
+Iter:    1  2  3  4  5  6  7  8  9
+Score:  1/3 1/3 1/3 1/3 2/3 0/3 1/3 0/3 → 3/3 ✅
+```
+
+Eight iters of mechanistic feedback, history blocks, and lock-down anchors took Sonnet from 1/3 to 0/3 with constant drift. The model preserved *outcome* across iters (lock-down worked) but kept rewriting *mechanism*, breaking previously passing pairs.
+
+Iter 9 jumped from 0/3 to 3/3 in a single response after **adding 6 lines to the substrate prompt** — a worked example for cluster-level vs cell-level property propagation.
+
+### **The bug pattern**
+
+For 8 iters Sonnet kept testing "edge-touching" per cell:
+```python
+# Wrong (per-cell test):
+if r == 0 or c == 0 or r == H-1 or c == W-1:
+    is_edge = True
+```
+
+The correct mechanic is cluster-level:
+```python
+# Right (cluster-level, propagated to all cells):
+touches_edge = any((r == 0 or c == 0 or r == H-1 or c == W-1)
+                   for r, c in cluster)
+if touches_edge:
+    for r, c in cluster:
+        edge_touching.add((r, c))
+```
+
+The validator was telling Sonnet *which output cells were wrong* (mechanistic feedback). It never told Sonnet *which line of code was wrong*. The TIPS section had abstract guidance ("use topology"), but no concrete example to ground it.
+
+### **What flipped 0 → 3/3**
+
+Adding this to `arc_prompt_generator_v5.py` TIPS:
+
+> **CLUSTER-LEVEL vs CELL-LEVEL PROPERTIES**
+> A property describing a connected component applies to ALL cells of that cluster equally — do not redefine it per cell.
+>
+> **Worked example:** a vertical wall of 1s spanning rows 0..15 at column 6 is a single cluster. It "touches the grid edge" because (0,6) and (15,6) lie on the boundary. Therefore EVERY cell of that cluster — including (5,6), (8,6), deep in the interior of the grid — inherits the "edge-touching" property.
+>
+> **Wrong:** `if r == 0 or c == 0 or r == H-1 or c == W-1` (per-cell test).
+> **Right:** classify the cluster once, then propagate the result to every cell.
+
+Sonnet's iter 9 response opened with: *"The key insight from the tips is that I should check cluster properties at the cluster level, not cell-by-cell."* — direct citation, applied verbatim.
+
+### **The two substrates**
+
+| Substrate | Where | Shown when | Best for |
+|---|---|---|---|
+| **Prompt substrate** (`arc_prompt_generator_v5.py`) | Static prompt | Iter 1 only (task setup) | Teaching *how to think*: encoding rules, principles, worked examples |
+| **Feedback substrate** (`run_feedback.py` + `complete_substrate_feedback.py`) | Per-iter output | Every failed iter | Teaching *what's wrong*: error localization, regression alerts, diagnostics |
+
+**Lockdown v2 added to BOTH:**
+- Prompt: cluster worked example, 4-conn vs 8-conn hint
+- Feedback: code-checkpoint regression block, REGRESSION DETECTOR paragraph, "Pair(s) REGRESSED" status line
+
+The win came from the prompt side. The feedback upgrade is structural insurance for future drift but didn't fire decisively in this run.
+
+---
+
+## 🎓 Takeaways
+
+1. **Mechanistic feedback localizes errors; worked examples name bugs.** Per-cell error reports tell the model *where* the output is wrong. They don't tell the model *what kind of bug* its code has. For the latter, a concrete worked example with literal coordinates and a "wrong vs right" code snippet does more in 6 lines than thousands of chars of per-cell diagnostics.
+
+2. **Small models need concrete bug names.** Larger models (Opus 4.7) infer the granularity rule from the abstract topology hint and the cluster cluster annotations in mechanistic feedback. Smaller models (Sonnet 4.6) need the bug pattern named with a literal example. The ceiling between Opus and Sonnet on 8f3a5a89 was 7 iters — entirely closeable with prompt clarification.
+
+3. **Lock-down preserves outcome, not mechanism.** The original PASSING anchor block stops the model from changing the *output* on previously passing pairs, but allowed Sonnet to silently rewrite the *logic* that produced that output. The v2 code-checkpoint regression block shows the model its own past working code when a pair regresses, anchoring mechanism instead of just result.
+
+4. **3-pair training is thin signal.** A pair passing once could be a coincidence (wrong rule that fits accidentally). A pair passing across 5+ iters is genuine understanding. The framework can't distinguish the two automatically. Future: weight checkpoints by pass-streak length.
+
+5. **Two substrates, two roles.** Don't conflate prompt substrate (where the model learns the rule grammar) with feedback substrate (where the model gets correctness pressure). Adding error-feedback patterns to the prompt clutters it; adding worked examples to the feedback dilutes the per-iter signal.
+
+---
+
+## 🧪 Fine-Tune Ideas
+
+These are concrete prompts/data shapes a fine-tune could target, not full curricula:
+
+### **A. Prompt-side patterns (teach how to think)**
+
+- **Worked-example library by bug pattern.** Build a library indexed by failure mode — `cluster_vs_cell_granularity`, `connectivity_choice`, `anchor_misidentification`, `halo_thickness`, `pre_grouping_artifacts`. Each entry: 5-line concrete example + wrong vs right code. Inject only the relevant ones based on which mechanistic-feedback signature matches.
+
+- **"Rule grammar" templates.** Common ARC rules expressed as code skeletons: BFS-from-anchor, flood-fill-with-barrier, cluster-classify-and-propagate, halo-paint-with-mask. Show the skeleton in the prompt; ask the model to fill in the puzzle-specific bits.
+
+- **Negative training in TIPS.** Currently TIPS lists "what to do" (look for anchors, look for barriers). Add "what to avoid": magic-number thresholds, per-cell tests for cluster properties, hardcoded grid dimensions.
+
+### **B. Feedback-side patterns (teach what's wrong)**
+
+- **Bug-pattern detector in mechanistic feedback.** When the substrate sees a *missed activation* concentrated along a single column/row that coincides with a vertical/horizontal cluster, emit a tagged diagnosis: "BUG PATTERN: cluster-level property mis-applied at cell level — missed cells (3,5), (4,5), ... lie inside cluster X which touches grid edge at (0,5) and (15,5)."
+
+- **Auto-injected worked example on regression.** Detect bug pattern → inject the matching worked example from the library directly into the failing-pair feedback. Model sees the bug name, the example, and the per-cell evidence side by side.
+
+- **Code-diff in regression block.** Don't just echo the past passing solve(); produce a `diff` between current and checkpoint, highlighting which lines were modified. Frames the regression as a literal patch the model needs to reconsider.
+
+### **C. Iteration patterns (teach when to think harder)**
+
+- **Stuck detection.** If 3+ consecutive iters stay at the same N/3 with the same failing pair(s), force the model into "step back" mode: reread the substrate, re-classify clusters from scratch, ignore prior code entirely. Breaks the local-minimum pattern Sonnet got stuck in (iter 1-4 all 1/3 with same P1 mechanism).
+
+- **Hypothesis-first iters.** Before letting the model write code, require it to state in 2-3 sentences what rule it thinks the puzzle implements, *separately* from the code. Validate the hypothesis against training pairs (not just the code output). Catches misunderstanding earlier than per-cell diff.
+
+- **Drop-and-redo on 0/3 regression.** When a model goes from N/3 → 0/3, automatically include the last passing solve() AND a "restart from this code" instruction. Prevents the cascade of compounding rewrites that Sonnet exhibited iters 6→8.
+
+### **D. Architecture-level**
+
+- **Per-puzzle worked-example caching.** When a puzzle is solved, save the *winning solve()* + the *bug pattern that was finally fixed* to a corpus. Future puzzles with similar mechanistic feedback signatures get the matching example pre-injected. Compounds gains across the puzzle set.
+
+- **Multi-model bake-off as data generator.** Run all 4 models on each puzzle, log every iter response. Use the trajectory data to train a "next-iter advice" classifier that predicts which fine-tune intervention (worked example / code skeleton / hypothesis check) would unblock a given stuck state.
 
 ---
 
