@@ -26,6 +26,14 @@ Five skill clusters to train, in descending leverage order:
 5. **Bug-pattern library** — recognise common failure shapes (per-cell-when-
    cluster, wrong-connectivity, hardcoded-dims) and apply the matching fix.
 
+**Key insight on data generation:** ~80% of training data can be generated
+with pure Python from the 2000 ARC-AGI 1+2 puzzles. No LLM API calls required
+for the bulk of the dataset. See "Data generation pipeline" section below.
+
+**Key insight on infrastructure:** you don't need a local GPU. Free Google
+Colab T4 GPU is enough to validate the hypothesis. First experiment is a
+weekend project for $10–50.
+
 ---
 
 ## Why fine-tune at all
@@ -171,14 +179,13 @@ iteration discipline gap.
   not a valid iter and producing actual changes. Counters Sonnet's iter 4
   pattern.
 
-**Data source:** every iter response across all models on all puzzles. Each
-trajectory file is one training example. Currently we have ~50-200 examples
-across the bake-off; need to industrialise iter loop to scale to thousands.
-Probably better as DPO/RFT preference data than full SFT, given small N.
-
 **This is the most valuable signal you cannot easily get from web data.**
 Pretraining doesn't contain "iterate Python solutions to ARC puzzles without
 regressing on prior tests."
+
+**Two paths to data — see "Iteration meta-skill data: Path A vs Path B"
+section below.** Spoiler: programmatic bug mutation (Path B) beats real
+trajectory scraping (Path A) for v1.
 
 ---
 
@@ -216,16 +223,262 @@ For the multi-task SFT mix, hypothesised proportions:
 
 | Skill cluster | % of data | Cost to generate |
 |---|---|---|
-| Substrate fluency | 30% | Low (programmatic) |
-| Topology vision | 30% | Low (programmatic) |
-| Rule → code synthesis | 20% | Medium (Opus bootstrap + validate) |
-| Iteration meta-skill | 15% | High (manual collection + industrialised iter loop) |
-| Bug-pattern library | 5% | Medium (per-puzzle case studies) |
+| Substrate fluency | 30% | $0 (pure Python) |
+| Topology vision | 30% | $0 (pure Python) |
+| Rule → code synthesis | 20% | $5-30 (Opus bootstrap + validate) — or skip in v1 |
+| Iteration meta-skill | 15% | $0 (Path B: bug mutation) — or $300-1K (Path A: real trajectories) |
+| Bug-pattern library | 5% | $0 (pure Python via mutation) |
 
 **Rationale for substrate at 30%:** it's the lowest-coverage-in-pretraining
 skill, so each example carries more information than topology or code (which
 have web representation). 30% is a hypothesis; could be 40-50% if substrate
 fluency proves to dominate scoring gains.
+
+---
+
+## Data generation pipeline (where examples come from)
+
+### Pure Python vs LLM-needed breakdown
+
+| Skill cluster | Pure Python? | Source | Effort |
+|---|---|---|---|
+| Substrate decoding/encoding/completion | ✅ Yes | `transformation_grid.py` + 2000 ARC puzzles | Trivial — afternoon |
+| Topology vision (cluster classification) | ✅ Yes | `mechanistic_feedback_generator.py` flipped to labeler | Trivial — afternoon |
+| Property propagation | ✅ Yes | Synthetic random grids | Trivial — hours |
+| Rule → code | ⚠ LLM helpful | Existing solvers + Opus generation + framework validation | Medium — $5-30 in API |
+| Iteration meta-skill (Path B mutation) | ✅ Yes | Canonical solvers + bug library + framework | Medium — 1-2 days code |
+| Iteration meta-skill (Path A real trajectories) | ❌ Needs API | Industrialised bake-off harness | Hard — 2 weeks + $300-1K |
+| Bug-pattern recognition | ✅ Yes | Bug-mutation pipeline | Same as iteration Path B |
+
+**Bottom line: 80%+ of training data is pure Python from the 2000 puzzles.**
+You don't need an LLM to bootstrap v1.
+
+### Concrete training example formats (JSONL)
+
+The standard is JSONL — one JSON object per line, each with a `messages`
+array containing user prompt + assistant target. Examples per skill cluster:
+
+#### 1a. Substrate decoding (substrate → output)
+
+```jsonl
+{"messages": [
+  {"role": "user", "content": "Apply this transformation rule to the input grid.\n\nINPUT:\n[8, 8, 8, 8]\n[8, 1, 1, 8]\n[8, 8, 8, 8]\n[6, 8, 8, 8]\n\nTRANSFORMATION RULE:\n[+, +, +, +]\n[+, =, =, +]\n[+, ., ., +]\n[=, +, +, +]\n\nReturn the output grid."},
+  {"role": "assistant", "content": "[7, 7, 7, 7]\n[7, 1, 1, 7]\n[7, 8, 8, 7]\n[6, 7, 7, 7]"}
+]}
+```
+
+#### 1b. Substrate encoding ((input, output) → substrate)
+
+```jsonl
+{"messages": [
+  {"role": "user", "content": "Encode the transformation between these grids using substrate symbols (. = + - ~).\n\nINPUT:\n[8, 8, 8]\n[8, 1, 8]\n[6, 8, 8]\n\nOUTPUT:\n[7, 7, 7]\n[7, 1, 7]\n[6, 7, 7]\n\nReturn the transformation grid."},
+  {"role": "assistant", "content": "[+, +, +]\n[+, =, +]\n[=, +, +]"}
+]}
+```
+
+#### 2a. Topology vision — cluster classification
+
+```jsonl
+{"messages": [
+  {"role": "user", "content": "Classify all clusters of color 1 in this grid. For each cluster, return: cells, size, edge_touching, vertical_line, horizontal_line.\n\nGRID:\n[8, 8, 8, 8, 8, 8]\n[8, 1, 1, 8, 8, 8]\n[8, 8, 8, 8, 8, 8]\n[1, 8, 8, 8, 8, 1]\n[1, 8, 8, 8, 8, 1]\n[1, 8, 8, 8, 8, 1]"},
+  {"role": "assistant", "content": "Cluster 1: cells=[(1,1),(1,2)], size=2, edge_touching=False, vertical_line=False, horizontal_line=True\nCluster 2: cells=[(3,0),(4,0),(5,0)], size=3, edge_touching=True, vertical_line=True, horizontal_line=False\nCluster 3: cells=[(3,5),(4,5),(5,5)], size=3, edge_touching=True, vertical_line=True, horizontal_line=False"}
+]}
+```
+
+#### 2b. Topology vision — property propagation (the cluster-vs-cell skill)
+
+```jsonl
+{"messages": [
+  {"role": "user", "content": "A cluster contains cells [(0,6), (1,6), (2,6), ..., (15,6)]. Cells (0,6) and (15,6) are on the grid edge (grid is 16x16). Which cells inherit the 'edge_touching' property?"},
+  {"role": "assistant", "content": "All 16 cells of the cluster inherit edge_touching=True. The property applies at the cluster level — once any member cell touches the grid edge, the entire connected component is classified as edge-touching, regardless of whether individual cells are on the boundary."}
+]}
+```
+
+This is the *exact* concept that flipped Sonnet 0→3/3 on 8f3a5a89.
+
+#### 3. Rule → code synthesis
+
+```jsonl
+{"messages": [
+  {"role": "user", "content": "Implement this rule in Python:\n\n'For each connected component of color 1 that touches the grid edge, mark it as a barrier. Flood-fill from the unique 6 marker through cells of color 8. Paint the boundary of the reachable region in color 7 (using 8-connectivity). Preserve the 6 marker and any 1-clusters adjacent to the reachable region.'\n\nReturn a `def solve(input_grid):` function."},
+  {"role": "assistant", "content": "def solve(input_grid):\n    from collections import deque\n    grid = [row[:] for row in input_grid]\n    H, W = len(grid), len(grid[0])\n    seed = next((r,c) for r in range(H) for c in range(W) if grid[r][c] == 6)\n    # ... full canonical implementation ...\n    return output"}
+]}
+```
+
+#### 4. Iteration meta-skill — scoped fix
+
+```jsonl
+{"messages": [
+  {"role": "user", "content": "Your code currently passes Pair 1 and Pair 2 but fails Pair 3. The mechanistic feedback says: 'Cluster at rows 9-11, cols 9-10 is INTERNAL but your code applied halo around it.' Update your solve() to fix Pair 3 WITHOUT changing Pair 1 or Pair 2 behavior.\n\nCURRENT solve():\n```python\nfor cell in kept_ones:\n    output[cell] = 1\n    paint_halo_around(cell)\n```\n\nReturn updated solve()."},
+  {"role": "assistant", "content": "The fix is a SCOPED predicate, not a rewrite. Add a condition that excludes INTERNAL clusters from halo painting; leave the rest of the logic intact:\n\n```python\nfor cluster in kept_clusters:\n    is_internal = not any_cell_touches_edge(cluster)\n    if is_internal:\n        continue  # scoped skip\n    for cell in cluster:\n        output[cell] = 1\n        paint_halo_around(cell)\n```"}
+]}
+```
+
+#### 5. Bug-pattern recognition
+
+```jsonl
+{"messages": [
+  {"role": "user", "content": "Identify the bug pattern in this code given the failure feedback.\n\nCODE:\n```python\nfor r, c in cluster:\n    if r == 0 or r == H-1 or c == 0 or c == W-1:\n        is_edge_touching = True\n```\n\nFEEDBACK: 'Pair 1 fails. Missed activations at cells (2,5), (3,5), ..., (13,5). These cells are inside cluster X which spans (0,5)-(15,5). Cluster X touches grid edge at (0,5) and (15,5) but cells (2,5)-(13,5) are not on grid boundary.'"},
+  {"role": "assistant", "content": "Bug pattern: `cluster_vs_cell_granularity`. The code tests edge-touching per cell instead of per cluster. Cells in the middle of an edge-touching cluster fail the per-cell test even though their cluster IS edge-touching.\n\nFix: lift the test to cluster level using `any()`:\n```python\nis_edge_touching = any(r == 0 or r == H-1 or c == 0 or c == W-1 for r, c in cluster)\n```"}
+]}
+```
+
+### Realistic data volumes from 2000 ARC puzzles
+
+| Skill | Source | Examples | LLM API needed? |
+|---|---|---|---|
+| Substrate decode/encode/completion | 2000 puzzles × pairs × 3 task types × augmentation | **~96K** | No |
+| Topology vision (cluster classification) | 2000 puzzles + synthetic | **~150K** | No |
+| Property propagation | Pure synthetic | **~50K** | No |
+| Rule → code | Existing canonical solvers + Opus bootstrap (optional) | **~1K** | Optional |
+| Iteration meta-skill (Path B mutation) | Canonical solvers × bug patterns × puzzles that expose | **~20K** | No |
+| Bug-pattern recognition | Same mutation pipeline | **~10K** | No |
+
+**Total without ANY LLM API calls: ~326K examples.** Generated in a few hours
+of Python on a MacBook.
+
+### Data generator script outline
+
+```python
+# data_generator.py
+import json, glob
+from transformation_grid import generate_transformation_grid
+from mechanistic_feedback_generator import find_clusters, classify_cluster
+
+def generate_substrate_fluency_data(puzzles):
+    examples = []
+    for puzzle in puzzles:
+        for pair in puzzle['train'] + puzzle['test']:
+            substrate = generate_transformation_grid(pair['input'], pair['output'])[0]
+            # Decode task
+            examples.append(format_decode_example(pair['input'], substrate, pair['output']))
+            # Encode task
+            examples.append(format_encode_example(pair['input'], pair['output'], substrate))
+            # Completion task (multi-pair)
+            # ... augmentations: rotate, flip, color-permute ...
+    return examples
+
+def generate_topology_vision_data(puzzles):
+    examples = []
+    for puzzle in puzzles:
+        for pair in puzzle['train']:
+            grid = pair['input']
+            for color in set(c for row in grid for c in row):
+                clusters = find_clusters(grid, color)
+                labels = [classify_cluster(c, grid) for c in clusters]
+                examples.append(format_classification_example(grid, color, labels))
+    return examples
+
+def generate_iteration_data_via_mutation(canonical_solvers, bug_library, puzzles):
+    examples = []
+    for solver_path in canonical_solvers:
+        canonical = open(solver_path).read()
+        for bug_pattern in bug_library:
+            buggy = inject_bug(canonical, bug_pattern)
+            failing_pair = find_pair_exposing_bug(puzzles, buggy)
+            if failing_pair:
+                feedback = run_validator_feedback(buggy, failing_pair)
+                examples.append(format_scoped_fix_example(buggy, feedback, canonical))
+    return examples
+
+def main():
+    puzzles = [json.load(open(f)) for f in glob.glob("arc_puzzles/*.json")]
+    solvers = glob.glob("Solvers/*.py")
+    bugs = json.load(open("Fine Tuning Strategy/bug_patterns.json"))
+    
+    all_examples = []
+    all_examples += generate_substrate_fluency_data(puzzles)
+    all_examples += generate_topology_vision_data(puzzles)
+    all_examples += generate_property_propagation_data()
+    all_examples += generate_iteration_data_via_mutation(solvers, bugs, puzzles)
+    all_examples += generate_bug_pattern_data(solvers, bugs)
+    
+    with open("training_data.jsonl", "w") as f:
+        for ex in all_examples:
+            f.write(json.dumps(ex) + "\n")
+```
+
+~500 lines of code total. One week to build.
+
+---
+
+## Iteration meta-skill data: Path A vs Path B
+
+The trickiest cluster. Two ways to generate it; very different difficulty.
+
+### Path A — Real trajectories from LLM bake-offs (hard, small N)
+
+Scrape actual iter responses from running models:
+- Sonnet's iter 1-9 on 8f3a5a89 = 9 trajectory examples
+- Across 4-5 models × N puzzles = small but real
+
+**Pros:** real LLM behavior, real mistakes, real recoveries.
+**Cons:** small N (hundreds-low-thousands), expensive to generate, manual
+quality-check needed, scaling requires industrialised harness.
+
+### Path B — Programmatic bug mutation (easy, high N)
+
+Take a canonical solver, inject known bugs from the library, generate the
+training pair synthetically:
+
+```python
+canonical = "Solvers/seeded_reachable_wall_contouring.py"
+for bug in BUG_PATTERNS:  # cluster_vs_cell, wrong_4conn, hardcoded_dim, ...
+    buggy_code = mutate(canonical, bug)
+    failing_pair = find_pair_exposing_bug(puzzles, buggy_code)
+    feedback = run_validator(buggy_code, failing_pair)
+    examples.append({
+        "user": f"{buggy_code}\n{feedback}\n\nFix without breaking other pairs.",
+        "assistant": canonical  # the fix is "revert the bug"
+    })
+```
+
+**Pros:** unlimited N, $0 cost, deterministic, every example is by-construction
+correct, covers exactly the bug patterns we want to penalise.
+**Cons:** synthetic — bugs are ones we already know about (creative new
+mistakes won't appear).
+
+### Industrialised bake-off harness (Path A — only if pursuing)
+
+Required to scale Path A beyond ~50 examples. Pseudocode:
+
+```python
+for puzzle in puzzles:                          # ~120 puzzles
+    for model in [opus, sonnet, gpt4o, grok]:   # 4 models
+        prompt = generate_substrate_prompt(puzzle)
+        code = call_model_api(model, prompt)
+        save(f"convos/{puzzle}/{model}/iter_1_response.txt", code)
+        
+        for iter_n in range(2, MAX_ITERS):
+            result = validate(puzzle, code)
+            if result.passes_3_of_3:
+                save_metadata({"solved_at_iter": iter_n})
+                break
+            feedback = run_feedback_pipeline(puzzle, code)
+            save(f"convos/{puzzle}/{model}/iter_{iter_n}_feedback.txt", feedback)
+            code = call_model_api(model, feedback)
+            save(f"convos/{puzzle}/{model}/iter_{iter_n}_response.txt", code)
+```
+
+**Output:** ~120 puzzles × 4 models × ~5 avg iters = ~2400 trajectory pairs.
+
+**Cost:**
+- ~150K tokens per trajectory (puzzle×model)
+- ~480 trajectories × 150K = ~72M tokens
+- Mixed-model API pricing: **~$300-1000** total
+- Wall clock: 2-3 days running in parallel
+
+**Engineering:** ~500-1000 lines of orchestration. API keys, rate limiting,
+retries, partial-failure recovery. **1-2 weeks of build.**
+
+### Recommendation
+
+**Start with Path B.** It generates ~20K examples in an afternoon for $0 with
+no orchestration. v1 dataset doesn't need real trajectories.
+
+**Add Path A in v2** if v1 shows positive signal AND you want the diversity
+of real LLM mistake patterns. Even then, don't run on all 2000 puzzles —
+~50-120 puzzles is plenty.
 
 ---
 
@@ -235,10 +488,8 @@ fluency proves to dominate scoring gains.
 
 - **Llama-3-8B / 70B**, **Qwen-2.5-Coder-7B / 32B**, **Mistral**, etc. —
   fully fine-tunable.
-- **LoRA / QLoRA** via Unsloth, Together AI, or similar: ~$50-200 for a
-  small model with ~50K-100K examples; ~$2-5K for 70B-class with ~500K
-  examples.
-- **Compute:** consumer hardware works for 7B; rented A100s for larger.
+- **LoRA / QLoRA** via Unsloth, Together AI, or similar.
+- **Compute:** consumer hardware works for 7B; rented GPUs for larger.
 - **Time:** weekend project to validate hypothesis on 7B; 1-2 weeks for
   full-scale 70B run.
 
@@ -259,20 +510,72 @@ domain-tuned ARC solver from scratch," use open models or GPT-4o-mini.
 
 ---
 
+## Where to actually train (no local GPU required)
+
+You don't need a beefy GPU on your own machine. Cloud GPU options ranked by
+beginner-friendliness:
+
+### 1. Google Colab (most beginner-friendly, free tier exists)
+
+- **Browser-based Python notebooks.** No installation.
+- **Free tier:** T4 GPU, ~12-hour sessions before disconnect. Enough for 7B
+  QLoRA fine-tunes with small datasets.
+- **Colab Pro: $10/month.** Better GPUs (A100 sometimes), longer sessions,
+  more memory. Recommended once you're past initial validation.
+- **Path:** open a Colab notebook → upload `training_data.jsonl` → run a
+  ready-made Unsloth fine-tune template → download fine-tuned model.
+
+### 2. Together AI fine-tuning API (no GPU management at all)
+
+- Upload JSONL dataset → pick base model → click "fine-tune."
+- Together handles all GPU orchestration.
+- **~$5-30 per fine-tune** for a 7B model on 50-100K examples.
+- Fastest "I just want a fine-tuned model" path. Less learning, more outcome.
+
+### 3. Modal (good middle ground)
+
+- Write Python; it runs in cloud on whichever GPU you specify.
+- **$30 free credits to start.**
+- More control than Together; less abstraction than Colab.
+
+### 4. RunPod / Vast.ai (cheapest per-hour, full control)
+
+- Rent literal GPU machine for $0.30-$0.50/hour.
+- SSH in like a Linux server, install everything, run scripts.
+- **Cheapest sustained training**, but you manage everything.
+
+### Cost ladder (realistic, calibrated to MacBook Air user)
+
+| Setup | Cost | Time | What you get |
+|---|---|---|---|
+| **Colab free + LoRA 7B + 50K examples** | **$0** | 1 weekend | Validation: does fine-tuning help at all? |
+| Colab Pro + LoRA 7B + 200K examples | $10 | 1-2 days | Real v1 candidate |
+| Together AI + LoRA 7B + 100K examples | $5-30 | 1 day | Ready-to-use fine-tuned model |
+| RunPod + LoRA 32B + 200K examples | $200-500 | 1 day | Larger capacity model |
+| RunPod + LoRA 70B + 500K examples | $2-5K | 2-3 days | Sonnet-competitive scale |
+
+**First experiment recommendation: $0 on free Colab.**
+
+---
+
 ## First concrete step (cheap validation)
 
-1. **Generate 50K substrate-fluency + topology-vision examples** using
-   existing tooling. ~1 day of code.
-2. **LoRA fine-tune Qwen-2.5-Coder-7B** via Unsloth on those examples.
-   ~$50-200, runs in <1 day on rented GPU.
-3. **Bake-off on 5-10 ARC puzzles** vs base model and vs Sonnet 4.6.
-4. **If signal is positive,** scale up data (add rule→code, trajectory) and
-   model size (32B or 70B).
-5. **If signal is null,** the bottleneck isn't capacity — it's prompt design.
+1. **Build `data_generator.py`** for substrate fluency + topology vision +
+   property propagation. ~3-4 days of code on your MacBook.
+2. **Generate ~50K examples** by running the script on the 2000 ARC puzzles.
+   ~1 hour of execution.
+3. **Open a Colab notebook** with an Unsloth Llama-3-8B QLoRA template.
+4. **Upload `training_data.jsonl`** to Colab.
+5. **Train for ~4-8 hours** on the free T4 GPU.
+6. **Bake-off the fine-tuned model on 5-10 ARC puzzles** vs base Llama-3-8B
+   and vs Sonnet 4.6 baseline.
+7. **If signal is positive,** add rule→code + iteration data and scale up.
+8. **If signal is null,** the bottleneck isn't capacity — it's prompt design.
    Go back to the prompt substrate.
 
-This is a weekend project to validate the hypothesis cheaply before
-committing real resources.
+**Total cost of step 1-7: $0-10.** **Total time: ~1 week.**
+
+This validates the hypothesis cheaply before committing real resources.
 
 ---
 
@@ -320,7 +623,8 @@ solve quickly):
 - **Does substrate fluency transfer to non-ARC pattern tasks?** If so, the
   notation has broader value. Could test on grid-based reasoning benchmarks.
 - **Can iteration meta-skill be trained without thousands of trajectories?**
-  DPO might work with hundreds of (good_iter, bad_iter) pairs. Worth piloting.
+  Path B (mutation) might be enough; DPO with hundreds of (good_iter, bad_iter)
+  pairs is also worth piloting.
 - **What's the right substrate alphabet for a fine-tune?** v2 (`. = + - ~`)
   vs proposed extensions (`~_thin`, `+_diagonal`, etc.). Lock in before
   training.
