@@ -77,6 +77,69 @@ Implementation note: `auto_iter.py` already saves every iter's response;
 the comp pipeline only needs to add the post-hoc clustering step before
 submission.
 
+## Dual-candidate hedge (code + hand grid, every iter)
+
+PRIMARY hedge — runs every iter on every puzzle, no extra LLM call.
+
+The substrate prompt asks for BOTH:
+1. `def solve(input_grid)` — validated against training pairs.
+2. `TEST_OUTPUT = [...]` — model's hand-written best-guess test output.
+
+Code generation and pattern recognition are separable skills. Models can
+succeed at one and fail at the other:
+
+- Gemini on 135a2760: hand-wrote correct test output, but its code produced
+  43 cells wrong on test (iter 2) and 8 cells wrong (iter 3). Pattern
+  recognition succeeded; code generation failed. Submitting only the code
+  would lose the puzzle. Submitting the hand grid wins.
+- Grok on 135a2760: code is a hardcoded dispatcher. Hand grid would be the
+  same as the code's output (same memorized cells). Redundant but no harm.
+- GPT iter 4 on 135a2760: code correct, hand would be correct. Redundant.
+- Claude iter 2 on 135a2760: code correct, hand would be correct. Redundant.
+
+The Gemini case is the win. The others are redundant — also fine, since
+ARC takes max over the two attempts.
+
+### Submission slots (comp pipeline)
+
+For each test pair, submit:
+- Slot 1: `solve(test_input)` — code-computed
+- Slot 2: hand-written TEST_OUTPUT from the same iter
+
+Both candidates from a single LLM call. No extra cost.
+
+### Hand grid validation (substrate validation only, NOT in feedback)
+
+During substrate validation we have test ground truth (it's in the
+puzzle.json file). `auto_iter.py` validates the hand grid against ground
+truth and prints the result for analysis:
+
+```
+Hand grid vs test ground truth (analysis only, not in feedback):
+  N/total cells wrong (MATCH | no match)
+```
+
+CRITICAL: this validation result is NEVER added to the feedback sent to
+the model. Including it would leak the test answer into the loop and
+break the substrate gate. The validation is purely for our scoreboard
+and analysis — to track when models hand-grid right but code-wrong (the
+Gemini class) and how often this happens.
+
+In real comp: no hand grid validation possible (no test ground truth).
+We just submit both candidates as the two ARC slots.
+
+### Why dual-candidate beats structural-diversity as the primary hedge
+
+| Property | Structural-diversity hedge | Dual-candidate hedge |
+|---|---|---|
+| Extra LLM calls | +1 per N=2 puzzle | 0 |
+| Catches Gemini case (right pattern, wrong code) | partial (43 → 8 wrong) | full (hand grid was 0 wrong) |
+| Catches all-wrong case | no | no |
+| Catches model-disagrees-with-itself | n/a | yes (code ≠ hand → genuine diversity) |
+
+Use both. Dual-candidate runs every iter; structural-diversity hedge runs
+once per N=2 puzzle as additional pool.
+
 ## N=2 forced hedge iteration (validated)
 
 For puzzles with N=2 training pairs, automatically run an extra "hedge"
