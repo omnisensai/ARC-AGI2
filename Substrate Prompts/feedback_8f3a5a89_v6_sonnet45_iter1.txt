@@ -33,6 +33,29 @@ your previous one. For each pair currently passing, ask: "is the logic that
 made it pass still intact?" If you cannot point to the specific lines that
 preserve that pair's behavior, your edit likely has a regression bug.
 
+CODE PATTERNS — translating cluster-level reasoning to Python:
+
+When you need a cluster-level property (edge-touching, line-shaped, isolated,
+spans-full-row, etc.), compute it ONCE with `any()` or `all()` over the cluster,
+then propagate. Do NOT write per-cell tests inside a loop and hope they
+aggregate.
+
+  Wrong:  for r, c in cluster:
+              if r == 0 or c == 0 or r == H-1 or c == W-1:
+                  is_edge = True
+          # bug: middle cells of an edge-touching cluster fail this per-cell
+          # test, so they don't inherit the cluster's edge-touching property
+
+  Right:  is_edge = any(r == 0 or c == 0 or r == H-1 or c == W-1
+                        for r, c in cluster)
+          if is_edge:
+              for r, c in cluster:
+                  edge_cells.add((r, c))
+          # cluster classified once; every member inherits the result
+
+Apply the same shape to any "does the cluster X" check: classify once,
+propagate to all member cells.
+
 REQUIREMENTS for your next response:
 - MUST contain a `def solve(input_grid):` function. We run your code; we do
   not read hand-computed grids. Responses without a solve() function cannot
@@ -588,4 +611,3 @@ Symbols: . = unchanged, = = preserved, + = activated, - = removed
 [+, ., ., ., ., ., ., ., +, =, =, =]
 [+, ., +, +, +, +, ., ., +, =, =, =]
 [=, +, =, =, =, =, +, +, +, =, =, =]
-
