@@ -123,11 +123,12 @@ def generate_complete_substrate_feedback(
     expected_trans, _ = generate_transformation_grid(input_grid, expected_output)
     feedback += "EXPECTED TRANSFORMATION:\n"
     for row in expected_trans:
-        feedback += "[" + ", ".join(row) + "]\n"
+        # Pad each symbol to 2 chars so columns visually align with data grids
+        feedback += "[" + ", ".join(f"{s:>2}" for s in row) + "]\n"
     feedback += "\nYOUR TRANSFORMATION:\n"
     actual_trans, _ = generate_transformation_grid(input_grid, actual_output)
     for row in actual_trans:
-        feedback += "[" + ", ".join(row) + "]\n"
+        feedback += "[" + ", ".join(f"{s:>2}" for s in row) + "]\n"
     feedback += "\n"
     trans_errors = 0
     feedback += "TRANSFORMATION MISMATCHES:\n"
@@ -181,7 +182,8 @@ def generate_test_self_inspection(test_input, solve_output) -> str:
     out += "TRANSFORMATION RULE YOUR CODE APPLIED:\n"
     out += "Symbols: . = unchanged, = = preserved, + = activated, - = removed\n\n"
     for row in trans:
-        out += "[" + ", ".join(row) + "]\n"
+        # Pad each symbol to 2 chars so columns visually align with data grids
+        out += "[" + ", ".join(f"{s:>2}" for s in row) + "]\n"
     out += "\n"
 
     return out
