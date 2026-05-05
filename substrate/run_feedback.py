@@ -165,6 +165,19 @@ of these against your code before submitting.
    Wrong:  grid = input_grid; grid[r][c] = 8   # corrupts caller's input_grid
    Right:  grid = [row[:] for row in input_grid]
 
+7) BINARY REDUCTION LOSES MULTI-COLOR INFO
+   When a panel / region has TWO OR MORE non-background colors, reducing
+   to 1-bit `is_fg` (most common) vs `is_bg` (everything else) discards
+   the other color's positional information.
+   Wrong:  fg = Counter(non_bg_vals).most_common(1)[0][0]
+           bits = [[1 if v == fg else 0 for v in row] for row in block]
+           # Now you cannot distinguish color X from color Y when both are non-bg.
+           # Period/symmetry detected on `bits` will collapse to a single color.
+   Right:  Detect period/structure over the SEQUENCE of values, not over a
+           binary mask. For each tile position, take the most common VALUE
+           (not bit) across all its repeats. Or run the detector once per
+           non-bg color independently and merge the results.
+
 REQUIREMENTS for your next response:
 - MUST contain a `def solve(input_grid):` function. We run your code; we do
   not read hand-computed grids. Responses without a solve() function cannot
