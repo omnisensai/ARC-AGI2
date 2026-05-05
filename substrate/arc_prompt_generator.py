@@ -1,17 +1,14 @@
 """
 ARC-AGI Prompt Generator with Transformation Rules
-v6: TIPS moved to right before TEST INPUT (recency anchor at code-generation moment)
 
-Difference from v5:
-- v5 had TIPS at the top, after the encoding key, before training examples.
-  TIPS was hundreds of tokens before the model needed to apply them.
-- v6 places TIPS right before TEST INPUT, anchoring it at the moment the
-  model has to write code (rather than at the moment it reads substrate).
-- All training examples retain uniform structure (no fragmentation).
+Canonical version (formerly v6). Key design:
+- Task framing: "extract the given transformation rule" (substrate paradigm:
+  rule is provided as substrate symbols, model encodes it in Python).
+- TIPS placed RIGHT BEFORE TEST INPUT — anchors principles at the moment the
+  model writes code, not at the moment it reads substrate.
+- All training examples have uniform structure (no fragmentation).
 - Encoding key stays at top because the model needs symbol grammar BEFORE
   reading the first substrate grid.
-- Task framing changed: rule is GIVEN (in substrate), not discovered. Model's
-  job is to encode the given rule in Python.
 """
 
 import json
@@ -146,7 +143,7 @@ encode that rule in Python so it produces the correct output for any input.
 if __name__ == "__main__":
     import sys
     puzzle_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) > 2 else "substrate_prompt_v6.txt"
+    output_file = sys.argv[2] if len(sys.argv) > 2 else "substrate_prompt.txt"
     with open(puzzle_file) as f:
         puzzle = json.load(f)
     prompt = generate_prompt(puzzle)
