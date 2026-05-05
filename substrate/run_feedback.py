@@ -3,19 +3,12 @@ Competition validator for ARC-AGI:
   Submit gate: Training 3/3 (solve reproduces every training output exactly)
   Submission:  solve(test_input)
 
-If training fails, generate substrate feedback per failed training pair, plus a
-test self-inspection block so the LLM sees what its current code would submit.
-Also includes confirmation blocks for passing pairs so the LLM is anchored on
-what its current rule already gets right and does NOT regress when fixing
-the failing pairs.
-
-Iteration history is persisted to <puzzle_id>_history.json and rendered at the
-top of every feedback file so the LLM sees how its understanding evolved.
-
-Lockdown v2: when a pair passes, the current solve() source is saved as a
-checkpoint. If that pair later regresses, the feedback echoes the checkpoint
-code with a REGRESSION ALERT, anchoring the model to the last working
-mechanism instead of letting it silently rewrite working logic.
+Canonical version. Includes:
+  - Lockdown v2: code-checkpoint regression block (echoes last passing solve)
+  - 6 CODE PITFALLS list (cluster-vs-cell, 4-conn vs 8-conn, diagonal sandwich,
+    hardcoded dims, mutate-while-iterate, aliasing)
+  - Iteration history table
+  - PASSING anchor blocks for stability across iters
 
 Usage:
   1. Save the LLM's solve() function to a file (e.g. gpt_solution.py)
@@ -115,6 +108,53 @@ REGRESSION DETECTOR: Before submitting, mentally diff your new solve() against
 your previous one. For each pair currently passing, ask: "is the logic that
 made it pass still intact?" If you cannot point to the specific lines that
 preserve that pair's behavior, your edit likely has a regression bug.
+
+CODE PITFALLS — common bugs when translating reasoning to Python. Scan each
+of these against your code before submitting.
+
+1) CLUSTER PROPERTY TESTED PER CELL (instead of computed once at cluster level)
+   Wrong:  for r, c in cluster:
+              if r == 0 or c == 0 or r == H-1 or c == W-1:
+                  is_edge = True
+           # bug: only edge-cells of the cluster trigger this; middle cells
+           # of a cluster that touches edge fail the per-cell test.
+   Right:  is_edge = any(r == 0 or c == 0 or r == H-1 or c == W-1
+                         for r, c in cluster)
+           if is_edge:
+              for r, c in cluster:
+                  edge_cells.add((r, c))
+
+2) 4-CONN vs 8-CONN ADJACENCY (default is 4; halo/expansion often needs 8)
+   4-conn: [(-1, 0), (1, 0), (0, -1), (0, 1)]  # cardinal only
+   8-conn: above + [(-1, -1), (-1, 1), (1, -1), (1, 1)]  # cardinal + diagonal
+   Tip: BFS through walls usually wants 4-conn. Halo painting around a region
+   usually wants 8-conn. Pick per rule — don't default both to 4-conn.
+
+3) 8-NEIGHBORHOOD ITERATION (the diagonal sandwich)
+   Wrong:  for dr in [-1, 1]:
+              for dc in [-1, 1]: ...   # MISSES the 4 cardinals
+   Wrong:  for dr in [-1, 0, 1]:
+              for dc in [-1, 0, 1]: ...   # INCLUDES self at (0, 0)
+   Right:  for dr in [-1, 0, 1]:
+              for dc in [-1, 0, 1]:
+                  if dr == 0 and dc == 0: continue
+                  ...
+
+4) HARDCODED GRID DIMENSIONS / INDICES
+   Wrong:  if r == 15 or c == 11: ...   # only works on the test grid shape
+   Right:  H, W = len(grid), len(grid[0])
+           if r == H - 1 or c == W - 1: ...
+
+5) MUTATING THE GRID WHILE ITERATING IT
+   Wrong:  for r, c in cells:
+              if grid[r][c] == 1: grid[r][c] = 8   # later reads see 8 now
+   Right:  output = [row[:] for row in grid]
+           for r, c in cells:
+              if grid[r][c] == 1: output[r][c] = 8   # read from grid, write to output
+
+6) ALIASING / FORGETTING DEEP COPY
+   Wrong:  grid = input_grid; grid[r][c] = 8   # corrupts caller's input_grid
+   Right:  grid = [row[:] for row in input_grid]
 
 REQUIREMENTS for your next response:
 - MUST contain a `def solve(input_grid):` function. We run your code; we do
