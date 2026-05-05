@@ -98,3 +98,113 @@ OUTPUT:
 [4, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4]
 [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
 
+TRANSFORMATION RULE:
+[., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., .],
+[., =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, .],
+[., =, =, =, ., =, =, ., =, =, ., =, =, ., =, =, ., +, =, -, =, .],
+[., =, =, =, ., =, =, ., =, =, ., =, =, ., =, =, ., +, =, -, =, .],
+[., =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, .],
+[., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., .],
+[., =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, .],
+[., =, =, ., =, ., =, ., =, -, =, ., =, ., =, ., =, ., =, ., =, .],
+[., =, ., =, ., =, ., =, ., =, ., =, ., =, ., =, ., =, ., =, =, .],
+[., =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, .],
+[., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., .],
+[., =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, .],
+[., =, =, ., +, =, =, ., =, =, =, ., =, =, =, ., =, =, =, ., =, .],
+[., =, =, =, +, ., =, =, =, ., =, =, =, ., =, =, =, ., =, =, =, .],
+[., =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, .],
+[., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., .],
+[., =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, .],
+[., =, =, ., =, ., =, ., =, ., =, ., =, ., =, ., =, ., =, -, =, .],
+[., =, =, ., =, ., =, ., =, -, =, ., =, ., =, ., =, ., =, ., =, .],
+[., =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, =, .],
+[., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., ., .],
+
+================================================================================
+TIPS — read before writing code
+================================================================================
+
+Before writing code, scan the inputs:
+- Look for anchor cells (unique colors, single markers, distinctive objects).
+- Look for barriers (walls, lines, obstacles).
+- Many ARC rules radiate outward from an anchor (BFS, flood-fill) rather than
+  apply per-cell logic.
+- When checking adjacency, decide 4-connectivity vs 8-connectivity per rule.
+
+Avoid magic-number thresholds (>=80%, size > N, exactly K clusters).
+Prefer rules expressed in terms of topology (reachability, adjacency,
+connectivity) anchored at a recognizable element.
+
+CLUSTER-LEVEL vs CELL-LEVEL PROPERTIES
+A property describing a connected component applies to ALL cells of that
+cluster equally — do not redefine it per cell.
+
+Worked example: a vertical wall of 1s spanning rows 0..15 at column 6 is a
+single cluster. It "touches the grid edge" because (0,6) and (15,6) lie on
+the boundary. Therefore EVERY cell of that cluster — including (5,6), (8,6),
+deep in the interior of the grid — inherits the "edge-touching" property.
+
+Wrong: `if r == 0 or c == 0 or r == H-1 or c == W-1` (per-cell test).
+Right: classify the cluster once, then propagate the result to every cell.
+
+================================================================================
+TEST INPUT
+================================================================================
+
+[8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+[8, 3, 3, 3, 3, 3, 3, 8, 3, 3, 3, 3, 3, 3, 8, 3, 3, 3, 3, 3, 3, 8, 3, 3, 3, 3, 3, 3, 8]
+[8, 3, 8, 8, 8, 8, 3, 8, 3, 1, 8, 8, 8, 3, 8, 3, 4, 4, 8, 8, 3, 8, 3, 8, 8, 8, 8, 3, 8]
+[8, 3, 8, 2, 2, 8, 3, 8, 3, 8, 1, 8, 8, 3, 8, 3, 4, 4, 4, 4, 3, 8, 3, 8, 8, 8, 8, 3, 8]
+[8, 3, 8, 2, 2, 8, 3, 8, 3, 8, 8, 1, 8, 3, 8, 3, 8, 8, 8, 4, 3, 8, 3, 8, 9, 9, 8, 3, 8]
+[8, 3, 8, 8, 8, 8, 3, 8, 3, 8, 8, 8, 1, 3, 8, 3, 4, 4, 4, 4, 3, 8, 3, 8, 9, 8, 8, 3, 8]
+[8, 3, 8, 2, 2, 8, 3, 8, 3, 8, 8, 1, 8, 3, 8, 3, 4, 8, 8, 8, 3, 8, 3, 8, 8, 8, 8, 3, 8]
+[8, 3, 8, 2, 2, 8, 3, 8, 3, 8, 1, 8, 8, 3, 8, 3, 4, 4, 4, 4, 3, 8, 3, 8, 9, 8, 8, 3, 8]
+[8, 3, 8, 8, 8, 8, 3, 8, 3, 1, 8, 8, 8, 3, 8, 3, 8, 8, 8, 4, 3, 8, 3, 8, 9, 9, 8, 3, 8]
+[8, 3, 8, 2, 2, 8, 3, 8, 3, 8, 1, 8, 8, 3, 8, 3, 4, 4, 4, 4, 3, 8, 3, 8, 9, 8, 8, 3, 8]
+[8, 3, 8, 2, 2, 8, 3, 8, 3, 8, 8, 1, 8, 3, 8, 3, 4, 8, 8, 8, 3, 8, 3, 8, 8, 8, 8, 3, 8]
+[8, 3, 8, 8, 8, 8, 3, 8, 3, 8, 8, 8, 1, 3, 8, 3, 4, 4, 4, 4, 3, 8, 3, 8, 9, 8, 8, 3, 8]
+[8, 3, 8, 2, 2, 8, 3, 8, 3, 1, 8, 1, 8, 3, 8, 3, 8, 8, 8, 4, 3, 8, 3, 8, 9, 9, 8, 3, 8]
+[8, 3, 8, 2, 2, 8, 3, 8, 3, 8, 1, 8, 8, 3, 8, 3, 4, 8, 4, 4, 3, 8, 3, 8, 9, 8, 8, 3, 8]
+[8, 3, 8, 8, 8, 8, 3, 8, 3, 1, 8, 8, 8, 3, 8, 3, 4, 8, 8, 8, 3, 8, 3, 8, 8, 8, 8, 3, 8]
+[8, 3, 8, 2, 2, 8, 3, 8, 3, 8, 1, 8, 8, 3, 8, 3, 4, 4, 4, 4, 3, 8, 3, 8, 9, 8, 8, 3, 8]
+[8, 3, 8, 2, 2, 8, 3, 8, 3, 8, 8, 1, 8, 3, 8, 3, 8, 8, 8, 4, 3, 8, 3, 8, 9, 9, 8, 3, 8]
+[8, 3, 8, 8, 8, 8, 3, 8, 3, 8, 8, 8, 1, 3, 8, 3, 4, 4, 4, 4, 3, 8, 3, 8, 9, 8, 8, 3, 8]
+[8, 3, 8, 2, 2, 8, 3, 8, 3, 8, 8, 1, 8, 3, 8, 3, 4, 8, 8, 8, 3, 8, 3, 8, 8, 8, 8, 3, 8]
+[8, 3, 8, 2, 2, 8, 3, 8, 3, 8, 1, 8, 8, 3, 8, 3, 4, 4, 4, 4, 3, 8, 3, 8, 9, 8, 8, 3, 8]
+[8, 3, 8, 8, 8, 8, 3, 8, 3, 1, 8, 8, 8, 3, 8, 3, 8, 8, 8, 4, 3, 8, 3, 8, 9, 9, 8, 3, 8]
+[8, 3, 8, 2, 2, 8, 3, 8, 3, 8, 1, 8, 8, 3, 8, 3, 4, 4, 4, 4, 3, 8, 3, 8, 9, 8, 8, 3, 8]
+[8, 3, 8, 2, 2, 8, 3, 8, 3, 8, 8, 1, 8, 3, 8, 3, 4, 8, 8, 8, 3, 8, 3, 8, 8, 8, 8, 3, 8]
+[8, 3, 8, 8, 8, 8, 3, 8, 3, 8, 8, 1, 8, 3, 8, 3, 4, 8, 4, 4, 3, 8, 3, 8, 9, 8, 8, 3, 8]
+[8, 3, 8, 8, 2, 8, 3, 8, 3, 8, 8, 1, 8, 3, 8, 3, 8, 8, 8, 4, 3, 8, 3, 8, 9, 9, 8, 3, 8]
+[8, 3, 8, 2, 2, 8, 3, 8, 3, 8, 1, 8, 8, 3, 8, 3, 4, 4, 4, 4, 3, 8, 3, 8, 9, 9, 8, 3, 8]
+[8, 3, 8, 8, 8, 8, 3, 8, 3, 1, 8, 8, 8, 3, 8, 3, 4, 8, 8, 8, 3, 8, 3, 8, 8, 8, 8, 3, 8]
+[8, 3, 3, 3, 3, 3, 3, 8, 3, 3, 3, 3, 3, 3, 8, 3, 3, 3, 3, 3, 3, 8, 3, 3, 3, 3, 3, 3, 8]
+[8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+
+================================================================================
+MANDATORY OUTPUT FORMAT
+================================================================================
+
+Return a `def solve(input_grid):` function that works on grids of any size — we run your code on every training input and the test input.
+
+```python
+def solve(input_grid):
+    # input_grid: 2D list of integers (colors 0-9)
+    # return:     2D list of integers (output grid)
+
+    # YOUR ALGORITHM HERE
+
+    return output_grid
+```
+
+REQUIREMENTS
+- Output ONLY the function (you may include reasoning before it, but the
+  function is what gets executed).
+- The function must work on grids of varying sizes — do not hardcode
+  dimensions, row indices, or column indices.
+- Return a 2D list of integers (colors 0-9).
+
+DO NOT manually write out the test output grid. We will compute it by
+running your code. If your response does not contain a `def solve(input_grid):`
+function, we cannot validate your iteration and you will receive no feedback.
