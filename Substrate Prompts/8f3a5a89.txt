@@ -1,36 +1,27 @@
 You are an ARC-AGI solver.
 
-================================================================================
-MANDATORY OUTPUT FORMAT — read this first
-================================================================================
-
-Your response MUST contain a Python function `solve(input_grid)` that returns
-the test output grid. We run your code on every training pair AND the test
-input, then validate by comparing actual outputs to expected outputs.
-
-DO NOT hand-compute the test output grid yourself. DO NOT output a grid as
-your final answer. Only the code is evaluated.
-
-If your response contains no `def solve(input_grid):` function, the iteration
-is invalid and we cannot give you any feedback.
+Your task: extract the given transformation rule and write a Python
+`def solve(input_grid):` function that applies the same rule to ALL input
+grids and produces the same output grids. Your code must generalize across
+all inputs and outputs.
 
 ================================================================================
-TRANSFORMATION ENCODING
+TRANSFORMATION RULE ENCODING
 ================================================================================
 
-I have examples showing pairs of training inputs, outputs, and transformation rule.
-The transformation rule symbols are atomic operations applied cell-by-cell:
-+ activates, = preserves, - deactivates, . maintains background.
-The transformation rule IS the pattern (not a description of it).
+Each training pair below includes input, output, and the transformation
+rule that produced the output from the input. The rule is given as a grid
+of atomic symbols applied cell-by-cell:
 
-Transformation rule symbols:
   . = background unchanged
   = = structural element (stays)
-  + = background activated (drawn border)
+  + = background activated (drawn border / halo)
   - = color deactivated (removed)
+  ~ = color recolored (one color → different color)
 
-Your task: study the transformation rule across all training examples,
-write Python that applies the same rule to any input grid.
+The transformation rule IS the pattern (not a description of it). The same
+rule applies to every training pair AND to the test input — your job is to
+encode that rule in Python so it produces the correct output for any input.
 
 ================================================================================
 TRAINING EXAMPLE 1
@@ -201,10 +192,36 @@ TRANSFORMATION RULE:
 [=, +, +, +, +, +, +, +, +, +, +, +, +, +, =, =, =, =, =, =],
 
 ================================================================================
-TEST CASE
+TIPS — read before writing code
 ================================================================================
 
-TEST INPUT:
+Before writing code, scan the inputs:
+- Look for anchor cells (unique colors, single markers, distinctive objects).
+- Look for barriers (walls, lines, obstacles).
+- Many ARC rules radiate outward from an anchor (BFS, flood-fill) rather than
+  apply per-cell logic.
+- When checking adjacency, decide 4-connectivity vs 8-connectivity per rule.
+
+Avoid magic-number thresholds (>=80%, size > N, exactly K clusters).
+Prefer rules expressed in terms of topology (reachability, adjacency,
+connectivity) anchored at a recognizable element.
+
+CLUSTER-LEVEL vs CELL-LEVEL PROPERTIES
+A property describing a connected component applies to ALL cells of that
+cluster equally — do not redefine it per cell.
+
+Worked example: a vertical wall of 1s spanning rows 0..15 at column 6 is a
+single cluster. It "touches the grid edge" because (0,6) and (15,6) lie on
+the boundary. Therefore EVERY cell of that cluster — including (5,6), (8,6),
+deep in the interior of the grid — inherits the "edge-touching" property.
+
+Wrong: `if r == 0 or c == 0 or r == H-1 or c == W-1` (per-cell test).
+Right: classify the cluster once, then propagate the result to every cell.
+
+================================================================================
+TEST INPUT
+================================================================================
+
 [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 1, 8]
 [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 1, 8]
 [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 1, 8]
@@ -219,13 +236,10 @@ TEST INPUT:
 [6, 8, 1, 1, 1, 1, 8, 8, 8, 1, 1, 1]
 
 ================================================================================
-YOUR TASK
+MANDATORY OUTPUT FORMAT
 ================================================================================
 
-
-Write a Python function that applies the same transformation rule from the
-training examples to ANY input grid. Your code will be run on all 3 training
-inputs and on the test input — it must produce the correct output for each.
+Return a `def solve(input_grid):` function that works on grids of any size — we run your code on every training input and the test input.
 
 ```python
 def solve(input_grid):
@@ -244,6 +258,6 @@ REQUIREMENTS
   dimensions, row indices, or column indices.
 - Return a 2D list of integers (colors 0-9).
 
-DO NOT manually write out the test output grid. We will compute it by running
-your code. If you do not include a `def solve(input_grid):` function, we
-cannot validate your iteration and you will receive no feedback.
+DO NOT manually write out the test output grid. We will compute it by
+running your code. If your response does not contain a `def solve(input_grid):`
+function, we cannot validate your iteration and you will receive no feedback.
