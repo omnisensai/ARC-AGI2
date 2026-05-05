@@ -6,6 +6,11 @@ response, runs run_feedback.py to validate, appends feedback to the
 conversation, and repeats until SUBMIT or max-iters. Pauses for Enter
 between iters by default so you can watch each iter live.
 
+Each iter also extracts the model's hand-written TEST_OUTPUT grid (if
+present) and validates it against test ground truth for analysis. The
+hand grid result is NEVER added to feedback — that would leak the test
+answer. It's logged to terminal and saved as a per-iter artifact.
+
 Usage:
     python auto_iter.py <puzzle_file.json> --model <id>
                                             [--max-iters N]
@@ -23,6 +28,7 @@ Env vars (set what you need):
 Per iter, saves under Model Results/<Model>/<puzzle_id>/:
     iter_N_response.txt   full raw response from the LLM
     iter_N_response.py    extracted def solve (also copied to ./solution.py)
+    iter_N_hand_grid.json extracted TEST_OUTPUT (if present)
     iter_N_feedback.txt   captured run_feedback.py output
     conversation.json     full message history so far
 """
@@ -138,6 +144,61 @@ def extract_solve(text):
     return None
 
 
+def extract_hand_grid(text):
+    """Pull `TEST_OUTPUT = [...]` from the response.
+
+    The model is asked to provide a hand-written test output as the second
+    ARC submission candidate. Returns the parsed 2D list, or None if not
+    found / unparseable.
+    """
+    match = re.search(
+        r"TEST_OUTPUT\s*=\s*(\[\s*\[.*?\]\s*\])",
+        text, re.DOTALL,
+    )
+    if not match:
+        return None
+    try:
+        import ast
+        grid = ast.literal_eval(match.group(1))
+        if (isinstance(grid, list)
+                and all(isinstance(row, list) for row in grid)
+                and all(isinstance(v, int) for row in grid for v in row)):
+            return grid
+    except (ValueError, SyntaxError):
+        pass
+    return None
+
+
+def validate_hand_grid(hand_grid, puzzle_file):
+    """Compare hand grid to test ground truth.
+
+    Substrate-validation only: we have ground truth available locally during
+    development. Returns (matches, diff_count, total_cells) or None if no
+    test ground truth is in the puzzle file.
+
+    DO NOT include this result in feedback to the model — it would leak
+    test ground truth and undermine the substrate gate. Use only for
+    analysis and scoreboard.
+    """
+    if hand_grid is None:
+        return None
+    with open(puzzle_file) as f:
+        puzzle = json.load(f)
+    if not puzzle.get("test") or "output" not in puzzle["test"][0]:
+        return None
+    truth = puzzle["test"][0]["output"]
+    if len(hand_grid) != len(truth) or any(
+        len(hand_grid[r]) != len(truth[r]) for r in range(len(truth))
+    ):
+        return ("dimension_mismatch", None, None)
+    diffs = sum(
+        1 for r in range(len(truth)) for c in range(len(truth[0]))
+        if hand_grid[r][c] != truth[r][c]
+    )
+    total = len(truth) * len(truth[0])
+    return (diffs == 0, diffs, total)
+
+
 def derive_puzzle_id(puzzle_file):
     stem = Path(puzzle_file).stem
     m = re.match(r"^puzzle_(.+)$", stem)
@@ -212,6 +273,26 @@ def main():
             return
         (model_dir / f"iter_{n}_response.py").write_text(code)
         Path("solution.py").write_text(code)
+
+        hand_grid = extract_hand_grid(response)
+        hand_validation = None
+        if hand_grid is not None:
+            (model_dir / f"iter_{n}_hand_grid.json").write_text(
+                json.dumps(hand_grid)
+            )
+            hand_validation = validate_hand_grid(hand_grid, args.puzzle_file)
+            print(f"Hand grid: {len(hand_grid)}x{len(hand_grid[0])} extracted "
+                  f"-> iter_{n}_hand_grid.json")
+            if hand_validation is not None:
+                ok, diffs, total = hand_validation
+                if ok == "dimension_mismatch":
+                    print(f"Hand grid dimensions don't match test ground truth")
+                else:
+                    print(f"Hand grid vs test ground truth (analysis only, "
+                          f"not in feedback): {diffs}/{total} cells wrong "
+                          f"({'MATCH' if ok else 'no match'})")
+        else:
+            print("No TEST_OUTPUT block found in response (hand grid skipped)")
 
         feedback = run_feedback(args.puzzle_file)
         (model_dir / f"iter_{n}_feedback.txt").write_text(feedback)
