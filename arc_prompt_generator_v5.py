@@ -1,7 +1,7 @@
 """
 ARC-AGI Prompt Generator with Transformation Rules
-v8: TIPS section + minimal one-line MANDATORY OUTPUT FORMAT at bottom
-    (was a long top-section; LLMs respond better to recency-anchored brevity)
+v10: Added cluster-property propagation hint (cell-level reasoning is atomic,
+     but cluster-level properties like edge-touching are component-wide facts)
 """
 
 import json
@@ -57,6 +57,12 @@ Before writing code, scan the inputs:
 - Look for barriers (walls, lines, obstacles).
 - Many ARC rules radiate outward from an anchor (BFS, flood-fill) rather than
   apply per-cell logic.
+- When checking adjacency, consider whether the rule includes diagonals
+  (8-connectivity) or only cardinal neighbors (4-connectivity).
+- A property describing a connected component (e.g. "this cluster is
+  edge-touching" or "this cluster is reachable from the seed") applies to all
+  cells of the cluster equally. Compute it once at cluster-classification
+  time; don't re-derive it per cell.
 
 Avoid magic-number thresholds (>=80%, size > N, exactly K clusters).
 Prefer rules expressed in terms of topology (reachability, adjacency,
@@ -116,7 +122,7 @@ if __name__ == "__main__":
     size = save_prompt(puzzle, output_file)
 
     print("=" * 80)
-    print("PROMPT GENERATOR v8 - TIPS + minimal mandatory format reminder")
+    print("PROMPT GENERATOR v10 - TIPS now includes cluster-property propagation")
     print("=" * 80)
     print(f"\nTraining examples: {len(puzzle['train'])}")
     print(f"Prompt size: {size:,} characters")
