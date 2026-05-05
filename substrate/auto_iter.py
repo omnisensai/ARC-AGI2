@@ -6,10 +6,9 @@ response, runs run_feedback.py to validate, appends feedback to the
 conversation, and repeats until SUBMIT or max-iters. Pauses for Enter
 between iters by default so you can watch each iter live.
 
-Each iter also extracts the model's hand-written TEST_OUTPUT grid (if
-present) and validates it against test ground truth for analysis. The
-hand grid result is NEVER added to feedback — that would leak the test
-answer. It's logged to terminal and saved as a per-iter artifact.
+Each iter is timed end-to-end (API call, validation, parse/io). Per-iter
+timing is logged to terminal and accumulated in timing.json. Use this to
+estimate wall-clock cost per puzzle and per model.
 
 Usage:
     python auto_iter.py <puzzle_file.json> --model <id>
@@ -31,6 +30,7 @@ Per iter, saves under Model Results/<Model>/<puzzle_id>/:
     iter_N_hand_grid.json extracted TEST_OUTPUT (if present)
     iter_N_feedback.txt   captured run_feedback.py output
     conversation.json     full message history so far
+    timing.json           per-iter and total wall-clock timing
 """
 
 import argparse
@@ -39,6 +39,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 
@@ -176,7 +177,7 @@ def validate_hand_grid(hand_grid, puzzle_file):
     development. Returns (matches, diff_count, total_cells) or None if no
     test ground truth is in the puzzle file.
 
-    DO NOT include this result in feedback to the model — it would leak
+    DO NOT include this result in feedback to the model - it would leak
     test ground truth and undermine the substrate gate. Use only for
     analysis and scoreboard.
     """
@@ -249,20 +250,32 @@ def main():
     print(f"Mode:   {'auto' if args.auto else 'pause-between-iters'}")
     print()
 
+    timing = {
+        "puzzle_id": puzzle_id,
+        "model": args.model,
+        "provider": provider,
+        "full_model": full_model,
+        "iters": [],
+    }
+    puzzle_start = time.time()
+
     for n in range(1, args.max_iters + 1):
         print("=" * 60)
         print(f"ITER {n} - sending {len(messages)} message(s), "
               f"{sum(len(m['content']) for m in messages)} chars")
         print("=" * 60)
 
+        iter_start = time.time()
+        api_start = time.time()
         try:
             response = chat(messages, full_model)
         except Exception as e:
             print(f"API error: {type(e).__name__}: {e}")
             return
+        api_elapsed = time.time() - api_start
 
         (model_dir / f"iter_{n}_response.txt").write_text(response)
-        print(f"Response: {len(response)} chars -> iter_{n}_response.txt")
+        print(f"Response: {len(response)} chars in {api_elapsed:.1f}s -> iter_{n}_response.txt")
 
         code = extract_solve(response)
         if code is None:
@@ -294,8 +307,29 @@ def main():
         else:
             print("No TEST_OUTPUT block found in response (hand grid skipped)")
 
+        validation_start = time.time()
         feedback = run_feedback(args.puzzle_file)
+        validation_elapsed = time.time() - validation_start
         (model_dir / f"iter_{n}_feedback.txt").write_text(feedback)
+
+        iter_total = time.time() - iter_start
+        print(f"Validation: {validation_elapsed:.1f}s | iter total: {iter_total:.1f}s "
+              f"(API {api_elapsed:.1f}s + validation {validation_elapsed:.1f}s + parse/io {iter_total - api_elapsed - validation_elapsed:.1f}s)")
+
+        verdict = "SUBMIT" if "VERDICT: SUBMIT" in feedback else "DO NOT SUBMIT"
+        timing["iters"].append({
+            "iter": n,
+            "api_seconds": round(api_elapsed, 2),
+            "validation_seconds": round(validation_elapsed, 2),
+            "iter_total_seconds": round(iter_total, 2),
+            "response_chars": len(response),
+            "input_chars_sent": sum(len(m["content"]) for m in messages),
+            "verdict": verdict,
+            "hand_grid_match": (
+                None if hand_validation is None
+                else (hand_validation[0] is True)
+            ),
+        })
 
         print()
         print("--- feedback (last 1500 chars) ---")
@@ -308,9 +342,15 @@ def main():
         (model_dir / "conversation.json").write_text(
             json.dumps(messages, indent=2)
         )
+        timing["total_wall_seconds"] = round(time.time() - puzzle_start, 2)
+        timing["iters_used"] = n
+        timing["final_verdict"] = verdict
+        (model_dir / "timing.json").write_text(json.dumps(timing, indent=2))
 
         if "VERDICT: SUBMIT" in feedback:
-            print(f"SUBMIT verdict at iter {n}. Stopping.")
+            total = time.time() - puzzle_start
+            print(f"SUBMIT verdict at iter {n}. Total wall time: {total:.1f}s "
+                  f"({total/60:.1f} min). Stopping.")
             return
 
         if not args.auto and n < args.max_iters:
@@ -320,7 +360,9 @@ def main():
                 print("\nStopped at user request.")
                 return
 
-    print(f"\nMax iters ({args.max_iters}) reached without SUBMIT verdict.")
+    total = time.time() - puzzle_start
+    print(f"\nMax iters ({args.max_iters}) reached without SUBMIT verdict. "
+          f"Total wall time: {total:.1f}s ({total/60:.1f} min).")
 
 
 if __name__ == "__main__":
