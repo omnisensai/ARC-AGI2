@@ -13,12 +13,12 @@ Iteration history is persisted to <puzzle_id>_history.json and rendered at the
 top of every feedback file so the LLM sees how its understanding evolved.
 
 Usage:
-  1. Save the LLM's solve() function to a file (default: gpt_solution.py)
+  1. Save the LLM's solve() function to a file (default: solution.py)
   2. python run_feedback.py <puzzle_file.json> [solution_module]
 
 Examples:
   python run_feedback.py puzzle_8f3a5a89.json
-  python run_feedback.py puzzle_135a2760.json gpt_solution
+  python run_feedback.py puzzle_135a2760.json solution
 """
 
 import json
@@ -205,7 +205,8 @@ def render_passing_pair(pair_number, input_grid, output_grid):
     out += "\nTRANSFORMATION RULE (correct):\n"
     out += "Symbols: . = unchanged, = = preserved, + = activated, - = removed\n\n"
     for row in trans:
-        out += "[" + ", ".join(row) + "]\n"
+        # Pad each symbol to 2 chars so columns visually align with data grids
+        out += "[" + ", ".join(f"{s:>2}" for s in row) + "]\n"
 
     return out
 
@@ -245,7 +246,7 @@ def main():
         sys.exit(1)
 
     puzzle_file = sys.argv[1]
-    solution_module = sys.argv[2] if len(sys.argv) > 2 else "gpt_solution"
+    solution_module = sys.argv[2] if len(sys.argv) > 2 else "solution"
     puzzle_id = derive_puzzle_id(puzzle_file)
     history_file = f"{puzzle_id}_history.json"
     out_file = f"feedback_{puzzle_id}.txt"
