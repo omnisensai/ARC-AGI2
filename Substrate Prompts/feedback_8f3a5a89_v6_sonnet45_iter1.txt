@@ -33,28 +33,52 @@ your previous one. For each pair currently passing, ask: "is the logic that
 made it pass still intact?" If you cannot point to the specific lines that
 preserve that pair's behavior, your edit likely has a regression bug.
 
-CODE PATTERNS — translating cluster-level reasoning to Python:
+CODE PITFALLS — common bugs when translating reasoning to Python. Scan each
+of these against your code before submitting.
 
-When you need a cluster-level property (edge-touching, line-shaped, isolated,
-spans-full-row, etc.), compute it ONCE with `any()` or `all()` over the cluster,
-then propagate. Do NOT write per-cell tests inside a loop and hope they
-aggregate.
-
-  Wrong:  for r, c in cluster:
+1) CLUSTER PROPERTY TESTED PER CELL (instead of computed once at cluster level)
+   Wrong:  for r, c in cluster:
               if r == 0 or c == 0 or r == H-1 or c == W-1:
                   is_edge = True
-          # bug: middle cells of an edge-touching cluster fail this per-cell
-          # test, so they don't inherit the cluster's edge-touching property
-
-  Right:  is_edge = any(r == 0 or c == 0 or r == H-1 or c == W-1
-                        for r, c in cluster)
-          if is_edge:
+           # bug: only edge-cells of the cluster trigger this; middle cells
+           # of a cluster that touches edge fail the per-cell test.
+   Right:  is_edge = any(r == 0 or c == 0 or r == H-1 or c == W-1
+                         for r, c in cluster)
+           if is_edge:
               for r, c in cluster:
                   edge_cells.add((r, c))
-          # cluster classified once; every member inherits the result
 
-Apply the same shape to any "does the cluster X" check: classify once,
-propagate to all member cells.
+2) 4-CONN vs 8-CONN ADJACENCY (default is 4; halo/expansion often needs 8)
+   4-conn: [(-1, 0), (1, 0), (0, -1), (0, 1)]  # cardinal only
+   8-conn: above + [(-1, -1), (-1, 1), (1, -1), (1, 1)]  # cardinal + diagonal
+   Tip: BFS through walls usually wants 4-conn. Halo painting around a region
+   usually wants 8-conn. Pick per rule — don't default both to 4-conn.
+
+3) 8-NEIGHBORHOOD ITERATION (the diagonal sandwich)
+   Wrong:  for dr in [-1, 1]:
+              for dc in [-1, 1]: ...   # MISSES the 4 cardinals
+   Wrong:  for dr in [-1, 0, 1]:
+              for dc in [-1, 0, 1]: ...   # INCLUDES self at (0, 0)
+   Right:  for dr in [-1, 0, 1]:
+              for dc in [-1, 0, 1]:
+                  if dr == 0 and dc == 0: continue
+                  ...
+
+4) HARDCODED GRID DIMENSIONS / INDICES
+   Wrong:  if r == 15 or c == 11: ...   # only works on the test grid shape
+   Right:  H, W = len(grid), len(grid[0])
+           if r == H - 1 or c == W - 1: ...
+
+5) MUTATING THE GRID WHILE ITERATING IT
+   Wrong:  for r, c in cells:
+              if grid[r][c] == 1: grid[r][c] = 8   # later reads see 8 now
+   Right:  output = [row[:] for row in grid]
+           for r, c in cells:
+              if grid[r][c] == 1: output[r][c] = 8   # read from grid, write to output
+
+6) ALIASING / FORGETTING DEEP COPY
+   Wrong:  grid = input_grid; grid[r][c] = 8   # corrupts caller's input_grid
+   Right:  grid = [row[:] for row in input_grid]
 
 REQUIREMENTS for your next response:
 - MUST contain a `def solve(input_grid):` function. We run your code; we do
