@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""auto_iter.py — semi-auto iter loop for substrate validation.
-
-Sends a substrate prompt to one model, extracts the def solve from its
-response, runs run_feedback.py to validate, appends feedback to the
-conversation, and repeats until SUBMIT or max-iters. Pauses for Enter
-between iters by default so you can watch each iter live.
-"""
+"""auto_iter.py - semi-auto iter loop for substrate validation."""
 
 import argparse
 import json
@@ -74,21 +68,49 @@ def chat_anthropic(messages, model, max_tokens=8192):
             sys_msg = m["content"]
         else:
             msgs.append(m)
-    kwargs = {"model": model, "max_tokens": max_tokens, "messages": msgs}
+
+    use_thinking = "haiku" not in model.lower()
+
+    if use_thinking:
+        thinking_budget = 32000
+        kwargs = {
+            "model": model,
+            "max_tokens": 40000,
+            "messages": msgs,
+            "thinking": {"type": "enabled", "budget_tokens": thinking_budget},
+            "temperature": 1.0,
+        }
+    else:
+        kwargs = {"model": model, "max_tokens": 16384, "messages": msgs}
+
     if sys_msg:
         kwargs["system"] = sys_msg
+
     resp = client.messages.create(**kwargs)
+    text_parts = [b.text for b in resp.content if getattr(b, "type", "text") == "text"]
+    if text_parts:
+        return "".join(text_parts)
     return resp.content[0].text
 
 
 def chat_openai(messages, model, max_tokens=8192):
     from openai import OpenAI
     client = OpenAI()
-    # GPT-5 / reasoning models require max_completion_tokens (not max_tokens).
-    # Both names work for gpt-4o etc., so always use max_completion_tokens.
-    resp = client.chat.completions.create(
-        model=model, max_completion_tokens=max_tokens, messages=messages,
-    )
+    is_reasoning = model.startswith("gpt-5") or model.startswith("o")
+    if is_reasoning:
+        kwargs = {
+            "model": model,
+            "max_completion_tokens": 64000,
+            "messages": messages,
+            "reasoning_effort": "high",
+        }
+    else:
+        kwargs = {
+            "model": model,
+            "max_completion_tokens": 16384,
+            "messages": messages,
+        }
+    resp = client.chat.completions.create(**kwargs)
     return resp.choices[0].message.content
 
 
@@ -102,7 +124,7 @@ def chat_google(messages, model, max_tokens=8192):
     resp = client.models.generate_content(
         model=model,
         contents=contents,
-        config={"max_output_tokens": max_tokens},
+        config={"max_output_tokens": 32000},
     )
     return resp.text
 
@@ -114,7 +136,7 @@ def chat_xai(messages, model, max_tokens=8192):
         base_url="https://api.x.ai/v1",
     )
     resp = client.chat.completions.create(
-        model=model, max_tokens=max_tokens, messages=messages,
+        model=model, max_tokens=16384, messages=messages,
     )
     return resp.choices[0].message.content
 
@@ -126,7 +148,7 @@ def chat_openrouter(messages, model, max_tokens=8192):
         base_url="https://openrouter.ai/api/v1",
     )
     resp = client.chat.completions.create(
-        model=model, max_tokens=max_tokens, messages=messages,
+        model=model, max_tokens=32000, messages=messages,
     )
     return resp.choices[0].message.content
 
@@ -202,11 +224,19 @@ def derive_puzzle_id(puzzle_file):
 
 
 def run_feedback(puzzle_file):
+    """Run validator subprocess and return the FULL diagnostic feedback file."""
     result = subprocess.run(
         [sys.executable, "run_feedback.py", puzzle_file, "solution"],
         capture_output=True, text=True,
     )
-    return result.stdout + ("\n--- stderr ---\n" + result.stderr if result.stderr else "")
+    if result.returncode != 0:
+        return f"VALIDATOR ERROR (exit {result.returncode}):\n\nSTDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}"
+
+    puzzle_id = derive_puzzle_id(puzzle_file)
+    feedback_file = Path(f"feedback_{puzzle_id}.txt")
+    if not feedback_file.exists():
+        return result.stdout
+    return feedback_file.read_text()
 
 
 def generate_initial_prompt(puzzle_file):
@@ -237,7 +267,14 @@ def main():
         os.remove(history_file)
 
     initial_prompt = generate_initial_prompt(args.puzzle_file)
-    messages = [{"role": "user", "content": initial_prompt}]
+
+    # Sliding-window context: each iter the model sees only
+    #   [substrate_prompt, latest_response, latest_feedback]
+    # The substrate prompt already encodes all training pairs + the rule;
+    # we don't need accumulated iter history. Model only needs to see
+    # the previous code attempt and its diagnostic feedback to refine.
+    last_response = None
+    last_feedback = None
 
     print(f"Puzzle: {puzzle_id}")
     print(f"Model:  {args.model} ({provider}/{full_model})")
@@ -255,6 +292,16 @@ def main():
     puzzle_start = time.time()
 
     for n in range(1, args.max_iters + 1):
+        # Build messages fresh each iter: substrate + (optional) previous turn
+        if last_response is None:
+            messages = [{"role": "user", "content": initial_prompt}]
+        else:
+            messages = [
+                {"role": "user", "content": initial_prompt},
+                {"role": "assistant", "content": last_response},
+                {"role": "user", "content": last_feedback},
+            ]
+
         print("=" * 60)
         print(f"ITER {n} - sending {len(messages)} message(s), "
               f"{sum(len(m['content']) for m in messages)} chars")
@@ -332,8 +379,10 @@ def main():
         print("--- end feedback ---")
         print()
 
-        messages.append({"role": "assistant", "content": response})
-        messages.append({"role": "user", "content": feedback})
+        # Update sliding window: next iter sees substrate + this response + this feedback
+        last_response = response
+        last_feedback = feedback
+        # Save conversation snapshot (what was sent THIS iter, for inspection)
         (model_dir / "conversation.json").write_text(
             json.dumps(messages, indent=2)
         )
