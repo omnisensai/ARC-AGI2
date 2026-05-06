@@ -1,12 +1,13 @@
 """
 ARC-AGI Prompt Generator with Transformation Rules
+v6: TIPS moved to right before TEST INPUT (recency anchor at code-generation moment)
 
-Canonical version (formerly v6). Key design:
-- Task framing: "extract the given transformation rule" (substrate paradigm:
-  rule is provided as substrate symbols, model encodes it in Python).
-- TIPS placed RIGHT BEFORE TEST INPUT — anchors principles at the moment the
-  model writes code, not at the moment it reads substrate.
-- All training examples have uniform structure (no fragmentation).
+Difference from v5:
+- v5 had TIPS at the top, after the encoding key, before training examples.
+  TIPS was hundreds of tokens before the model needed to apply them.
+- v6 places TIPS right before TEST INPUT, anchoring it at the moment the
+  model has to write code (rather than at the moment it reads substrate).
+- All training examples retain uniform structure (no fragmentation).
 - Encoding key stays at top because the model needs symbol grammar BEFORE
   reading the first substrate grid.
 """
@@ -63,6 +64,23 @@ deep in the interior of the grid — inherits the "edge-touching" property.
 Wrong: `if r == 0 or c == 0 or r == H-1 or c == W-1` (per-cell test).
 Right: classify the cluster once, then propagate the result to every cell.
 
+GLOBAL STRUCTURE BEFORE LOCAL CELLS
+Before analyzing cells one by one, zoom out and look at the whole grid as
+an image. Some rules are not about individual cells at all — they are
+about whole regions wanting to be a repeating motif (a tiling, a stripe
+pattern, a symmetric layout, a woven-blanket cross-stitch).
+
+Blur-your-eyes test: if a region shows a regular repeating pattern (a
+period along one or both axes, mirror symmetry, rotational symmetry), the
+rule is probably "complete / restore the motif," not "transform each cell
+by a local rule." Cells that break the pattern are corruptions to fix,
+not signal to preserve.
+
+When this applies: regions framed by a uniform border, large blocks of
+mixed colors that look noisy, grids where the output looks visibly more
+regular than the input. Decide what KIND of rule it is at the whole-grid
+scale before zooming in to write per-cell logic.
+
 """
 
 
@@ -118,8 +136,13 @@ encode that rule in Python so it produces the correct output for any input.
     prompt += "MANDATORY OUTPUT FORMAT\n"
     prompt += "=" * 80 + "\n\n"
     prompt += (
-        "Return a `def solve(input_grid):` function that works on grids of any "
-        "size — we run your code on every training input and the test input.\n\n"
+        "Return BOTH a `def solve(input_grid):` function AND a hand-written\n"
+        "test output grid. Code generation and pattern recognition are separable\n"
+        "skills — sometimes you will see the correct test answer mentally but\n"
+        "write code that doesn't quite reach it (or vice versa). The two\n"
+        "outputs are independent candidates; we submit BOTH as the two ARC\n"
+        "attempts and ARC takes max over them.\n\n"
+        "Format your response with both blocks:\n\n"
         "```python\n"
         "def solve(input_grid):\n"
         "    # input_grid: 2D list of integers (colors 0-9)\n"
@@ -127,15 +150,25 @@ encode that rule in Python so it produces the correct output for any input.
         "    # YOUR ALGORITHM HERE\n\n"
         "    return output_grid\n"
         "```\n\n"
+        "TEST_OUTPUT = [\n"
+        "    [...row 0 values...],\n"
+        "    [...row 1 values...],\n"
+        "    ...\n"
+        "]\n\n"
         "REQUIREMENTS\n"
-        "- Output ONLY the function (you may include reasoning before it, but the\n"
-        "  function is what gets executed).\n"
+        "- BOTH the def solve function AND the TEST_OUTPUT block are required.\n"
         "- The function must work on grids of varying sizes — do not hardcode\n"
-        "  dimensions, row indices, or column indices.\n"
-        "- Return a 2D list of integers (colors 0-9).\n\n"
-        "DO NOT manually write out the test output grid. We will compute it by\n"
-        "running your code. If your response does not contain a `def solve(input_grid):`\n"
-        "function, we cannot validate your iteration and you will receive no feedback.\n"
+        "  dimensions, row indices, or column indices. We validate it by\n"
+        "  running solve() on every training input and comparing to the\n"
+        "  expected training output.\n"
+        "- TEST_OUTPUT is your best-guess answer for the test input only.\n"
+        "  Even if you are confident in your code, write the grid out — it\n"
+        "  is a separate candidate, not redundant with your code.\n"
+        "- Return 2D lists of integers (colors 0-9).\n\n"
+        "If your response does not contain a `def solve(input_grid):` function,\n"
+        "we cannot validate your iteration and you will receive no feedback.\n"
+        "If your response does not contain a TEST_OUTPUT block, we will only\n"
+        "submit one ARC candidate (your code's output) instead of two.\n"
     )
     return prompt
 
@@ -143,7 +176,7 @@ encode that rule in Python so it produces the correct output for any input.
 if __name__ == "__main__":
     import sys
     puzzle_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) > 2 else "substrate_prompt.txt"
+    output_file = sys.argv[2] if len(sys.argv) > 2 else "substrate_prompt_v6.txt"
     with open(puzzle_file) as f:
         puzzle = json.load(f)
     prompt = generate_prompt(puzzle)
