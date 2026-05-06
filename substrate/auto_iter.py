@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""auto_iter.py — semi-auto iter loop for substrate validation.
-
-Sends a substrate prompt to one model, extracts the def solve from its
-response, runs run_feedback.py to validate, appends feedback to the
-conversation, and repeats until SUBMIT or max-iters. Pauses for Enter
-between iters by default so you can watch each iter live.
-"""
+"""auto_iter.py - semi-auto iter loop for substrate validation."""
 
 import argparse
 import json
@@ -85,9 +79,15 @@ def chat_openai(messages, model, max_tokens=8192):
     from openai import OpenAI
     client = OpenAI()
     # GPT-5 / reasoning models require max_completion_tokens (not max_tokens).
-    # Both names work for gpt-4o etc., so always use max_completion_tokens.
+    # Reasoning models burn tokens internally before producing visible output;
+    # bump the budget so reasoning + completion both fit. Without this, an
+    # 8192 budget gets entirely consumed by reasoning and 0 chars come back.
+    if model.startswith("gpt-5") or model.startswith("o"):
+        budget = max(max_tokens * 4, 32000)
+    else:
+        budget = max_tokens
     resp = client.chat.completions.create(
-        model=model, max_completion_tokens=max_tokens, messages=messages,
+        model=model, max_completion_tokens=budget, messages=messages,
     )
     return resp.choices[0].message.content
 
