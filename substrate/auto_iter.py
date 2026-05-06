@@ -6,23 +6,27 @@ response, runs run_feedback.py to validate, appends feedback to the
 conversation, and repeats until SUBMIT or max-iters. Pauses for Enter
 between iters by default so you can watch each iter live.
 
-Each iter is timed end-to-end (API call, validation, parse/io). Per-iter
-timing is logged to terminal and accumulated in timing.json. Use this to
-estimate wall-clock cost per puzzle and per model.
-
 Usage:
     python auto_iter.py <puzzle_file.json> --model <id>
                                             [--max-iters N]
                                             [--auto]
 
 Models:
-    claude-sonnet, claude-opus, claude-haiku   (Anthropic)
-    gpt-5, gpt-4o                              (OpenAI)
-    gemini-2.5-pro, gemini-2.5-flash           (Google)
-    grok-4                                     (xAI, OpenAI-compatible)
+    Direct SDKs:
+      claude-sonnet, claude-opus, claude-haiku   (Anthropic)
+      gpt-5, gpt-5-mini, gpt-4o                  (OpenAI)
+      gemini-2.5-pro, gemini-2.5-flash           (Google)
+      grok-4, grok-4-fast                        (xAI)
+    OpenRouter (single key, many models):
+      qwen-coder, qwen-coder-14b, qwen-coder-7b  (Qwen Coder series)
+      qwen-max                                   (Qwen general)
+      deepseek-r1-32b, deepseek-r1, deepseek-chat (DeepSeek)
+      llama-3.3-70b                              (Meta)
+      mistral-large                              (Mistral)
 
 Env vars (set what you need):
-    ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY, XAI_API_KEY
+    ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY, XAI_API_KEY,
+    OPENROUTER_API_KEY
 
 Per iter, saves under Model Results/<Model>/<puzzle_id>/:
     iter_N_response.txt   full raw response from the LLM
@@ -43,22 +47,66 @@ import time
 from pathlib import Path
 
 
+def load_keys_env():
+    """Load API keys from keys.env in the same directory as this script.
+
+    Format (one key=value per line, lines starting with # ignored):
+        ANTHROPIC_API_KEY=sk-ant-...
+        OPENAI_API_KEY=sk-...
+        GOOGLE_API_KEY=...
+        XAI_API_KEY=xai-...
+        OPENROUTER_API_KEY=sk-or-v1-...
+
+    Falls back silently if keys.env doesn't exist (use real env vars instead).
+    """
+    keys_file = Path(__file__).parent / "keys.env"
+    if not keys_file.exists():
+        return
+    for line in keys_file.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" in line:
+            k, _, v = line.partition("=")
+            os.environ[k.strip()] = v.strip().strip('"').strip("'")
+
+
+load_keys_env()
+
+
 MODELS = {
+    # Anthropic
     "claude-sonnet":    ("anthropic", "claude-sonnet-4-5"),
     "claude-opus":      ("anthropic", "claude-opus-4-5"),
     "claude-haiku":     ("anthropic", "claude-haiku-4-5"),
+    # OpenAI
     "gpt-5":            ("openai",    "gpt-5"),
+    "gpt-5-mini":       ("openai",    "gpt-5-mini"),
     "gpt-4o":           ("openai",    "gpt-4o"),
+    # Google
     "gemini-2.5-pro":   ("google",    "gemini-2.5-pro"),
     "gemini-2.5-flash": ("google",    "gemini-2.5-flash"),
+    # xAI
     "grok-4":           ("xai",       "grok-4"),
+    "grok-4-fast":      ("xai",       "grok-4-1-fast-reasoning"),
+    # OpenRouter (single key, many models)
+    "qwen-coder":       ("openrouter", "qwen/qwen-2.5-coder-32b-instruct"),
+    "qwen-coder-14b":   ("openrouter", "qwen/qwen-2.5-coder-14b-instruct"),
+    "qwen-coder-7b":    ("openrouter", "qwen/qwen-2.5-coder-7b-instruct"),
+    "qwen-max":         ("openrouter", "qwen/qwen-max"),
+    "deepseek-r1-32b":  ("openrouter", "deepseek/deepseek-r1-distill-qwen-32b"),
+    "deepseek-r1":      ("openrouter", "deepseek/deepseek-r1"),
+    "deepseek-chat":    ("openrouter", "deepseek/deepseek-chat"),
+    "llama-3.3-70b":    ("openrouter", "meta-llama/llama-3.3-70b-instruct"),
+    "mistral-large":    ("openrouter", "mistralai/mistral-large"),
 }
 
 PROVIDER_DIR = {
-    "anthropic": "Claude",
-    "openai":    "GPT",
-    "google":    "Gemini",
-    "xai":       "Grok",
+    "anthropic":  "Claude",
+    "openai":     "GPT",
+    "google":     "Gemini",
+    "xai":        "Grok",
+    "openrouter": "OpenRouter",
 }
 
 
@@ -115,11 +163,24 @@ def chat_xai(messages, model, max_tokens=8192):
     return resp.choices[0].message.content
 
 
+def chat_openrouter(messages, model, max_tokens=8192):
+    from openai import OpenAI
+    client = OpenAI(
+        api_key=os.environ["OPENROUTER_API_KEY"],
+        base_url="https://openrouter.ai/api/v1",
+    )
+    resp = client.chat.completions.create(
+        model=model, max_tokens=max_tokens, messages=messages,
+    )
+    return resp.choices[0].message.content
+
+
 CHAT = {
-    "anthropic": chat_anthropic,
-    "openai":    chat_openai,
-    "google":    chat_google,
-    "xai":       chat_xai,
+    "anthropic":  chat_anthropic,
+    "openai":     chat_openai,
+    "google":     chat_google,
+    "xai":        chat_xai,
+    "openrouter": chat_openrouter,
 }
 
 
