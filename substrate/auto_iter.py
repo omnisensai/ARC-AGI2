@@ -6,10 +6,6 @@ response, runs run_feedback.py to validate, appends feedback to the
 conversation, and repeats until SUBMIT or max-iters. Pauses for Enter
 between iters by default so you can watch each iter live.
 
-Each iter is timed end-to-end (API call, validation, parse/io). Per-iter
-timing is logged to terminal and accumulated in timing.json. Use this to
-estimate wall-clock cost per puzzle and per model.
-
 Usage:
     python auto_iter.py <puzzle_file.json> --model <id>
                                             [--max-iters N]
@@ -21,8 +17,9 @@ Models:
     gemini-2.5-pro, gemini-2.5-flash           (Google)
     grok-4                                     (xAI, OpenAI-compatible)
 
-Env vars (set what you need):
-    ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY, XAI_API_KEY
+API keys: copy keys.env.example to keys.env and fill in.
+Or set environment variables: ANTHROPIC_API_KEY, OPENAI_API_KEY,
+GOOGLE_API_KEY, XAI_API_KEY.
 
 Per iter, saves under Model Results/<Model>/<puzzle_id>/:
     iter_N_response.txt   full raw response from the LLM
@@ -41,6 +38,32 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+
+
+def load_keys_env():
+    """Load API keys from keys.env in the same directory as this script.
+
+    Format (one key=value per line, lines starting with # ignored):
+        ANTHROPIC_API_KEY=sk-ant-...
+        OPENAI_API_KEY=sk-...
+        GOOGLE_API_KEY=...
+        XAI_API_KEY=xai-...
+
+    Falls back silently if keys.env doesn't exist (use real env vars instead).
+    """
+    keys_file = Path(__file__).parent / "keys.env"
+    if not keys_file.exists():
+        return
+    for line in keys_file.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" in line:
+            k, _, v = line.partition("=")
+            os.environ[k.strip()] = v.strip().strip('"').strip("'")
+
+
+load_keys_env()
 
 
 MODELS = {
