@@ -18,10 +18,9 @@ Models:
       gemini-2.5-pro, gemini-2.5-flash           (Google)
       grok-4, grok-4-fast                        (xAI)
     OpenRouter (single key, many models):
-      qwen-coder, qwen-coder-14b, qwen-coder-7b  (Qwen Coder series)
-      qwen-max                                   (Qwen general)
-      deepseek-r1-32b, deepseek-r1, deepseek-chat (DeepSeek)
+      qwen-coder, qwen-max                       (Qwen)
       llama-3.3-70b                              (Meta)
+      deepseek-chat                              (DeepSeek)
       mistral-large                              (Mistral)
 
 Env vars (set what you need):
@@ -187,22 +186,28 @@ CHAT = {
 def extract_solve(text):
     """Pull a `def solve(...)` block from the response.
 
+    Models often write multiple code blocks (first attempt + refinement,
+    or example + final). The LAST def solve block is the model's final
+    answer - earlier blocks are abandoned drafts the model itself
+    rejected. Always take the last match.
+
     Tries fenced ```python``` first, then any def solve in the raw text.
     Returns None if neither matches.
     """
-    fenced = re.search(
+    fenced_matches = re.findall(
         r"```(?:python)?\s*\n(def solve\b.*?)\n```",
         text, re.DOTALL,
     )
-    if fenced:
-        return fenced.group(1).rstrip()
+    if fenced_matches:
+        return fenced_matches[-1].rstrip()
 
-    raw = re.search(
+    # Fallback: raw def solve not in a fence (rare)
+    raw_matches = re.findall(
         r"^(def solve\b[\s\S]*?)(?=\n```|\n# end|\Z)",
         text, re.MULTILINE,
     )
-    if raw:
-        return raw.group(1).rstrip()
+    if raw_matches:
+        return raw_matches[-1].rstrip()
     return None
 
 
