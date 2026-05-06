@@ -59,6 +59,11 @@ PROVIDER_DIR = {
 
 
 def chat_anthropic(messages, model, max_tokens=8192):
+    """Anthropic with extended thinking maxed out for sonnet/opus.
+
+    Uses streaming because long thinking budgets can exceed the 10-min
+    non-streaming timeout limit.
+    """
     from anthropic import Anthropic
     client = Anthropic()
     sys_msg = ""
@@ -86,11 +91,14 @@ def chat_anthropic(messages, model, max_tokens=8192):
     if sys_msg:
         kwargs["system"] = sys_msg
 
-    resp = client.messages.create(**kwargs)
-    text_parts = [b.text for b in resp.content if getattr(b, "type", "text") == "text"]
+    # Streaming required when budget could exceed 10-min non-streaming limit.
+    with client.messages.stream(**kwargs) as stream:
+        final_message = stream.get_final_message()
+
+    text_parts = [b.text for b in final_message.content if getattr(b, "type", "text") == "text"]
     if text_parts:
         return "".join(text_parts)
-    return resp.content[0].text
+    return final_message.content[0].text
 
 
 def chat_openai(messages, model, max_tokens=8192):
@@ -268,11 +276,6 @@ def main():
 
     initial_prompt = generate_initial_prompt(args.puzzle_file)
 
-    # Sliding-window context: each iter the model sees only
-    #   [substrate_prompt, latest_response, latest_feedback]
-    # The substrate prompt already encodes all training pairs + the rule;
-    # we don't need accumulated iter history. Model only needs to see
-    # the previous code attempt and its diagnostic feedback to refine.
     last_response = None
     last_feedback = None
 
@@ -292,7 +295,6 @@ def main():
     puzzle_start = time.time()
 
     for n in range(1, args.max_iters + 1):
-        # Build messages fresh each iter: substrate + (optional) previous turn
         if last_response is None:
             messages = [{"role": "user", "content": initial_prompt}]
         else:
@@ -379,10 +381,8 @@ def main():
         print("--- end feedback ---")
         print()
 
-        # Update sliding window: next iter sees substrate + this response + this feedback
         last_response = response
         last_feedback = feedback
-        # Save conversation snapshot (what was sent THIS iter, for inspection)
         (model_dir / "conversation.json").write_text(
             json.dumps(messages, indent=2)
         )
