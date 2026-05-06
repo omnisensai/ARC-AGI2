@@ -73,7 +73,6 @@ def chat_anthropic(messages, model, max_tokens=8192):
     use_thinking = "haiku" not in model.lower()
 
     if use_thinking:
-        # Maxed-out thinking: 32k budget + 8k visible output = 40k total
         thinking_budget = 32000
         kwargs = {
             "model": model,
@@ -83,7 +82,6 @@ def chat_anthropic(messages, model, max_tokens=8192):
             "temperature": 1.0,
         }
     else:
-        # Haiku - no thinking support, just bump output budget
         kwargs = {"model": model, "max_tokens": 16384, "messages": msgs}
 
     if sys_msg:
@@ -102,7 +100,6 @@ def chat_openai(messages, model, max_tokens=8192):
     client = OpenAI()
     is_reasoning = model.startswith("gpt-5") or model.startswith("o")
     if is_reasoning:
-        # Maxed-out: 64k for reasoning + visible output combined
         kwargs = {
             "model": model,
             "max_completion_tokens": 64000,
@@ -110,7 +107,6 @@ def chat_openai(messages, model, max_tokens=8192):
             "reasoning_effort": "high",
         }
     else:
-        # Non-reasoning models (gpt-4o etc): bump output budget
         kwargs = {
             "model": model,
             "max_completion_tokens": 16384,
@@ -130,7 +126,6 @@ def chat_google(messages, model, max_tokens=8192):
     resp = client.models.generate_content(
         model=model,
         contents=contents,
-        # Bumped: gemini 2.5 has thinking by default, give it room
         config={"max_output_tokens": 32000},
     )
     return resp.text
@@ -154,7 +149,6 @@ def chat_openrouter(messages, model, max_tokens=8192):
         api_key=os.environ["OPENROUTER_API_KEY"],
         base_url="https://openrouter.ai/api/v1",
     )
-    # Maxed-out for open-weights models that tend to over-explain
     resp = client.chat.completions.create(
         model=model, max_tokens=32000, messages=messages,
     )
@@ -232,11 +226,28 @@ def derive_puzzle_id(puzzle_file):
 
 
 def run_feedback(puzzle_file):
+    """Run validator subprocess and return the FULL diagnostic feedback file.
+
+    run_feedback.py writes the substrate's full diagnostic output (diff maps,
+    transformation grids, mechanistic analysis, regression alerts) to
+    feedback_<puzzle_id>.txt. Stdout only has the verdict summary (~500 chars).
+
+    The full file is what the model needs to see to iterate effectively.
+    Returning stdout instead would starve the model of the substrate's
+    diagnostic content.
+    """
     result = subprocess.run(
         [sys.executable, "run_feedback.py", puzzle_file, "solution"],
         capture_output=True, text=True,
     )
-    return result.stdout + ("\n--- stderr ---\n" + result.stderr if result.stderr else "")
+    if result.returncode != 0:
+        return f"VALIDATOR ERROR (exit {result.returncode}):\n\nSTDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}"
+
+    puzzle_id = derive_puzzle_id(puzzle_file)
+    feedback_file = Path(f"feedback_{puzzle_id}.txt")
+    if not feedback_file.exists():
+        return result.stdout
+    return feedback_file.read_text()
 
 
 def generate_initial_prompt(puzzle_file):
