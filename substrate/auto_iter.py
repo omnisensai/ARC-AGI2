@@ -5,35 +5,6 @@ Sends a substrate prompt to one model, extracts the def solve from its
 response, runs run_feedback.py to validate, appends feedback to the
 conversation, and repeats until SUBMIT or max-iters. Pauses for Enter
 between iters by default so you can watch each iter live.
-
-Usage:
-    python auto_iter.py <puzzle_file.json> --model <id>
-                                            [--max-iters N]
-                                            [--auto]
-
-Models:
-    Direct SDKs:
-      claude-sonnet, claude-opus, claude-haiku   (Anthropic)
-      gpt-5, gpt-5-mini, gpt-4o                  (OpenAI)
-      gemini-2.5-pro, gemini-2.5-flash           (Google)
-      grok-4, grok-4-fast                        (xAI)
-    OpenRouter (single key, many models):
-      qwen-coder, qwen-max                       (Qwen)
-      llama-3.3-70b                              (Meta)
-      deepseek-chat                              (DeepSeek)
-      mistral-large                              (Mistral)
-
-Env vars (set what you need):
-    ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY, XAI_API_KEY,
-    OPENROUTER_API_KEY
-
-Per iter, saves under Model Results/<Model>/<puzzle_id>/:
-    iter_N_response.txt   full raw response from the LLM
-    iter_N_response.py    extracted def solve (also copied to ./solution.py)
-    iter_N_hand_grid.json extracted TEST_OUTPUT (if present)
-    iter_N_feedback.txt   captured run_feedback.py output
-    conversation.json     full message history so far
-    timing.json           per-iter and total wall-clock timing
 """
 
 import argparse
@@ -47,17 +18,6 @@ from pathlib import Path
 
 
 def load_keys_env():
-    """Load API keys from keys.env in the same directory as this script.
-
-    Format (one key=value per line, lines starting with # ignored):
-        ANTHROPIC_API_KEY=sk-ant-...
-        OPENAI_API_KEY=sk-...
-        GOOGLE_API_KEY=...
-        XAI_API_KEY=xai-...
-        OPENROUTER_API_KEY=sk-or-v1-...
-
-    Falls back silently if keys.env doesn't exist (use real env vars instead).
-    """
     keys_file = Path(__file__).parent / "keys.env"
     if not keys_file.exists():
         return
@@ -74,21 +34,16 @@ load_keys_env()
 
 
 MODELS = {
-    # Anthropic
     "claude-sonnet":    ("anthropic", "claude-sonnet-4-5"),
     "claude-opus":      ("anthropic", "claude-opus-4-5"),
     "claude-haiku":     ("anthropic", "claude-haiku-4-5"),
-    # OpenAI
     "gpt-5":            ("openai",    "gpt-5"),
     "gpt-5-mini":       ("openai",    "gpt-5-mini"),
     "gpt-4o":           ("openai",    "gpt-4o"),
-    # Google
     "gemini-2.5-pro":   ("google",    "gemini-2.5-pro"),
     "gemini-2.5-flash": ("google",    "gemini-2.5-flash"),
-    # xAI
     "grok-4":           ("xai",       "grok-4"),
     "grok-4-fast":      ("xai",       "grok-4-1-fast-reasoning"),
-    # OpenRouter (single key, many models)
     "qwen-coder":       ("openrouter", "qwen/qwen-2.5-coder-32b-instruct"),
     "qwen-coder-14b":   ("openrouter", "qwen/qwen-2.5-coder-14b-instruct"),
     "qwen-coder-7b":    ("openrouter", "qwen/qwen-2.5-coder-7b-instruct"),
@@ -129,8 +84,10 @@ def chat_anthropic(messages, model, max_tokens=8192):
 def chat_openai(messages, model, max_tokens=8192):
     from openai import OpenAI
     client = OpenAI()
+    # GPT-5 / reasoning models require max_completion_tokens (not max_tokens).
+    # Both names work for gpt-4o etc., so always use max_completion_tokens.
     resp = client.chat.completions.create(
-        model=model, max_tokens=max_tokens, messages=messages,
+        model=model, max_completion_tokens=max_tokens, messages=messages,
     )
     return resp.choices[0].message.content
 
@@ -184,24 +141,12 @@ CHAT = {
 
 
 def extract_solve(text):
-    """Pull a `def solve(...)` block from the response.
-
-    Models often write multiple code blocks (first attempt + refinement,
-    or example + final). The LAST def solve block is the model's final
-    answer - earlier blocks are abandoned drafts the model itself
-    rejected. Always take the last match.
-
-    Tries fenced ```python``` first, then any def solve in the raw text.
-    Returns None if neither matches.
-    """
     fenced_matches = re.findall(
         r"```(?:python)?\s*\n(def solve\b.*?)\n```",
         text, re.DOTALL,
     )
     if fenced_matches:
         return fenced_matches[-1].rstrip()
-
-    # Fallback: raw def solve not in a fence (rare)
     raw_matches = re.findall(
         r"^(def solve\b[\s\S]*?)(?=\n```|\n# end|\Z)",
         text, re.MULTILINE,
@@ -212,12 +157,6 @@ def extract_solve(text):
 
 
 def extract_hand_grid(text):
-    """Pull `TEST_OUTPUT = [...]` from the response.
-
-    The model is asked to provide a hand-written test output as the second
-    ARC submission candidate. Returns the parsed 2D list, or None if not
-    found / unparseable.
-    """
     match = re.search(
         r"TEST_OUTPUT\s*=\s*(\[\s*\[.*?\]\s*\])",
         text, re.DOTALL,
@@ -237,16 +176,6 @@ def extract_hand_grid(text):
 
 
 def validate_hand_grid(hand_grid, puzzle_file):
-    """Compare hand grid to test ground truth.
-
-    Substrate-validation only: we have ground truth available locally during
-    development. Returns (matches, diff_count, total_cells) or None if no
-    test ground truth is in the puzzle file.
-
-    DO NOT include this result in feedback to the model - it would leak
-    test ground truth and undermine the substrate gate. Use only for
-    analysis and scoreboard.
-    """
     if hand_grid is None:
         return None
     with open(puzzle_file) as f:
