@@ -59,15 +59,7 @@ PROVIDER_DIR = {
 
 
 def chat_anthropic(messages, model, max_tokens=8192):
-    """Anthropic chat with extended thinking enabled for sonnet/opus.
-
-    Chat surfaces (claude.ai) automatically engage extended thinking on hard
-    reasoning tasks; the API does not unless explicitly requested. This is
-    the difference between API Sonnet stuck at 0/2 training and chat Sonnet
-    solving in 2 iters on the same prompt.
-
-    Haiku does not support extended thinking; we send it without.
-    """
+    """Anthropic with extended thinking maxed out for sonnet/opus."""
     from anthropic import Anthropic
     client = Anthropic()
     sys_msg = ""
@@ -80,52 +72,50 @@ def chat_anthropic(messages, model, max_tokens=8192):
 
     use_thinking = "haiku" not in model.lower()
 
-    kwargs = {"model": model, "max_tokens": max_tokens, "messages": msgs}
+    if use_thinking:
+        # Maxed-out thinking: 32k budget + 8k visible output = 40k total
+        thinking_budget = 32000
+        kwargs = {
+            "model": model,
+            "max_tokens": 40000,
+            "messages": msgs,
+            "thinking": {"type": "enabled", "budget_tokens": thinking_budget},
+            "temperature": 1.0,
+        }
+    else:
+        # Haiku - no thinking support, just bump output budget
+        kwargs = {"model": model, "max_tokens": 16384, "messages": msgs}
+
     if sys_msg:
         kwargs["system"] = sys_msg
 
-    if use_thinking:
-        thinking_budget = 16000
-        # max_tokens must exceed budget_tokens; give 4k headroom for visible output
-        kwargs["max_tokens"] = max(max_tokens, thinking_budget + 4096)
-        kwargs["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
-        # Extended thinking requires temperature=1.0
-        kwargs["temperature"] = 1.0
-
     resp = client.messages.create(**kwargs)
-
-    # With thinking enabled, response.content has both thinking blocks and
-    # text blocks. We want only the visible text.
-    text_parts = [block.text for block in resp.content if getattr(block, "type", "text") == "text"]
+    text_parts = [b.text for b in resp.content if getattr(b, "type", "text") == "text"]
     if text_parts:
         return "".join(text_parts)
     return resp.content[0].text
 
 
 def chat_openai(messages, model, max_tokens=8192):
-    """OpenAI chat with reasoning_effort=high on GPT-5 / o-series.
-
-    Chat surfaces (chatgpt.com) use elevated reasoning effort by default
-    on hard problems; API defaults are lower. Setting reasoning_effort=high
-    matches chat behavior for reasoning models. Non-reasoning models
-    (gpt-4o) ignore this parameter.
-    """
+    """OpenAI with reasoning_effort=high and large completion budget."""
     from openai import OpenAI
     client = OpenAI()
     is_reasoning = model.startswith("gpt-5") or model.startswith("o")
     if is_reasoning:
-        budget = max(max_tokens * 4, 32000)
+        # Maxed-out: 64k for reasoning + visible output combined
+        kwargs = {
+            "model": model,
+            "max_completion_tokens": 64000,
+            "messages": messages,
+            "reasoning_effort": "high",
+        }
     else:
-        budget = max_tokens
-
-    kwargs = {
-        "model": model,
-        "max_completion_tokens": budget,
-        "messages": messages,
-    }
-    if is_reasoning:
-        kwargs["reasoning_effort"] = "high"
-
+        # Non-reasoning models (gpt-4o etc): bump output budget
+        kwargs = {
+            "model": model,
+            "max_completion_tokens": 16384,
+            "messages": messages,
+        }
     resp = client.chat.completions.create(**kwargs)
     return resp.choices[0].message.content
 
@@ -140,7 +130,8 @@ def chat_google(messages, model, max_tokens=8192):
     resp = client.models.generate_content(
         model=model,
         contents=contents,
-        config={"max_output_tokens": max_tokens},
+        # Bumped: gemini 2.5 has thinking by default, give it room
+        config={"max_output_tokens": 32000},
     )
     return resp.text
 
@@ -152,7 +143,7 @@ def chat_xai(messages, model, max_tokens=8192):
         base_url="https://api.x.ai/v1",
     )
     resp = client.chat.completions.create(
-        model=model, max_tokens=max_tokens, messages=messages,
+        model=model, max_tokens=16384, messages=messages,
     )
     return resp.choices[0].message.content
 
@@ -163,10 +154,9 @@ def chat_openrouter(messages, model, max_tokens=8192):
         api_key=os.environ["OPENROUTER_API_KEY"],
         base_url="https://openrouter.ai/api/v1",
     )
-    # Open-weights models often over-explain before producing code.
-    # Give a generous token budget so they don't get truncated mid-response.
+    # Maxed-out for open-weights models that tend to over-explain
     resp = client.chat.completions.create(
-        model=model, max_tokens=max(max_tokens, 16384), messages=messages,
+        model=model, max_tokens=32000, messages=messages,
     )
     return resp.choices[0].message.content
 
