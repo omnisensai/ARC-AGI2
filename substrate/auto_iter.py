@@ -59,7 +59,6 @@ PROVIDER_DIR = {
 
 
 def chat_anthropic(messages, model, max_tokens=8192):
-    """Anthropic with extended thinking maxed out for sonnet/opus."""
     from anthropic import Anthropic
     client = Anthropic()
     sys_msg = ""
@@ -95,7 +94,6 @@ def chat_anthropic(messages, model, max_tokens=8192):
 
 
 def chat_openai(messages, model, max_tokens=8192):
-    """OpenAI with reasoning_effort=high and large completion budget."""
     from openai import OpenAI
     client = OpenAI()
     is_reasoning = model.startswith("gpt-5") or model.startswith("o")
@@ -226,16 +224,7 @@ def derive_puzzle_id(puzzle_file):
 
 
 def run_feedback(puzzle_file):
-    """Run validator subprocess and return the FULL diagnostic feedback file.
-
-    run_feedback.py writes the substrate's full diagnostic output (diff maps,
-    transformation grids, mechanistic analysis, regression alerts) to
-    feedback_<puzzle_id>.txt. Stdout only has the verdict summary (~500 chars).
-
-    The full file is what the model needs to see to iterate effectively.
-    Returning stdout instead would starve the model of the substrate's
-    diagnostic content.
-    """
+    """Run validator subprocess and return the FULL diagnostic feedback file."""
     result = subprocess.run(
         [sys.executable, "run_feedback.py", puzzle_file, "solution"],
         capture_output=True, text=True,
@@ -278,7 +267,14 @@ def main():
         os.remove(history_file)
 
     initial_prompt = generate_initial_prompt(args.puzzle_file)
-    messages = [{"role": "user", "content": initial_prompt}]
+
+    # Sliding-window context: each iter the model sees only
+    #   [substrate_prompt, latest_response, latest_feedback]
+    # The substrate prompt already encodes all training pairs + the rule;
+    # we don't need accumulated iter history. Model only needs to see
+    # the previous code attempt and its diagnostic feedback to refine.
+    last_response = None
+    last_feedback = None
 
     print(f"Puzzle: {puzzle_id}")
     print(f"Model:  {args.model} ({provider}/{full_model})")
@@ -296,6 +292,16 @@ def main():
     puzzle_start = time.time()
 
     for n in range(1, args.max_iters + 1):
+        # Build messages fresh each iter: substrate + (optional) previous turn
+        if last_response is None:
+            messages = [{"role": "user", "content": initial_prompt}]
+        else:
+            messages = [
+                {"role": "user", "content": initial_prompt},
+                {"role": "assistant", "content": last_response},
+                {"role": "user", "content": last_feedback},
+            ]
+
         print("=" * 60)
         print(f"ITER {n} - sending {len(messages)} message(s), "
               f"{sum(len(m['content']) for m in messages)} chars")
@@ -373,8 +379,10 @@ def main():
         print("--- end feedback ---")
         print()
 
-        messages.append({"role": "assistant", "content": response})
-        messages.append({"role": "user", "content": feedback})
+        # Update sliding window: next iter sees substrate + this response + this feedback
+        last_response = response
+        last_feedback = feedback
+        # Save conversation snapshot (what was sent THIS iter, for inspection)
         (model_dir / "conversation.json").write_text(
             json.dumps(messages, indent=2)
         )
