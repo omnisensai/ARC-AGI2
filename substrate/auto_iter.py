@@ -18,9 +18,10 @@ Models:
       gemini-2.5-pro, gemini-2.5-flash           (Google)
       grok-4, grok-4-fast                        (xAI)
     OpenRouter (single key, many models):
-      qwen-coder, qwen-max                       (Qwen)
+      qwen-coder, qwen-coder-14b, qwen-coder-7b  (Qwen Coder series)
+      qwen-max                                   (Qwen general)
+      deepseek-r1-32b, deepseek-r1, deepseek-chat (DeepSeek)
       llama-3.3-70b                              (Meta)
-      deepseek-chat                              (DeepSeek)
       mistral-large                              (Mistral)
 
 Env vars (set what you need):
@@ -90,9 +91,13 @@ MODELS = {
     "grok-4-fast":      ("xai",       "grok-4-1-fast-reasoning"),
     # OpenRouter (single key, many models)
     "qwen-coder":       ("openrouter", "qwen/qwen-2.5-coder-32b-instruct"),
+    "qwen-coder-14b":   ("openrouter", "qwen/qwen-2.5-coder-14b-instruct"),
+    "qwen-coder-7b":    ("openrouter", "qwen/qwen-2.5-coder-7b-instruct"),
     "qwen-max":         ("openrouter", "qwen/qwen-max"),
-    "llama-3.3-70b":    ("openrouter", "meta-llama/llama-3.3-70b-instruct"),
+    "deepseek-r1-32b":  ("openrouter", "deepseek/deepseek-r1-distill-qwen-32b"),
+    "deepseek-r1":      ("openrouter", "deepseek/deepseek-r1"),
     "deepseek-chat":    ("openrouter", "deepseek/deepseek-chat"),
+    "llama-3.3-70b":    ("openrouter", "meta-llama/llama-3.3-70b-instruct"),
     "mistral-large":    ("openrouter", "mistralai/mistral-large"),
 }
 
