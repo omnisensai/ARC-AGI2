@@ -12,14 +12,20 @@ Usage:
                                             [--auto]
 
 Models:
-    claude-sonnet, claude-opus, claude-haiku   (Anthropic)
-    gpt-5, gpt-4o                              (OpenAI)
-    gemini-2.5-pro, gemini-2.5-flash           (Google)
-    grok-4                                     (xAI, OpenAI-compatible)
+    Direct SDKs:
+      claude-sonnet, claude-opus, claude-haiku   (Anthropic)
+      gpt-5, gpt-4o                              (OpenAI)
+      gemini-2.5-pro, gemini-2.5-flash           (Google)
+      grok-4                                     (xAI, OpenAI-compatible)
+    OpenRouter (single key, many models):
+      qwen-coder, qwen-max                       (Qwen)
+      llama-3.3-70b                              (Meta)
+      deepseek-chat                              (DeepSeek)
+      mistral-large                              (Mistral)
 
 API keys: copy keys.env.example to keys.env and fill in.
 Or set environment variables: ANTHROPIC_API_KEY, OPENAI_API_KEY,
-GOOGLE_API_KEY, XAI_API_KEY.
+GOOGLE_API_KEY, XAI_API_KEY, OPENROUTER_API_KEY.
 
 Per iter, saves under Model Results/<Model>/<puzzle_id>/:
     iter_N_response.txt   full raw response from the LLM
@@ -48,6 +54,7 @@ def load_keys_env():
         OPENAI_API_KEY=sk-...
         GOOGLE_API_KEY=...
         XAI_API_KEY=xai-...
+        OPENROUTER_API_KEY=sk-or-v1-...
 
     Falls back silently if keys.env doesn't exist (use real env vars instead).
     """
@@ -75,13 +82,20 @@ MODELS = {
     "gemini-2.5-pro":   ("google",    "gemini-2.5-pro"),
     "gemini-2.5-flash": ("google",    "gemini-2.5-flash"),
     "grok-4":           ("xai",       "grok-4"),
+    # OpenRouter models (any model id that openrouter.ai supports)
+    "qwen-coder":       ("openrouter", "qwen/qwen-2.5-coder-32b-instruct"),
+    "qwen-max":         ("openrouter", "qwen/qwen-max"),
+    "llama-3.3-70b":    ("openrouter", "meta-llama/llama-3.3-70b-instruct"),
+    "deepseek-chat":    ("openrouter", "deepseek/deepseek-chat"),
+    "mistral-large":    ("openrouter", "mistralai/mistral-large"),
 }
 
 PROVIDER_DIR = {
-    "anthropic": "Claude",
-    "openai":    "GPT",
-    "google":    "Gemini",
-    "xai":       "Grok",
+    "anthropic":  "Claude",
+    "openai":     "GPT",
+    "google":     "Gemini",
+    "xai":        "Grok",
+    "openrouter": "OpenRouter",
 }
 
 
@@ -138,11 +152,24 @@ def chat_xai(messages, model, max_tokens=8192):
     return resp.choices[0].message.content
 
 
+def chat_openrouter(messages, model, max_tokens=8192):
+    from openai import OpenAI
+    client = OpenAI(
+        api_key=os.environ["OPENROUTER_API_KEY"],
+        base_url="https://openrouter.ai/api/v1",
+    )
+    resp = client.chat.completions.create(
+        model=model, max_tokens=max_tokens, messages=messages,
+    )
+    return resp.choices[0].message.content
+
+
 CHAT = {
-    "anthropic": chat_anthropic,
-    "openai":    chat_openai,
-    "google":    chat_google,
-    "xai":       chat_xai,
+    "anthropic":  chat_anthropic,
+    "openai":     chat_openai,
+    "google":     chat_google,
+    "xai":        chat_xai,
+    "openrouter": chat_openrouter,
 }
 
 
