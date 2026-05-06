@@ -3,21 +3,28 @@ Competition validator for ARC-AGI:
   Submit gate: Training 3/3 (solve reproduces every training output exactly)
   Submission:  solve(test_input)
 
-Canonical version. Includes:
-  - Lockdown v2: code-checkpoint regression block (echoes last passing solve)
-  - 6 CODE PITFALLS list (cluster-vs-cell, 4-conn vs 8-conn, diagonal sandwich,
-    hardcoded dims, mutate-while-iterate, aliasing)
-  - Iteration history table
-  - PASSING anchor blocks for stability across iters
+If training fails, generate substrate feedback per failed training pair, plus a
+test self-inspection block so the LLM sees what its current code would submit.
+Also includes confirmation blocks for passing pairs so the LLM is anchored on
+what its current rule already gets right and does NOT regress when fixing
+the failing pairs.
+
+Iteration history is persisted to <puzzle_id>_history.json and rendered at the
+top of every feedback file so the LLM sees how its understanding evolved.
 
 Usage:
-  1. Save the LLM's solve() function to a file (e.g. gpt_solution.py)
-  2. Edit PUZZLE_FILE / SOLUTION_MODULE / OUT_FILE below
-  3. python run_feedback.py
+  1. Save the LLM's solve() function to a file (default: solution.py)
+  2. python run_feedback.py <puzzle_file.json> [solution_module]
+
+Examples:
+  python run_feedback.py puzzle_8f3a5a89.json
+  python run_feedback.py puzzle_135a2760.json solution
 """
 
 import json
 import importlib
+import re
+import sys
 from pathlib import Path
 
 from complete_substrate_feedback import (
@@ -26,24 +33,27 @@ from complete_substrate_feedback import (
 )
 from transformation_grid import generate_transformation_grid
 
-PUZZLE_FILE = "puzzle_8f3a5a89.json"
-PUZZLE_ID = "8f3a5a89"
-SOLUTION_MODULE = "gpt_solution"
-HISTORY_FILE = f"{PUZZLE_ID}_history.json"
-OUT_FILE = f"feedback_{PUZZLE_ID}.txt"
+
+def derive_puzzle_id(puzzle_file: str) -> str:
+    """Extract puzzle ID from filename (e.g. 'puzzle_8f3a5a89.json' -> '8f3a5a89').
+    Falls back to the bare stem if the 'puzzle_' prefix is absent."""
+    stem = Path(puzzle_file).stem
+    m = re.match(r'^puzzle_(.+)$', stem)
+    return m.group(1) if m else stem
 
 
-def checkpoint_path(pair_num):
-    return Path(f"{PUZZLE_ID}_checkpoint_pair_{pair_num}.py")
+
+def checkpoint_path(puzzle_id, pair_num):
+    return Path(f"{puzzle_id}_checkpoint_pair_{pair_num}.py")
 
 
-def save_checkpoint(pair_num):
-    src = Path(f"{SOLUTION_MODULE}.py").read_text()
-    checkpoint_path(pair_num).write_text(src)
+def save_checkpoint(puzzle_id, pair_num, solution_module):
+    src = Path(f"{solution_module}.py").read_text()
+    checkpoint_path(puzzle_id, pair_num).write_text(src)
 
 
-def load_checkpoint(pair_num):
-    p = checkpoint_path(pair_num)
+def load_checkpoint(puzzle_id, pair_num):
+    p = checkpoint_path(puzzle_id, pair_num)
     return p.read_text() if p.exists() else None
 
 
@@ -59,7 +69,7 @@ def render_regression_block(pair_number, checkpoint_source):
         f"Pair {pair_number} PASSED in a previous iteration with the code below,\n"
         f"and your CURRENT code FAILS it. You broke working logic.\n\n"
         f"Diff your current solve() against this checkpoint. The mechanism that\n"
-        f"made Pair {pair_number} pass needs to come back — preserved verbatim if\n"
+        f"made Pair {pair_number} pass needs to come back - preserved verbatim if\n"
         f"possible, or carefully merged with whatever fixes the other failing\n"
         f"pairs. Do not silently rewrite logic that was already working.\n\n"
     )
@@ -71,7 +81,7 @@ def render_regression_block(pair_number, checkpoint_source):
 
 
 def code_reminder(passing_pairs, failing_pairs, regressed_pairs):
-    """Reminder block — varies based on which pairs pass / fail."""
+    """Reminder block - varies based on which pairs pass / fail."""
     pass_list = ", ".join(str(i) for i in passing_pairs) if passing_pairs else "none"
     fail_list = ", ".join(str(i) for i in failing_pairs) if failing_pairs else "none"
     regressed_list = ", ".join(str(i) for i in regressed_pairs) if regressed_pairs else "none"
@@ -79,7 +89,7 @@ def code_reminder(passing_pairs, failing_pairs, regressed_pairs):
     if regressed_pairs:
         regression_section = (
             f"- Pair(s) REGRESSED: {regressed_list}  "
-            f"← Were passing previously. A REGRESSION ALERT block below echoes\n"
+            f"<- Were passing previously. A REGRESSION ALERT block below echoes\n"
             f"  the last solve() that passed each. Diff your current code against\n"
             f"  it before rewriting; restore the mechanism that worked.\n"
         )
@@ -97,19 +107,19 @@ If your response does not contain a `def solve(input_grid):` function, the
 iteration is invalid and you receive no further feedback.
 
 CURRENT STATUS:
-- Pair(s) PASSING: {pass_list}  ← MUST CONTINUE TO PASS. Do not regress.
-- Pair(s) FAILING: {fail_list}  ← Fix these.
+- Pair(s) PASSING: {pass_list}  <- MUST CONTINUE TO PASS. Do not regress.
+- Pair(s) FAILING: {fail_list}  <- Fix these.
 {regression_section}
 CRITICAL: Your updated code MUST keep producing correct output for the passing
 pair(s) AND fix the failing pair(s). If your fix breaks a previously passing
-pair, the score does not improve — you only swap which pair fails.
+pair, the score does not improve - you only swap which pair fails.
 
 REGRESSION DETECTOR: Before submitting, mentally diff your new solve() against
 your previous one. For each pair currently passing, ask: "is the logic that
 made it pass still intact?" If you cannot point to the specific lines that
 preserve that pair's behavior, your edit likely has a regression bug.
 
-CODE PITFALLS — common bugs when translating reasoning to Python. Scan each
+CODE PITFALLS - common bugs when translating reasoning to Python. Scan each
 of these against your code before submitting.
 
 1) CLUSTER PROPERTY TESTED PER CELL (instead of computed once at cluster level)
@@ -128,7 +138,7 @@ of these against your code before submitting.
    4-conn: [(-1, 0), (1, 0), (0, -1), (0, 1)]  # cardinal only
    8-conn: above + [(-1, -1), (-1, 1), (1, -1), (1, 1)]  # cardinal + diagonal
    Tip: BFS through walls usually wants 4-conn. Halo painting around a region
-   usually wants 8-conn. Pick per rule — don't default both to 4-conn.
+   usually wants 8-conn. Pick per rule - don't default both to 4-conn.
 
 3) 8-NEIGHBORHOOD ITERATION (the diagonal sandwich)
    Wrong:  for dr in [-1, 1]:
@@ -156,11 +166,24 @@ of these against your code before submitting.
    Wrong:  grid = input_grid; grid[r][c] = 8   # corrupts caller's input_grid
    Right:  grid = [row[:] for row in input_grid]
 
+7) BINARY REDUCTION LOSES MULTI-COLOR INFO
+   When a panel / region has TWO OR MORE non-background colors, reducing
+   to 1-bit `is_fg` (most common) vs `is_bg` (everything else) discards
+   the other color's positional information.
+   Wrong:  fg = Counter(non_bg_vals).most_common(1)[0][0]
+           bits = [[1 if v == fg else 0 for v in row] for row in block]
+           # Now you cannot distinguish color X from color Y when both are non-bg.
+           # Period/symmetry detected on `bits` will collapse to a single color.
+   Right:  Detect period/structure over the SEQUENCE of values, not over a
+           binary mask. For each tile position, take the most common VALUE
+           (not bit) across all its repeats. Or run the detector once per
+           non-bg color independently and merge the results.
+
 REQUIREMENTS for your next response:
 - MUST contain a `def solve(input_grid):` function. We run your code; we do
   not read hand-computed grids. Responses without a solve() function cannot
   be validated and you receive no further feedback.
-- The function must work on grids of ANY size — do not hardcode dimensions,
+- The function must work on grids of ANY size - do not hardcode dimensions,
   row indices, or column indices. The validator runs your code on grids of
   different sizes (the training pairs and the test input each have their own
   shape).
@@ -174,7 +197,7 @@ solve(test_input), computed by us. Your job is to update the algorithm.
 
 def render_passing_pair(pair_number, input_grid, output_grid):
     """
-    Confirmation block for a passing pair — reminds the LLM that its current
+    Confirmation block for a passing pair - reminds the LLM that its current
     rule produces this exact output, which matches expected. The transformation
     grid encoding is included as the canonical anchor.
     """
@@ -196,20 +219,21 @@ def render_passing_pair(pair_number, input_grid, output_grid):
     out += "\nTRANSFORMATION RULE (correct):\n"
     out += "Symbols: . = unchanged, = = preserved, + = activated, - = removed\n\n"
     for row in trans:
-        out += "[" + ", ".join(row) + "]\n"
+        # Pad each symbol to 2 chars so columns visually align with data grids
+        out += "[" + ", ".join(f"{s:>2}" for s in row) + "]\n"
 
     return out
 
 
-def load_history():
-    p = Path(HISTORY_FILE)
+def load_history(history_file):
+    p = Path(history_file)
     if p.exists():
         return json.loads(p.read_text())
     return []
 
 
-def save_history(history):
-    Path(HISTORY_FILE).write_text(json.dumps(history, indent=2))
+def save_history(history_file, history):
+    Path(history_file).write_text(json.dumps(history, indent=2))
 
 
 def render_history(past_history, current_iter):
@@ -230,16 +254,27 @@ def render_history(past_history, current_iter):
 
 
 def main():
-    solve = importlib.import_module(SOLUTION_MODULE).solve
+    if len(sys.argv) < 2:
+        print("Usage: python run_feedback.py <puzzle_file.json> [solution_module]")
+        print("Example: python run_feedback.py puzzle_8f3a5a89.json")
+        sys.exit(1)
 
-    with open(PUZZLE_FILE) as f:
+    puzzle_file = sys.argv[1]
+    solution_module = sys.argv[2] if len(sys.argv) > 2 else "solution"
+    puzzle_id = derive_puzzle_id(puzzle_file)
+    history_file = f"{puzzle_id}_history.json"
+    out_file = f"feedback_{puzzle_id}.txt"
+
+    solve = importlib.import_module(solution_module).solve
+
+    with open(puzzle_file) as f:
         puzzle = json.load(f)
 
-    history = load_history()
+    history = load_history(history_file)
     current_iter = len(history) + 1
 
     print("=" * 80)
-    print(f"ITERATION {current_iter} - TRAINING VALIDATION")
+    print(f"ITERATION {current_iter} - TRAINING VALIDATION (puzzle {puzzle_id})")
     print("=" * 80)
     train_results = []
     for i, pair in enumerate(puzzle["train"], 1):
@@ -263,7 +298,7 @@ def main():
     # echo the last solve() that worked.
     for i, passed, _, _ in train_results:
         if passed:
-            save_checkpoint(i)
+            save_checkpoint(puzzle_id, i, solution_module)
 
     # A pair is REGRESSED if it failed this iter but passed in any prior iter.
     regressed_pairs = [
@@ -293,7 +328,7 @@ def main():
         "total": len(train_results),
         "verdict": verdict,
     })
-    save_history(history)
+    save_history(history_file, history)
 
     history_block = render_history(history[:-1], current_iter)
 
@@ -320,7 +355,7 @@ def main():
             feedback_blocks.append(render_passing_pair(i, pair["input"], pair["output"]))
 
     for i in regressed_pairs:
-        ckpt = load_checkpoint(i)
+        ckpt = load_checkpoint(puzzle_id, i)
         if ckpt:
             feedback_blocks.append(render_regression_block(i, ckpt))
 
@@ -338,11 +373,11 @@ def main():
         )
 
     combined = "\n\n".join(feedback_blocks)
-    with open(OUT_FILE, "w") as f:
+    with open(out_file, "w") as f:
         f.write(combined)
 
-    print(f"\nSaved {len(combined):,} chars to {OUT_FILE}")
-    print(f"History persisted to {HISTORY_FILE} ({len(history)} iter(s))")
+    print(f"\nSaved {len(combined):,} chars to {out_file}")
+    print(f"History persisted to {history_file} ({len(history)} iter(s))")
 
 
 if __name__ == "__main__":
