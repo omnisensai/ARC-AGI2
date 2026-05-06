@@ -14,18 +14,18 @@ Usage:
 Models:
     Direct SDKs:
       claude-sonnet, claude-opus, claude-haiku   (Anthropic)
-      gpt-5, gpt-4o                              (OpenAI)
+      gpt-5, gpt-5-mini, gpt-4o                  (OpenAI)
       gemini-2.5-pro, gemini-2.5-flash           (Google)
-      grok-4                                     (xAI, OpenAI-compatible)
+      grok-4, grok-4-fast                        (xAI)
     OpenRouter (single key, many models):
       qwen-coder, qwen-max                       (Qwen)
       llama-3.3-70b                              (Meta)
       deepseek-chat                              (DeepSeek)
       mistral-large                              (Mistral)
 
-API keys: copy keys.env.example to keys.env and fill in.
-Or set environment variables: ANTHROPIC_API_KEY, OPENAI_API_KEY,
-GOOGLE_API_KEY, XAI_API_KEY, OPENROUTER_API_KEY.
+Env vars (set what you need):
+    ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY, XAI_API_KEY,
+    OPENROUTER_API_KEY
 
 Per iter, saves under Model Results/<Model>/<puzzle_id>/:
     iter_N_response.txt   full raw response from the LLM
@@ -74,15 +74,21 @@ load_keys_env()
 
 
 MODELS = {
+    # Anthropic
     "claude-sonnet":    ("anthropic", "claude-sonnet-4-5"),
     "claude-opus":      ("anthropic", "claude-opus-4-5"),
     "claude-haiku":     ("anthropic", "claude-haiku-4-5"),
+    # OpenAI
     "gpt-5":            ("openai",    "gpt-5"),
+    "gpt-5-mini":       ("openai",    "gpt-5-mini"),
     "gpt-4o":           ("openai",    "gpt-4o"),
+    # Google
     "gemini-2.5-pro":   ("google",    "gemini-2.5-pro"),
     "gemini-2.5-flash": ("google",    "gemini-2.5-flash"),
+    # xAI
     "grok-4":           ("xai",       "grok-4"),
-    # OpenRouter models (any model id that openrouter.ai supports)
+    "grok-4-fast":      ("xai",       "grok-4-1-fast-reasoning"),
+    # OpenRouter (single key, many models)
     "qwen-coder":       ("openrouter", "qwen/qwen-2.5-coder-32b-instruct"),
     "qwen-max":         ("openrouter", "qwen/qwen-max"),
     "llama-3.3-70b":    ("openrouter", "meta-llama/llama-3.3-70b-instruct"),
