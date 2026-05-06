@@ -59,6 +59,15 @@ PROVIDER_DIR = {
 
 
 def chat_anthropic(messages, model, max_tokens=8192):
+    """Anthropic chat with extended thinking enabled for sonnet/opus.
+
+    Chat surfaces (claude.ai) automatically engage extended thinking on hard
+    reasoning tasks; the API does not unless explicitly requested. This is
+    the difference between API Sonnet stuck at 0/2 training and chat Sonnet
+    solving in 2 iters on the same prompt.
+
+    Haiku does not support extended thinking; we send it without.
+    """
     from anthropic import Anthropic
     client = Anthropic()
     sys_msg = ""
@@ -68,27 +77,56 @@ def chat_anthropic(messages, model, max_tokens=8192):
             sys_msg = m["content"]
         else:
             msgs.append(m)
+
+    use_thinking = "haiku" not in model.lower()
+
     kwargs = {"model": model, "max_tokens": max_tokens, "messages": msgs}
     if sys_msg:
         kwargs["system"] = sys_msg
+
+    if use_thinking:
+        thinking_budget = 16000
+        # max_tokens must exceed budget_tokens; give 4k headroom for visible output
+        kwargs["max_tokens"] = max(max_tokens, thinking_budget + 4096)
+        kwargs["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
+        # Extended thinking requires temperature=1.0
+        kwargs["temperature"] = 1.0
+
     resp = client.messages.create(**kwargs)
+
+    # With thinking enabled, response.content has both thinking blocks and
+    # text blocks. We want only the visible text.
+    text_parts = [block.text for block in resp.content if getattr(block, "type", "text") == "text"]
+    if text_parts:
+        return "".join(text_parts)
     return resp.content[0].text
 
 
 def chat_openai(messages, model, max_tokens=8192):
+    """OpenAI chat with reasoning_effort=high on GPT-5 / o-series.
+
+    Chat surfaces (chatgpt.com) use elevated reasoning effort by default
+    on hard problems; API defaults are lower. Setting reasoning_effort=high
+    matches chat behavior for reasoning models. Non-reasoning models
+    (gpt-4o) ignore this parameter.
+    """
     from openai import OpenAI
     client = OpenAI()
-    # GPT-5 / reasoning models require max_completion_tokens (not max_tokens).
-    # Reasoning models burn tokens internally before producing visible output;
-    # bump the budget so reasoning + completion both fit. Without this, an
-    # 8192 budget gets entirely consumed by reasoning and 0 chars come back.
-    if model.startswith("gpt-5") or model.startswith("o"):
+    is_reasoning = model.startswith("gpt-5") or model.startswith("o")
+    if is_reasoning:
         budget = max(max_tokens * 4, 32000)
     else:
         budget = max_tokens
-    resp = client.chat.completions.create(
-        model=model, max_completion_tokens=budget, messages=messages,
-    )
+
+    kwargs = {
+        "model": model,
+        "max_completion_tokens": budget,
+        "messages": messages,
+    }
+    if is_reasoning:
+        kwargs["reasoning_effort"] = "high"
+
+    resp = client.chat.completions.create(**kwargs)
     return resp.choices[0].message.content
 
 
@@ -125,8 +163,10 @@ def chat_openrouter(messages, model, max_tokens=8192):
         api_key=os.environ["OPENROUTER_API_KEY"],
         base_url="https://openrouter.ai/api/v1",
     )
+    # Open-weights models often over-explain before producing code.
+    # Give a generous token budget so they don't get truncated mid-response.
     resp = client.chat.completions.create(
-        model=model, max_tokens=max_tokens, messages=messages,
+        model=model, max_tokens=max(max_tokens, 16384), messages=messages,
     )
     return resp.choices[0].message.content
 
