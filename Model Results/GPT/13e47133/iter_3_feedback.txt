@@ -1,0 +1,86 @@
+================================================================================
+VALIDATION SUMMARY
+================================================================================
+
+Iteration: 3
+Verdict: DO NOT SUBMIT
+Training: 2/3 pairs pass
+
+Failed on pair 1. Update your Python.
+
+================================================================================
+REGRESSION ALERT
+================================================================================
+
+Pair 1 errors:  iter 2 = 2  ->  iter 3 = 4   (REGRESSION: +2)
+Test errors:    iter 2 = 47 ->  iter 3 = 47  (no change)
+
+The virtual_h heuristic added in iter 3 did not fix the original 2-cell bug at
+(7, 17) and (17, 17). Instead it shifted the failure to a different column and
+doubled the error count.
+
+================================================================================
+PAIR 1 - FAILING (4 cells)
+================================================================================
+
+ERRORS: 4 / 400 cells wrong
+
+ERROR DETAILS:
+  ( 8, 18): input=1, expected=4, got=8
+  (10, 18): input=1, expected=4, got=8
+  (14, 18): input=1, expected=4, got=8
+  (16, 18): input=1, expected=4, got=8
+
+All 4 errors at column 18 (one cell inward from right edge of grid).
+Symmetric pattern: rows 8, 10 above the central horizontal wall; rows 14, 16
+below it. All expected 4, got 8.
+
+OPERATION DIAGNOSIS:
+  EXPECTED 1->8: 167 | YOUR 1->8: 171  (+4 over)
+  EXPECTED 1->4: 66  | YOUR 1->4: 62   (-4 under)
+  Net: 4 cells flipped 4 -> 8 in the right panel inner ring.
+
+================================================================================
+DIAGNOSIS
+================================================================================
+
+Iter 2's depth-based ring approach was correct in shape but had 2 cells off.
+Iter 3 introduced virtual horizontal boundaries to handle through-walls, but
+the virtual boundary now over-cuts the right panel: depth at column 18 cells
+rows 8/10/14/16 is being miscounted because the virtual_h boundary makes
+them think they are depth=2 from a phantom horizontal divider when they
+should be depth=1 from the right wall.
+
+The virtual_h fix is solving a problem that didn't exist on this puzzle.
+Reverting virtual_h and instead fixing the original depth tie-break (when
+cell has two equal nearest walls, prefer ... which one?) would likely solve it.
+
+The 2 cells iter 2 missed at (7,17) and (17,17): these have asymmetric
+depths (depth from right wall vs from horizontal central wall differ by 1).
+The pattern[d % len] indexing is selecting the wrong ring color when the
+cell is interior of the panel but adjacent to the inner anchor.
+
+================================================================================
+PAIR 2 - PASSING
+================================================================================
+Your code already produces the correct output for this pair.
+
+================================================================================
+PAIR 3 - PASSING
+================================================================================
+Your code already produces the correct output for this pair.
+
+================================================================================
+TEST RESULT (analysis only, not shared with model)
+================================================================================
+
+Code on test: 47/900 cells wrong (same as iter 2)
+No TEST_OUTPUT block in this iter's paste -> hand grid skipped.
+
+Iter 3 verdict: DO NOT SUBMIT (training 2/3 - pair 1 regressed from 2 to 4).
+
+Next iter recommendation: revert virtual_h, look at the depth tie-break logic
+at single-cell-asymmetric anchor positions.
+
+Full verbose feedback is generated locally by run_feedback.py at runtime.
+The above is the actionable summary.
