@@ -638,3 +638,144 @@ solve quickly):
 - Substrate prompt: `arc_prompt_generator_v5.py`
 - Feedback substrate: `run_feedback.py`, `complete_substrate_feedback.py`
 - Mechanistic labeling (data source): `mechanistic_feedback_generator.py`
+
+# Fine-Tune Strategy (ARC-AGI Substrate)
+
+Status: notes / brainstorm. Not a plan to execute yet.
+
+## Premise
+
+Sliding-window context starves the model of iteration history (validated:
+API runs hit ~4x more false positives than browser sessions on the same
+puzzles). Full history balloons context. Solution path: a compact **symbol
+tape** the model reads natively after fine-tuning.
+
+Compress 4 iters of feedback (~200KB) → ~2KB symbol trace. Same iterations,
+~100x less context. Pre-requisite: substrate hits a working baseline on
+browser before optimizing the encoding layer.
+
+---
+
+## Ideas
+
+### Symbol vocabulary (DSL draft)
+
+Claude Code drafted a closed 30-symbol set across 5 categories. Snapshot:
+
+**Error types (5)**
+```
+↑  spurious — cell changed that shouldn't have
+↓  missed — cell didn't change that should have
+≠  wrong value — cell changed to wrong value
+✓  correct — validation pass
+✗  incorrect — validation fail
+```
+
+**Cluster topology (4)**
+```
+⊡  edge-touching (intersects grid boundary)
+⊙  internal (no boundary contact)
+⊕  merged (two+ clusters joined)
+⊗  split (one cluster fragmented)
+```
+
+**Transforms (5)** — already what our transformation grids emit
+```
+.  identity (no change)
+=  copy (exact duplication)
++  add (new cells appear)
+-  remove (cells disappear)
+~  modify (cells change value)
+```
+
+**Connectivity (4)**
+```
+∈4  4-connected (cardinal neighbors)
+∈8  8-connected (cardinal + diagonal)
+∉4  not 4-connected
+∉8  not 8-connected
+```
+
+**Spatial (9 + 3 combinators)**
+```
+@  at location
+r  row index
+c  column index
+[] bounds / cell count
+→  maps to / transitions to
+∩  intersection of regions
+∪  union of regions
+△  symmetric difference
+```
+
+### Critique of v1 vocab
+
+**Keep:**
+- Transforms `. = + - ~` — lossless overlap with existing transformation_grid output.
+- Error types — direct map to mechanistic_feedback_generator's
+  `spurious_activation / missed_activation / wrong_value`.
+- Topology `⊡ ⊙ ⊕ ⊗` — `⊕`/`⊗` (merge/split) compresses cluster diff
+  narratives that currently take paragraphs.
+
+**Bad call: connectivity `∈4 / ∈8 / ∉4 / ∉8`**
+- `∈` is set membership ("is element of"). Models will read "x ∈ 4" as
+  malformed and silently reinterpret. Wrong semantics degrades comprehension
+  faster than length saves tokens.
+- Replace with `c4 / c8 / ¬c4 / ¬c8` or plain `4-conn` / `8-conn`.
+
+**Redundant: `✓ ✗`**
+- Verdict is already a separate field. Don't burn vocab slots.
+
+**Critical gaps** (these are roughly half of ARC):
+- **Period / tiling**: no symbol for `period=3`, `tile-4x`, `phase-offset=1`.
+  ARC is full of periodic patterns; this is a glaring omission.
+- **Symmetry**: H-mirror, V-mirror, 90° / 180° rotation. ~20% of puzzles
+  hinge on this.
+- **Containment**: `A ⊂ B` (inside), `A ⊃ B` (surrounds). Distinct from
+  `∩` and often the actual rule.
+- **Concentric / anchor**: layered rings around a pivot. Just hit this on
+  13e47133 — no symbol for it.
+- **Color identity**: integers conflate with row/col indices in dense
+  expressions. Need a sigil (e.g. `#3` for color 3).
+
+### Proposed 30-symbol revision
+
+- Drop: `✓ ✗ ∉4 ∉8 △` (5)
+- Add: `±N` (period N), `⟲` (rotational symmetry), `⇋` (mirror),
+  `⊂` (contained in), `◎` (concentric / anchored)
+- Replace connectivity notation: `c4 / c8` instead of `∈4 / ∈8`.
+
+### DSL deployment posture
+
+Two options:
+
+1. **Strict DSL** (Claude Code's framing): closed vocab, hard acceptance
+   criterion `|output| ≤ |NL| × 0.3`, all-or-nothing parse.
+   - Risk: at 0% solve rate, models now fail at *reasoning* AND *encoding*.
+   - Risk: closed vocab can't express tail concepts → procrustean fit.
+
+2. **Optional shorthand** (recommended for v1): substrate prompt offers the
+   symbols as an idiom the model *may* use. Plain prose stays valid.
+   - Validate uptake on browser sessions across 5+ puzzles before locking in.
+   - If models reach for the symbols naturally, ship as DSL. If not, the
+     vocab is solving a problem nobody has.
+
+### Fine-tune target
+
+After symbols prove themselves on browser:
+- Train model to read symbol tape as native input format.
+- Training data: existing iter histories from Manual Runs / Model Results
+  re-encoded into symbol traces.
+- Evaluate on token-budget vs solve-rate curve. Goal: same solve rate at
+  100x less context.
+
+---
+
+## Open questions
+
+- Should the symbol tape carry **approach hashes** (`Approach(regenerate-from-period)`)
+  so the model sees "tried this class 3x"? This is meta-strategy, not just
+  diff compression.
+- How does the symbol tape interact with the dual-candidate hedge format?
+- Where does the test self-inspection block live in compressed form?
+
