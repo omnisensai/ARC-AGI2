@@ -12,11 +12,11 @@ Usage:
   python paste_helper.py <puzzle_id> <model> <paste_file> [--iter N]
 
 Example:
-  python paste_helper.py 13e47133 gemini /tmp/paste.txt
+  python paste_helper.py 13e47133 gpt /tmp/paste.txt
 
 Looks for the puzzle file at:
-  ./puzzle_<id>.json    (legacy)
-  ./evaluation/<id>.json  (current canonical location)
+  ./evaluation/<id>.json   (preferred / canonical)
+  ./puzzle_<id>.json       (legacy)
 """
 
 import argparse
@@ -56,11 +56,28 @@ def extract_solve(text):
 
 
 def extract_hand_grid(text):
-    match = re.search(r"TEST_OUTPUT\s*=\s*(\[\s*\[.*?\]\s*\])", text, re.DOTALL)
-    if not match:
+    """Find TEST_OUTPUT = [...] and walk the brackets to find the matching close.
+    Robust against multi-line nested lists; the prior regex would only catch
+    a single inner list before the outer ]."""
+    m = re.search(r"TEST_OUTPUT\s*=\s*\[", text)
+    if not m:
+        return None
+    start = m.end() - 1
+    depth = 0
+    end = None
+    for i in range(start, len(text)):
+        ch = text[i]
+        if ch == '[':
+            depth += 1
+        elif ch == ']':
+            depth -= 1
+            if depth == 0:
+                end = i + 1
+                break
+    if end is None:
         return None
     try:
-        grid = ast.literal_eval(match.group(1))
+        grid = ast.literal_eval(text[start:end])
         if (isinstance(grid, list)
                 and all(isinstance(row, list) for row in grid)
                 and all(isinstance(v, int) for row in grid for v in row)):
@@ -142,13 +159,13 @@ def main():
         print(json.dumps({"error": f"unknown model {args.model}"}))
         sys.exit(1)
 
-    puzzle_file = f"puzzle_{args.puzzle_id}.json"
+    puzzle_file = str(Path("evaluation") / f"{args.puzzle_id}.json")
     if not Path(puzzle_file).exists():
-        alt = Path("evaluation") / f"{args.puzzle_id}.json"
-        if alt.exists():
-            puzzle_file = str(alt)
+        legacy = f"puzzle_{args.puzzle_id}.json"
+        if Path(legacy).exists():
+            puzzle_file = legacy
         else:
-            print(json.dumps({"error": f"puzzle file not found: {puzzle_file} or {alt}"}))
+            print(json.dumps({"error": f"puzzle file not found: {puzzle_file} or {legacy}"}))
             sys.exit(1)
 
     out_dir = Path("Model Results") / MODEL_DIR[model_key] / args.puzzle_id
