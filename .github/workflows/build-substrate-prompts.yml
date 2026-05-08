@@ -13,6 +13,11 @@ on:
         required: false
         type: boolean
         default: false
+  push:
+    paths:
+      - 'arc_prompt_generator.py'
+      - 'transformation_grid.py'
+      - 'evaluation/**'
 
 jobs:
   build:
@@ -31,29 +36,35 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Check version folder
-        id: check
+      - name: Resolve version + overwrite (dispatch vs push)
+        id: cfg
         run: |
-          VERSION="${{ inputs.version }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+            OVERWRITE="${{ inputs.overwrite }}"
+          else
+            VERSION="V1"
+            OVERWRITE="true"
+          fi
           DIR="Substrate Prompts/$VERSION"
-          if [ -d "$DIR" ] && [ "${{ inputs.overwrite }}" != "true" ]; then
+          if [ -d "$DIR" ] && [ "$OVERWRITE" != "true" ]; then
             echo "::error::Version folder '$DIR' already exists. Set overwrite=true to replace, or pick a new version label."
             exit 1
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "dir=$DIR" >> $GITHUB_OUTPUT
+          echo "Resolved: version=$VERSION dir='$DIR' overwrite=$OVERWRITE event=${{ github.event_name }}"
 
       - name: Generate substrate prompts for all puzzles
         run: |
-          mkdir -p "${{ steps.check.outputs.dir }}"
+          mkdir -p "${{ steps.cfg.outputs.dir }}"
           python - <<'PY'
           import json
-          import sys
           from pathlib import Path
           from arc_prompt_generator import generate_prompt
 
           eval_dir = Path('evaluation')
-          out_dir = Path('Substrate Prompts/${{ steps.check.outputs.version }}')
+          out_dir = Path('${{ steps.cfg.outputs.dir }}')
           out_dir.mkdir(parents=True, exist_ok=True)
 
           puzzles = sorted(eval_dir.glob('*.json'))
@@ -75,13 +86,14 @@ jobs:
 
       - name: Summary
         run: |
-          echo '## Build Substrate Prompts: ${{ steps.check.outputs.version }}' >> $GITHUB_STEP_SUMMARY
+          echo '## Build Substrate Prompts: ${{ steps.cfg.outputs.version }}' >> $GITHUB_STEP_SUMMARY
           echo '' >> $GITHUB_STEP_SUMMARY
-          COUNT=$(ls -1 "${{ steps.check.outputs.dir }}" | wc -l)
-          SIZE=$(du -sh "${{ steps.check.outputs.dir }}" | cut -f1)
+          COUNT=$(ls -1 "${{ steps.cfg.outputs.dir }}" | wc -l)
+          SIZE=$(du -sh "${{ steps.cfg.outputs.dir }}" | cut -f1)
           echo "- Puzzles processed: $COUNT" >> $GITHUB_STEP_SUMMARY
           echo "- Total size: $SIZE" >> $GITHUB_STEP_SUMMARY
-          echo "- Output folder: \`${{ steps.check.outputs.dir }}/\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Output folder: \`${{ steps.cfg.outputs.dir }}/\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Triggered by: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Commit prompts
         run: |
@@ -92,6 +104,6 @@ jobs:
             echo 'No changes to commit'
             exit 0
           fi
-          COUNT=$(git diff --cached --name-only | grep -c "Substrate Prompts/${{ steps.check.outputs.version }}/" || true)
-          git commit -m "Build substrate prompts ${{ steps.check.outputs.version }} ($COUNT puzzles)"
+          COUNT=$(git diff --cached --name-only | grep -c "Substrate Prompts/${{ steps.cfg.outputs.version }}/" || true)
+          git commit -m "Build substrate prompts ${{ steps.cfg.outputs.version }} ($COUNT puzzles)"
           git push origin main
