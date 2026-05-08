@@ -2,6 +2,7 @@
 ARC-AGI Prompt Generator with Transformation Rules
 v6: TIPS moved to right before TEST INPUT (recency anchor at code-generation moment)
 """
+# Substrate prompt template version: V1
 
 import json
 from typing import List, Dict, Any
