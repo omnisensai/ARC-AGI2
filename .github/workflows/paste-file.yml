@@ -1,0 +1,82 @@
+name: Process Paste File
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Pastes/*.txt'
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install numpy
+
+      - name: Find unprocessed paste files
+        id: find
+        run: |
+          # Files directly under Pastes/ (not in subdirs like processed/)
+          files=$(find Pastes -maxdepth 1 -type f -name '*.txt' 2>/dev/null || true)
+          if [ -z "$files" ]; then
+            echo 'No paste files to process'
+            echo "found=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "found=true" >> $GITHUB_OUTPUT
+          echo 'Found paste files:'
+          echo "$files"
+
+      - name: Process pastes
+        if: steps.find.outputs.found == 'true'
+        run: |
+          mkdir -p Pastes/processed
+          for f in Pastes/*.txt; do
+            [ -f "$f" ] || continue
+            base=$(basename "$f" .txt)
+            puzzle_id=$(echo "$base" | awk -F'__' '{print $1}')
+            model=$(echo "$base" | awk -F'__' '{print $2}')
+            iter_part=$(echo "$base" | awk -F'__' '{print $3}')
+            if [ -z "$puzzle_id" ] || [ -z "$model" ] || [ "$puzzle_id" = "$base" ]; then
+              echo "Skipping $f - filename must be <puzzle_id>__<model>[.__iter<N>].txt"
+              continue
+            fi
+            iter_arg=''
+            if [ -n "$iter_part" ]; then
+              iter_n=$(echo "$iter_part" | sed 's/iter//')
+              iter_arg="--iter $iter_n"
+            fi
+            echo "Processing puzzle=$puzzle_id model=$model file=$f iter_arg=$iter_arg"
+            python paste_helper.py "$puzzle_id" "$model" "$f" $iter_arg | tee /tmp/manifest_$base.json
+            mv "$f" "Pastes/processed/$(basename $f)"
+            echo '## Manifest for `'$base'`' >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat /tmp/manifest_$base.json >> $GITHUB_STEP_SUMMARY
+            echo '' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          done
+
+      - name: Commit artifacts + move processed files
+        if: steps.find.outputs.found == 'true'
+        run: |
+          git config user.name 'paste-file-bot'
+          git config user.email 'noreply@users.noreply.github.com'
+          git add 'Model Results/' 'Pastes/'
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git commit -m 'Process paste file via paste-file workflow'
+          git push origin main
