@@ -12,11 +12,7 @@ Usage:
   python paste_helper.py <puzzle_id> <model> <paste_file> [--iter N]
 
 Example:
-  python paste_helper.py 13e47133 gpt /tmp/paste.txt
-
-Looks for the puzzle file at:
-  ./evaluation/<id>.json   (preferred / canonical)
-  ./puzzle_<id>.json       (legacy)
+  python paste_helper.py 13e47133 gemini /tmp/paste.txt
 """
 
 import argparse
@@ -56,9 +52,6 @@ def extract_solve(text):
 
 
 def extract_hand_grid(text):
-    """Find TEST_OUTPUT = [...] and walk the brackets to find the matching close.
-    Robust against multi-line nested lists; the prior regex would only catch
-    a single inner list before the outer ]."""
     m = re.search(r"TEST_OUTPUT\s*=\s*\[", text)
     if not m:
         return None
@@ -146,12 +139,63 @@ def next_iter_n(model_dir):
     return max(existing, default=0) + 1
 
 
+def compute_diagnosis(puzzle_file, solution_path):
+    """Run solver on training pairs, classify phase, match bug-class fingerprints.
+
+    Returns formatted feedback block to prepend, or None if diagnosis can't run
+    (e.g., solver errored, no failing pairs, or feedback_diagnostics unavailable).
+    """
+    try:
+        from feedback_diagnostics import diagnose, format_targeted_feedback
+    except ImportError:
+        return None
+
+    with open(puzzle_file) as f:
+        puzzle = json.load(f)
+
+    spec = importlib.util.spec_from_file_location("_iter_sol_diag", solution_path)
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+    except Exception:
+        return None
+    if not hasattr(mod, "solve"):
+        return None
+
+    pass_count = 0
+    failing = []
+    for pair in puzzle.get("train", []):
+        try:
+            actual = mod.solve(pair["input"])
+        except Exception:
+            return None
+        if actual == pair["output"]:
+            pass_count += 1
+        else:
+            failing.append((pair["input"], pair["output"], actual))
+
+    train_n = len(puzzle.get("train", []))
+    if train_n == 0:
+        return None
+    pass_rate = pass_count / train_n
+
+    if not failing:
+        return None
+
+    inp, exp, act = failing[0]
+    diag = diagnose(inp, exp, act, pass_rate)
+    return format_targeted_feedback(diag)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("puzzle_id")
     parser.add_argument("model", help=f"One of: {', '.join(MODEL_DIR)}")
     parser.add_argument("paste_file")
     parser.add_argument("--iter", type=int, default=None)
+    parser.add_argument("--label", action="store_true",
+                        help="Research mode: when training pass rate=1.0, label outcome "
+                             "against test ground truth and save to research/ corpus.")
     args = parser.parse_args()
 
     model_key = args.model.lower()
@@ -207,6 +251,7 @@ def main():
         hand_grid_path.write_text(json.dumps(hand_grid))
         hand_validation = validate_hand_grid(hand_grid, puzzle_file)
 
+    # Run validator
     result = subprocess.run(
         [sys.executable, "run_feedback.py", puzzle_file, "solution"],
         capture_output=True, text=True,
@@ -217,6 +262,10 @@ def main():
     else:
         feedback = (f"VALIDATOR ERROR (exit {result.returncode}):\n\n"
                     f"STDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}")
+
+    diagnosis_block = compute_diagnosis(puzzle_file, "solution.py")
+    if diagnosis_block:
+        feedback = diagnosis_block + "\n\n" + feedback
 
     feedback_path = out_dir / f"iter_{n}_feedback.txt"
     feedback_path.write_text(feedback)
@@ -240,6 +289,76 @@ def main():
     summary_path = out_dir / f"iter_{n}_summary.json"
     summary_path.write_text(json.dumps(summary, indent=2))
 
+    research_artifacts = {}
+    if args.label:
+        try:
+            from research_mode import (
+                append_calibration_row,
+                label_outcome,
+                save_corpus_artifacts,
+                write_final_label,
+            )
+        except ImportError:
+            research_artifacts = {"error": "research_mode module unavailable"}
+        else:
+            puzzle_obj = json.load(open(puzzle_file))
+            train_pairs = puzzle_obj.get("train", [])
+            train_total = len(train_pairs)
+            train_pass = 0
+            try:
+                spec = importlib.util.spec_from_file_location("_train_check", "solution.py")
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                for pair in train_pairs:
+                    try:
+                        if mod.solve(pair["input"]) == pair["output"]:
+                            train_pass += 1
+                    except Exception:
+                        break
+            except Exception:
+                train_pass = 0
+
+            train_pass_rate = train_pass / train_total if train_total else 0.0
+
+            if train_pass_rate == 1.0:
+                label_data = label_outcome(puzzle_file, "solution.py")
+                research_artifacts["label"] = label_data.get("label")
+                research_artifacts["test_diff_count"] = label_data.get("test_diff_count")
+
+                final_label_path = write_final_label(
+                    out_dir, label_data, n, train_pass_rate
+                )
+                research_artifacts["final_label"] = final_label_path
+
+                prev_iter_data = None
+                prev_n = n - 1
+                if prev_n >= 1:
+                    prev_summary_path = out_dir / f"iter_{prev_n}_summary.json"
+                    prev_code_path = out_dir / f"iter_{prev_n}_response.py"
+                    if prev_summary_path.exists() and prev_code_path.exists():
+                        prev_iter_data = {
+                            "iter": prev_n,
+                            "code_path": str(prev_code_path),
+                            "summary": json.loads(prev_summary_path.read_text()),
+                        }
+
+                written = save_corpus_artifacts(
+                    args.puzzle_id, MODEL_DIR[model_key], n,
+                    str(code_path), str(feedback_path),
+                    label_data, prev_iter_data=prev_iter_data,
+                )
+                research_artifacts.update({"corpus": written})
+
+                cal_path = append_calibration_row(
+                    args.puzzle_id, MODEL_DIR[model_key], n,
+                    train_pass_rate, label_data,
+                )
+                research_artifacts["calibration_csv"] = cal_path
+            else:
+                research_artifacts["skipped"] = (
+                    f"training_pass_rate={train_pass_rate:.2f} (need 1.0 to label)"
+                )
+
     manifest = {
         "iter": n,
         "model": args.model,
@@ -254,6 +373,7 @@ def main():
             "summary": str(summary_path),
             **({"hand_grid": str(hand_grid_path)} if hand_grid_path else {}),
         },
+        **({"research": research_artifacts} if research_artifacts else {}),
     }
     print(json.dumps(manifest, indent=2))
 
