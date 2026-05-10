@@ -7,7 +7,9 @@ Used to gate iter-2+ feedback content. Instead of dumping all diagnostics,
 the validator picks the feedback type that matches the phase the model is in.
 """
 
-from collections import Counter
+import ast
+from collections import Counter, deque
+from difflib import SequenceMatcher
 
 
 def detect_wall_color(input_grid):
@@ -163,13 +165,224 @@ def classify_phase(input_grid, expected, actual, training_pass_rate):
     }
 
 
+def detect_boundary_unchanged(input_grid, expected, actual, wall_color=None):
+    """Boundary-handling bug: cells along region boundaries kept their input value
+    when they should have been transformed.
+
+    Fingerprint: a high fraction of error cells have identical input and actual
+    output values (model didn't modify them), while expected modified them.
+    Diagnoses missing boundary processing in the model's code.
+    """
+    H, W = len(input_grid), len(input_grid[0])
+    error_cells = [(r, c) for r in range(H) for c in range(W)
+                   if expected[r][c] != actual[r][c]]
+    if not error_cells:
+        return None
+
+    unchanged = sum(
+        1 for r, c in error_cells if actual[r][c] == input_grid[r][c]
+    )
+    ratio = unchanged / len(error_cells)
+    if ratio < 0.7:
+        return None
+
+    return {
+        "bug_class": "boundary_unchanged",
+        "confidence": ratio,
+        "fingerprint": (
+            f"{unchanged}/{len(error_cells)} error cells kept their input "
+            f"value unchanged. Your code skipped processing for those cells."
+        ),
+        "suggested_fix": (
+            "Check whether your code's main loop visits ALL relevant cells. "
+            "Common cause: boundary cells excluded by an off-by-one in range, "
+            "or processed only when a neighbor exists (causing edge cells to "
+            "fall through). Verify the loop bounds and any neighbor-existence "
+            "checks include the boundary."
+        ),
+    }
+
+
 DETECTORS = [
     detect_conn_mismatch,
+    detect_boundary_unchanged,
 ]
 
 
+# ----------------------------------------------------------------------
+# Structural-diff detector: compare features of failing pairs vs passing
+# pairs. Used to make rule_comprehension feedback as concrete as
+# code_debug feedback.
+# ----------------------------------------------------------------------
+
+
+def _count_regions(input_grid, wall_color):
+    """Count 4-connected components of non-wall cells."""
+    H, W = len(input_grid), len(input_grid[0])
+    seen = [[False] * W for _ in range(H)]
+    n = 0
+    for r in range(H):
+        for c in range(W):
+            if seen[r][c] or input_grid[r][c] == wall_color:
+                continue
+            n += 1
+            q = deque([(r, c)])
+            seen[r][c] = True
+            while q:
+                x, y = q.popleft()
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nx, ny = x + dx, y + dy
+                    if (0 <= nx < H and 0 <= ny < W
+                            and not seen[nx][ny]
+                            and input_grid[nx][ny] != wall_color):
+                        seen[nx][ny] = True
+                        q.append((nx, ny))
+    return n
+
+
+def _has_wraparound_region(input_grid, wall_color):
+    """Detect if any non-wall region's bounding box contains an interior wall —
+    i.e., the region wraps around an internal obstacle (non-rectangular shape)."""
+    H, W = len(input_grid), len(input_grid[0])
+    seen = [[False] * W for _ in range(H)]
+    for r in range(H):
+        for c in range(W):
+            if seen[r][c] or input_grid[r][c] == wall_color:
+                continue
+            cells = []
+            q = deque([(r, c)])
+            seen[r][c] = True
+            while q:
+                x, y = q.popleft()
+                cells.append((x, y))
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nx, ny = x + dx, y + dy
+                    if (0 <= nx < H and 0 <= ny < W
+                            and not seen[nx][ny]
+                            and input_grid[nx][ny] != wall_color):
+                        seen[nx][ny] = True
+                        q.append((nx, ny))
+            rmin = min(p[0] for p in cells)
+            rmax = max(p[0] for p in cells)
+            cmin = min(p[1] for p in cells)
+            cmax = max(p[1] for p in cells)
+            for rr in range(rmin, rmax + 1):
+                for cc in range(cmin, cmax + 1):
+                    if input_grid[rr][cc] == wall_color:
+                        return True
+    return False
+
+
+def extract_pair_features(input_grid, output_grid, wall_color=None):
+    """Extract structural features of a single training pair."""
+    if wall_color is None:
+        wall_color = detect_wall_color(input_grid)
+
+    H, W = len(input_grid), len(input_grid[0])
+    in_palette = set(v for row in input_grid for v in row)
+    out_palette = set(v for row in output_grid for v in row)
+
+    return {
+        "grid_shape": (H, W),
+        "input_palette_size": len(in_palette),
+        "output_palette_size": len(out_palette),
+        "new_colors_in_output": len(out_palette - in_palette),
+        "removed_colors": len(in_palette - out_palette),
+        "num_non_wall_regions": (
+            _count_regions(input_grid, wall_color) if wall_color is not None else None
+        ),
+        "has_wraparound_region": (
+            _has_wraparound_region(input_grid, wall_color)
+            if wall_color is not None else None
+        ),
+    }
+
+
+def detect_structural_diff(passing_pairs, failing_pairs, wall_color=None):
+    """Compare features of failing-pair inputs vs passing-pair inputs.
+
+    Each argument is a list of (input_grid, output_grid) tuples.
+    Returns a list of {feature, passing_values, failing_values, suggestion}
+    for features that differ cleanly between the two groups.
+    """
+    if not passing_pairs or not failing_pairs:
+        return []
+
+    passing_features = [extract_pair_features(i, o, wall_color) for i, o in passing_pairs]
+    failing_features = [extract_pair_features(i, o, wall_color) for i, o in failing_pairs]
+
+    differences = []
+    for key in passing_features[0]:
+        passing_vals = [f[key] for f in passing_features]
+        failing_vals = [f[key] for f in failing_features]
+        if any(v is None for v in passing_vals + failing_vals):
+            continue
+        if all(isinstance(v, bool) for v in passing_vals + failing_vals):
+            if set(passing_vals) != set(failing_vals) and len(set(failing_vals)) == 1:
+                differences.append({
+                    "feature": key,
+                    "passing_values": passing_vals,
+                    "failing_values": failing_vals,
+                })
+            continue
+        try:
+            p_min, p_max = min(passing_vals), max(passing_vals)
+            f_min, f_max = min(failing_vals), max(failing_vals)
+        except TypeError:
+            continue
+        if f_min > p_max or f_max < p_min:
+            differences.append({
+                "feature": key,
+                "passing_values": passing_vals,
+                "failing_values": failing_vals,
+            })
+
+    return differences
+
+
+# ----------------------------------------------------------------------
+# Regression detector: AST-diff between iter N and iter N-1 to determine
+# whether the model patched (similar code) or rewrote (different code).
+# Useful for catching false-confident algorithm changes.
+# ----------------------------------------------------------------------
+
+
+def detect_code_change(prev_code_text, current_code_text):
+    """Classify whether iter N is a patch, modification, or rewrite of iter N-1.
+
+    Returns {kind, similarity, prev_lines, current_lines}.
+    Kinds: patched (>0.7), modified (>0.3), rewritten (<=0.3).
+    Falls back to text similarity when AST parsing fails.
+    """
+    try:
+        prev_norm = ast.dump(ast.parse(prev_code_text))
+        curr_norm = ast.dump(ast.parse(current_code_text))
+    except SyntaxError:
+        prev_norm = prev_code_text
+        curr_norm = current_code_text
+
+    sim = SequenceMatcher(None, prev_norm, curr_norm).ratio()
+    if sim > 0.7:
+        kind = "patched"
+    elif sim > 0.3:
+        kind = "modified"
+    else:
+        kind = "rewritten"
+
+    return {
+        "kind": kind,
+        "similarity": sim,
+        "prev_lines": len(prev_code_text.splitlines()),
+        "current_lines": len(current_code_text.splitlines()),
+    }
+
+
 def diagnose(input_grid, expected, actual, training_pass_rate, wall_color=None):
-    """Top-level diagnosis. Returns phase classification + matching bug diagnoses."""
+    """Per-pair diagnosis. Returns phase classification + matching bug diagnoses.
+
+    For full diagnosis with structural-diff and regression detection, use
+    diagnose_full() which takes the whole puzzle and iter history.
+    """
     phase = classify_phase(input_grid, expected, actual, training_pass_rate)
     bugs = []
     for detector in DETECTORS:
@@ -177,6 +390,75 @@ def diagnose(input_grid, expected, actual, training_pass_rate, wall_color=None):
         if result:
             bugs.append(result)
     return {"phase": phase, "bugs": bugs}
+
+
+def diagnose_full(puzzle, actual_outputs, prev_code=None, current_code=None,
+                  wall_color=None):
+    """Full diagnosis using all training pairs + iter-over-iter regression check.
+
+    puzzle: dict with 'train' key (list of {input, output} pairs)
+    actual_outputs: list of model's solve() outputs, one per training pair, in order
+    prev_code, current_code: optional code text strings for regression detection
+
+    Returns:
+      {
+        phase: {...},
+        bugs: [...],
+        structural_diff: [...],         # only if phase == rule_comprehension
+        regression: {kind, similarity}, # only if both code texts provided
+        passing_pair_indices: [...],
+        failing_pair_indices: [...],
+      }
+    """
+    train = puzzle.get("train", [])
+    if len(actual_outputs) != len(train):
+        raise ValueError("actual_outputs length must match number of training pairs")
+
+    passing_idx, failing_idx = [], []
+    for i, (pair, actual) in enumerate(zip(train, actual_outputs)):
+        if actual == pair["output"]:
+            passing_idx.append(i)
+        else:
+            failing_idx.append(i)
+
+    train_n = len(train)
+    pass_rate = len(passing_idx) / train_n if train_n else 0.0
+
+    result = {
+        "phase": None,
+        "bugs": [],
+        "structural_diff": [],
+        "regression": None,
+        "passing_pair_indices": passing_idx,
+        "failing_pair_indices": failing_idx,
+    }
+
+    if not failing_idx:
+        return result
+
+    first_failing = failing_idx[0]
+    inp = train[first_failing]["input"]
+    exp = train[first_failing]["output"]
+    act = actual_outputs[first_failing]
+
+    result["phase"] = classify_phase(inp, exp, act, pass_rate)
+
+    for detector in DETECTORS:
+        match = detector(inp, exp, act, wall_color)
+        if match:
+            result["bugs"].append(match)
+
+    if result["phase"]["phase"] == "rule_comprehension" and passing_idx:
+        passing_pairs = [(train[i]["input"], train[i]["output"]) for i in passing_idx]
+        failing_pairs = [(train[i]["input"], train[i]["output"]) for i in failing_idx]
+        result["structural_diff"] = detect_structural_diff(
+            passing_pairs, failing_pairs, wall_color
+        )
+
+    if prev_code and current_code:
+        result["regression"] = detect_code_change(prev_code, current_code)
+
+    return result
 
 
 def format_targeted_feedback(diagnosis):
@@ -226,10 +508,42 @@ def format_targeted_feedback(diagnosis):
             "The transformation rule appears wrong (not just a code bug). "
             "Re-derive the rule from the training pairs before changing code."
         )
+        struct = diagnosis.get("structural_diff") or []
+        if struct:
+            lines.append("")
+            lines.append(
+                "Structural difference between failing and passing training pairs:"
+            )
+            for diff in struct:
+                lines.append(
+                    f"  - {diff['feature']}: passing pairs={diff['passing_values']}, "
+                    f"failing pairs={diff['failing_values']}"
+                )
+            lines.append("")
+            lines.append(
+                "Your current rule handles the passing pairs but not the failing "
+                "ones. Identify what's different about the failing input(s) and "
+                "make sure your rule accounts for it."
+            )
     else:
         lines.append(
             "Diagnosis ambiguous. The rule is partially right but the code may "
             "also have bugs. Re-examine both rule and implementation."
         )
+
+    regression = diagnosis.get("regression")
+    if regression:
+        lines.append("")
+        lines.append(
+            f"Iter-over-iter change: {regression['kind']} "
+            f"(similarity={regression['similarity']:.2f})"
+        )
+        if regression["kind"] == "rewritten" and phase == "code_debug":
+            lines.append(
+                "  Warning: you rewrote the algorithm but the prior version was "
+                "close to correct (rule was right; only the code had a bug). "
+                "Consider reverting to the prior structure and applying a small "
+                "patch instead."
+            )
 
     return "\n".join(lines)

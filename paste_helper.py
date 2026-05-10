@@ -139,14 +139,16 @@ def next_iter_n(model_dir):
     return max(existing, default=0) + 1
 
 
-def compute_diagnosis(puzzle_file, solution_path):
-    """Run solver on training pairs, classify phase, match bug-class fingerprints.
+def compute_diagnosis(puzzle_file, solution_path, prev_code_path=None,
+                      current_code_path=None):
+    """Run solver on every training pair, classify phase, match bug-class
+    fingerprints, run structural-diff (if rule_comprehension), and detect
+    iter-over-iter regression (if prev/current code provided).
 
-    Returns formatted feedback block to prepend, or None if diagnosis can't run
-    (e.g., solver errored, no failing pairs, or feedback_diagnostics unavailable).
+    Returns formatted feedback block to prepend, or None if diagnosis can't run.
     """
     try:
-        from feedback_diagnostics import diagnose, format_targeted_feedback
+        from feedback_diagnostics import diagnose_full, format_targeted_feedback
     except ImportError:
         return None
 
@@ -162,28 +164,25 @@ def compute_diagnosis(puzzle_file, solution_path):
     if not hasattr(mod, "solve"):
         return None
 
-    pass_count = 0
-    failing = []
+    actual_outputs = []
     for pair in puzzle.get("train", []):
         try:
-            actual = mod.solve(pair["input"])
+            actual_outputs.append(mod.solve(pair["input"]))
         except Exception:
             return None
-        if actual == pair["output"]:
-            pass_count += 1
-        else:
-            failing.append((pair["input"], pair["output"], actual))
 
-    train_n = len(puzzle.get("train", []))
-    if train_n == 0:
+    prev_code = None
+    current_code = None
+    if prev_code_path and Path(prev_code_path).exists():
+        prev_code = Path(prev_code_path).read_text()
+    if current_code_path and Path(current_code_path).exists():
+        current_code = Path(current_code_path).read_text()
+
+    diag = diagnose_full(puzzle, actual_outputs,
+                         prev_code=prev_code, current_code=current_code)
+    if diag.get("phase") is None:
         return None
-    pass_rate = pass_count / train_n
 
-    if not failing:
-        return None
-
-    inp, exp, act = failing[0]
-    diag = diagnose(inp, exp, act, pass_rate)
     return format_targeted_feedback(diag)
 
 
@@ -196,6 +195,15 @@ def main():
     parser.add_argument("--label", action="store_true",
                         help="Research mode: when training pass rate=1.0, label outcome "
                              "against test ground truth and save to research/ corpus.")
+    parser.add_argument("--hedge", action="store_true",
+                        help="When training pass rate=1.0, save the current solve as "
+                             "iter_N_first_solve and emit a hedge prompt path for a "
+                             "fresh independent invocation. Use --hedge-result to "
+                             "compare the second solve to the first.")
+    parser.add_argument("--hedge-result", default=None,
+                        help="Path to the hedge response paste (fresh invocation's "
+                             "response). Compares its hand grid to the first solve's "
+                             "code output and reports agreement.")
     args = parser.parse_args()
 
     model_key = args.model.lower()
@@ -263,7 +271,17 @@ def main():
         feedback = (f"VALIDATOR ERROR (exit {result.returncode}):\n\n"
                     f"STDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}")
 
-    diagnosis_block = compute_diagnosis(puzzle_file, "solution.py")
+    prev_code_path = None
+    if n > 1:
+        candidate = out_dir / f"iter_{n - 1}_response.py"
+        if candidate.exists():
+            prev_code_path = str(candidate)
+
+    diagnosis_block = compute_diagnosis(
+        puzzle_file, "solution.py",
+        prev_code_path=prev_code_path,
+        current_code_path=str(code_path),
+    )
     if diagnosis_block:
         feedback = diagnosis_block + "\n\n" + feedback
 
@@ -288,6 +306,79 @@ def main():
     }
     summary_path = out_dir / f"iter_{n}_summary.json"
     summary_path.write_text(json.dumps(summary, indent=2))
+
+    hedge_artifacts = {}
+    if args.hedge or args.hedge_result:
+        try:
+            puzzle_obj_h = json.load(open(puzzle_file))
+            train_pairs_h = puzzle_obj_h.get("train", [])
+            train_total_h = len(train_pairs_h)
+            train_pass_h = 0
+            spec_h = importlib.util.spec_from_file_location("_hedge_check", "solution.py")
+            mod_h = importlib.util.module_from_spec(spec_h)
+            spec_h.loader.exec_module(mod_h)
+            for pair in train_pairs_h:
+                try:
+                    if mod_h.solve(pair["input"]) == pair["output"]:
+                        train_pass_h += 1
+                except Exception:
+                    break
+            train_pass_rate_h = train_pass_h / train_total_h if train_total_h else 0.0
+        except Exception:
+            train_pass_rate_h = 0.0
+
+        if train_pass_rate_h == 1.0:
+            seed_path = Path("Seed Prompts") / f"{args.puzzle_id}_seed.txt"
+            if seed_path.exists():
+                hedge_artifacts["seed_prompt"] = str(seed_path)
+            hedge_artifacts["instructions"] = (
+                "Training pass rate = 1.0. To hedge: paste the seed prompt "
+                "above into a NEW chat session (not a continuation), then run "
+                "paste_helper.py again with --hedge-result <path-to-second-paste>."
+            )
+
+            if args.hedge_result and Path(args.hedge_result).exists():
+                second_response = Path(args.hedge_result).read_text()
+                second_code = extract_solve(second_response)
+                second_grid = extract_hand_grid(second_response)
+
+                first_grid = None
+                try:
+                    first_grid = mod_h.solve(json.load(open(puzzle_file))["test"][0]["input"])
+                except Exception:
+                    pass
+
+                if second_grid is None and second_code:
+                    spec2 = importlib.util.spec_from_file_location("_hedge_sec", "/tmp/_hedge.py")
+                    Path("/tmp/_hedge.py").write_text(second_code)
+                    spec2 = importlib.util.spec_from_file_location("_hedge_sec", "/tmp/_hedge.py")
+                    mod2 = importlib.util.module_from_spec(spec2)
+                    try:
+                        spec2.loader.exec_module(mod2)
+                        second_grid = mod2.solve(json.load(open(puzzle_file))["test"][0]["input"])
+                    except Exception:
+                        second_grid = None
+
+                agreement = None
+                if first_grid is not None and second_grid is not None:
+                    if (len(first_grid) == len(second_grid)
+                            and all(len(first_grid[r]) == len(second_grid[r]) for r in range(len(first_grid)))):
+                        diff = sum(
+                            1 for r in range(len(first_grid))
+                            for c in range(len(first_grid[0]))
+                            if first_grid[r][c] != second_grid[r][c]
+                        )
+                        total = len(first_grid) * len(first_grid[0])
+                        agreement = {
+                            "agree": diff == 0,
+                            "differing_cells": diff,
+                            "total_cells": total,
+                        }
+                hedge_artifacts["agreement"] = agreement
+        else:
+            hedge_artifacts["skipped"] = (
+                f"hedge requires training_pass_rate=1.0 (got {train_pass_rate_h:.2f})"
+            )
 
     research_artifacts = {}
     if args.label:
@@ -374,6 +465,7 @@ def main():
             **({"hand_grid": str(hand_grid_path)} if hand_grid_path else {}),
         },
         **({"research": research_artifacts} if research_artifacts else {}),
+        **({"hedge": hedge_artifacts} if hedge_artifacts else {}),
     }
     print(json.dumps(manifest, indent=2))
 
