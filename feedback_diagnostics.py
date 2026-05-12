@@ -203,9 +203,55 @@ def detect_boundary_unchanged(input_grid, expected, actual, wall_color=None):
     }
 
 
+def detect_no_transformation_applied(input_grid, expected, actual, wall_color=None):
+    """No-op bug: the code didn't transform the input at all (or barely).
+
+    Fingerprint: actual output is identical or near-identical to input, while
+    expected output modifies many cells. Diagnoses a main-loop that never
+    executes, a conditional that skips every relevant cell, or a missing
+    write-back to the output grid.
+    """
+    H, W = len(input_grid), len(input_grid[0])
+    expected_changes = sum(
+        1 for r in range(H) for c in range(W)
+        if expected[r][c] != input_grid[r][c]
+    )
+    if expected_changes < 10:
+        return None
+
+    actual_changes = sum(
+        1 for r in range(H) for c in range(W)
+        if actual[r][c] != input_grid[r][c]
+    )
+
+    if actual_changes / expected_changes > 0.1:
+        return None
+
+    return {
+        "bug_class": "no_transformation_applied",
+        "confidence": 1.0 - (actual_changes / expected_changes),
+        "fingerprint": (
+            f"Your code modified {actual_changes} cells. The expected output "
+            f"modifies {expected_changes} cells. Your code is essentially a no-op "
+            f"on this pair."
+        ),
+        "suggested_fix": (
+            "Your code returns the input grid almost unchanged. The transformation "
+            "rule isn't being applied at all. Likely causes:\n"
+            "  - A main loop never enters its body (empty iterable, wrong condition)\n"
+            "  - A conditional gate skips every cell that should change\n"
+            "  - Output is being written to a copy that's never returned\n"
+            "  - solve() returns input_grid instead of the modified output\n"
+            "Trace through your code on training pair 1: which line should be "
+            "writing the new value to output[r][c], and why isn't that line firing?"
+        ),
+    }
+
+
 DETECTORS = [
     detect_conn_mismatch,
     detect_boundary_unchanged,
+    detect_no_transformation_applied,
 ]
 
 
