@@ -146,6 +146,10 @@ def compute_diagnosis(puzzle_file, solution_path, prev_code_path=None,
     iter-over-iter regression (if prev/current code provided).
 
     Returns formatted feedback block to prepend, or None if diagnosis can't run.
+    Handles three failure modes specially:
+      - Module won't load (SyntaxError, ImportError): emit syntax_error diagnosis
+      - solve() raises an exception on a training pair: emit runtime_error diagnosis
+      - solve() returns malformed output: emit malformed_output diagnosis
     """
     try:
         from feedback_diagnostics import diagnose_full, format_targeted_feedback
@@ -159,17 +163,23 @@ def compute_diagnosis(puzzle_file, solution_path, prev_code_path=None,
     mod = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(mod)
-    except Exception:
-        return None
+    except SyntaxError as e:
+        return _format_syntax_error(e)
+    except Exception as e:
+        return _format_module_load_error(e)
+
     if not hasattr(mod, "solve"):
-        return None
+        return _format_missing_solve()
 
     actual_outputs = []
-    for pair in puzzle.get("train", []):
+    for idx, pair in enumerate(puzzle.get("train", []), 1):
         try:
-            actual_outputs.append(mod.solve(pair["input"]))
-        except Exception:
-            return None
+            out = mod.solve(pair["input"])
+        except Exception as e:
+            return _format_runtime_error(idx, e, solution_path)
+        if not isinstance(out, list) or not out or not isinstance(out[0], list):
+            return _format_malformed_output(idx, out)
+        actual_outputs.append(out)
 
     prev_code = None
     current_code = None
@@ -184,6 +194,78 @@ def compute_diagnosis(puzzle_file, solution_path, prev_code_path=None,
         return None
 
     return format_targeted_feedback(diag)
+
+
+def _format_runtime_error(pair_idx, exc, solution_path):
+    import traceback
+    tb = traceback.format_exception(type(exc), exc, exc.__traceback__)
+    relevant = [line for line in tb if "solution.py" in line or "_iter_sol_diag" in line]
+    location = relevant[-1].strip() if relevant else ""
+
+    return (
+        "=" * 80 + "\n"
+        "DIAGNOSIS\n"
+        + "=" * 80 + "\n\n"
+        f"Phase: runtime_error\n\n"
+        f"Your code raised an exception when called on training pair {pair_idx}:\n\n"
+        f"  {type(exc).__name__}: {exc}\n"
+        f"  {location}\n\n"
+        f"Fix the runtime error first. Until your code runs without crashing on every "
+        f"training pair, no algorithmic diagnosis is possible. Common causes:\n"
+        f"  - Calling numpy/Counter operations on empty arrays/lists\n"
+        f"  - Indexing into a list before checking it has elements\n"
+        f"  - Division by zero / modulo zero when a denominator can be zero\n"
+        f"  - Assuming a color exists in the input when it might not"
+    )
+
+
+def _format_syntax_error(exc):
+    return (
+        "=" * 80 + "\n"
+        "DIAGNOSIS\n"
+        + "=" * 80 + "\n\n"
+        f"Phase: syntax_error\n\n"
+        f"Your code has a Python syntax error and cannot be loaded:\n\n"
+        f"  {type(exc).__name__}: {exc}\n\n"
+        f"Fix the syntax error before anything else."
+    )
+
+
+def _format_module_load_error(exc):
+    return (
+        "=" * 80 + "\n"
+        "DIAGNOSIS\n"
+        + "=" * 80 + "\n\n"
+        f"Phase: module_load_error\n\n"
+        f"Your code raised an exception at module load (top-level statement, not "
+        f"inside def solve):\n\n"
+        f"  {type(exc).__name__}: {exc}\n\n"
+        f"Move imports and constants inside def solve, or fix the top-level code."
+    )
+
+
+def _format_missing_solve():
+    return (
+        "=" * 80 + "\n"
+        "DIAGNOSIS\n"
+        + "=" * 80 + "\n\n"
+        f"Phase: missing_solve\n\n"
+        f"Your response does not contain a `def solve(input_grid):` function. "
+        f"All responses must define solve() — we run your code, we don't read "
+        f"prose explanations."
+    )
+
+
+def _format_malformed_output(pair_idx, out):
+    return (
+        "=" * 80 + "\n"
+        "DIAGNOSIS\n"
+        + "=" * 80 + "\n\n"
+        f"Phase: malformed_output\n\n"
+        f"Your solve() function on training pair {pair_idx} returned something "
+        f"that isn't a 2D list of integers. Got: {type(out).__name__}.\n\n"
+        f"Return a list of rows, where each row is a list of integers (colors 0-9)."
+    )
 
 
 def main():
