@@ -183,14 +183,30 @@ def compute_diagnosis(puzzle_file, solution_path, prev_code_path=None,
 
     prev_code = None
     current_code = None
+    prev_actual_outputs = None
     if prev_code_path and Path(prev_code_path).exists():
         prev_code = Path(prev_code_path).read_text()
+        # Re-run prior iter on training pairs for cell-level regression check.
+        prev_spec = importlib.util.spec_from_file_location("_prev_sol", prev_code_path)
+        prev_mod = importlib.util.module_from_spec(prev_spec)
+        try:
+            prev_spec.loader.exec_module(prev_mod)
+            if hasattr(prev_mod, "solve"):
+                prev_actual_outputs = []
+                for pair in puzzle.get("train", []):
+                    try:
+                        prev_actual_outputs.append(prev_mod.solve(pair["input"]))
+                    except Exception:
+                        prev_actual_outputs.append(None)
+        except Exception:
+            prev_actual_outputs = None
     if current_code_path and Path(current_code_path).exists():
         current_code = Path(current_code_path).read_text()
 
     diag = diagnose_full(puzzle, actual_outputs,
-                         prev_code=prev_code, current_code=current_code)
-    if diag.get("phase") is None:
+                         prev_code=prev_code, current_code=current_code,
+                         prev_actual_outputs=prev_actual_outputs)
+    if diag.get("phase") is None and not diag.get("regression_alert"):
         return None
 
     return format_targeted_feedback(diag)

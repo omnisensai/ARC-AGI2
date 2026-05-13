@@ -423,6 +423,97 @@ def detect_code_change(prev_code_text, current_code_text):
     }
 
 
+# ----------------------------------------------------------------------
+# Per-pair correctness tracking + regression detector (Layer 1).
+# Catches the failure mode "model rewrites iter N away from a close-to-
+# correct iter N-1" by giving the model a cell-level scoreboard.
+# ----------------------------------------------------------------------
+
+
+def per_pair_correctness(puzzle, actual_outputs):
+    """For each training pair, count cells matching expected output.
+
+    actual_outputs: list of grids (or None for failed solves), one per pair.
+    Returns list of {pair_idx, correct, total, fraction} or marker dicts when
+    solve() crashed or returned malformed output.
+    """
+    results = []
+    train = puzzle.get("train", [])
+    for i, (pair, actual) in enumerate(zip(train, actual_outputs), 1):
+        expected = pair["output"]
+        total = len(expected) * len(expected[0]) if expected else 0
+        if actual is None:
+            results.append({"pair_idx": i, "correct": 0, "total": total,
+                            "fraction": 0.0, "status": "crashed"})
+            continue
+        if (len(actual) != len(expected)
+                or any(len(actual[r]) != len(expected[r]) for r in range(len(expected)))):
+            results.append({"pair_idx": i, "correct": 0, "total": total,
+                            "fraction": 0.0, "status": "dim_mismatch"})
+            continue
+        correct = sum(
+            1 for r in range(len(expected)) for c in range(len(expected[0]))
+            if actual[r][c] == expected[r][c]
+        )
+        results.append({
+            "pair_idx": i,
+            "correct": correct,
+            "total": total,
+            "fraction": correct / total if total else 0.0,
+            "status": "ok",
+        })
+    return results
+
+
+def detect_regression(prev_per_pair, current_per_pair):
+    """Compare per-pair correctness from iter N-1 to iter N.
+
+    Returns {regressed_pairs, improved_pairs, cells_lost, cells_gained, net}
+    or None if no useful comparison is possible.
+    """
+    if not prev_per_pair or len(prev_per_pair) != len(current_per_pair):
+        return None
+
+    regressed = []
+    improved = []
+    cells_lost = 0
+    cells_gained = 0
+
+    for prev, curr in zip(prev_per_pair, current_per_pair):
+        if prev.get("status") != "ok" or curr.get("status") != "ok":
+            continue
+        delta = curr["correct"] - prev["correct"]
+        if delta < 0:
+            regressed.append({
+                "pair_idx": curr["pair_idx"],
+                "prev_correct": prev["correct"],
+                "curr_correct": curr["correct"],
+                "cells_lost": -delta,
+                "total": curr["total"],
+            })
+            cells_lost += -delta
+        elif delta > 0:
+            improved.append({
+                "pair_idx": curr["pair_idx"],
+                "prev_correct": prev["correct"],
+                "curr_correct": curr["correct"],
+                "cells_gained": delta,
+                "total": curr["total"],
+            })
+            cells_gained += delta
+
+    if not regressed and not improved:
+        return None
+
+    return {
+        "regressed_pairs": regressed,
+        "improved_pairs": improved,
+        "cells_lost": cells_lost,
+        "cells_gained": cells_gained,
+        "net": cells_gained - cells_lost,
+    }
+
+
 def diagnose(input_grid, expected, actual, training_pass_rate, wall_color=None):
     """Per-pair diagnosis. Returns phase classification + matching bug diagnoses.
 
@@ -439,19 +530,24 @@ def diagnose(input_grid, expected, actual, training_pass_rate, wall_color=None):
 
 
 def diagnose_full(puzzle, actual_outputs, prev_code=None, current_code=None,
-                  wall_color=None):
+                  prev_actual_outputs=None, wall_color=None):
     """Full diagnosis using all training pairs + iter-over-iter regression check.
 
     puzzle: dict with 'train' key (list of {input, output} pairs)
     actual_outputs: list of model's solve() outputs, one per training pair, in order
-    prev_code, current_code: optional code text strings for regression detection
+    prev_code, current_code: optional code text strings for AST-similarity check
+    prev_actual_outputs: optional iter N-1 solve() outputs for cell-level
+                        regression detection (Layer 1)
 
     Returns:
       {
         phase: {...},
         bugs: [...],
-        structural_diff: [...],         # only if phase == rule_comprehension
-        regression: {kind, similarity}, # only if both code texts provided
+        structural_diff: [...],            # if phase == rule_comprehension
+        regression: {kind, similarity},    # AST-level (if both code texts)
+        regression_alert: {...} | None,    # cell-level (if prev_actual_outputs)
+        curr_per_pair: [{pair_idx, correct, total, ...}],
+        prev_per_pair: [{...}] | None,
         passing_pair_indices: [...],
         failing_pair_indices: [...],
       }
@@ -470,11 +566,21 @@ def diagnose_full(puzzle, actual_outputs, prev_code=None, current_code=None,
     train_n = len(train)
     pass_rate = len(passing_idx) / train_n if train_n else 0.0
 
+    curr_per_pair = per_pair_correctness(puzzle, actual_outputs)
+    prev_per_pair = None
+    regression_alert = None
+    if prev_actual_outputs is not None:
+        prev_per_pair = per_pair_correctness(puzzle, prev_actual_outputs)
+        regression_alert = detect_regression(prev_per_pair, curr_per_pair)
+
     result = {
         "phase": None,
         "bugs": [],
         "structural_diff": [],
         "regression": None,
+        "regression_alert": regression_alert,
+        "curr_per_pair": curr_per_pair,
+        "prev_per_pair": prev_per_pair,
         "passing_pair_indices": passing_idx,
         "failing_pair_indices": failing_idx,
     }
@@ -510,14 +616,81 @@ def diagnose_full(puzzle, actual_outputs, prev_code=None, current_code=None,
 def format_targeted_feedback(diagnosis):
     """Render diagnosis as the targeted-feedback string for iter-2+ prompts."""
     phase_info = diagnosis["phase"]
-    phase = phase_info["phase"]
-    bugs = diagnosis["bugs"]
+    phase = phase_info["phase"] if phase_info else None
+    bugs = diagnosis.get("bugs", [])
 
     lines = []
+
+    reg_alert = diagnosis.get("regression_alert")
+    if reg_alert and reg_alert.get("cells_lost", 0) > 0:
+        lines.append("!" * 80)
+        lines.append("REGRESSION ALERT")
+        lines.append("!" * 80)
+        lines.append("")
+        lines.append(
+            f"Your current iter destroyed {reg_alert['cells_lost']} cells that "
+            f"were correct in the prior iter."
+        )
+        if reg_alert.get("cells_gained", 0) > 0:
+            lines.append(
+                f"You also gained {reg_alert['cells_gained']} cells, "
+                f"net change: {reg_alert['net']:+d}."
+            )
+        lines.append("")
+        lines.append("Per-pair changes:")
+        for r in reg_alert.get("regressed_pairs", []):
+            lines.append(
+                f"  Pair {r['pair_idx']}: {r['prev_correct']}/{r['total']} -> "
+                f"{r['curr_correct']}/{r['total']} (-{r['cells_lost']})"
+            )
+        for r in reg_alert.get("improved_pairs", []):
+            lines.append(
+                f"  Pair {r['pair_idx']}: {r['prev_correct']}/{r['total']} -> "
+                f"{r['curr_correct']}/{r['total']} (+{r['cells_gained']})"
+            )
+        lines.append("")
+        if reg_alert.get("net", 0) < 0:
+            lines.append(
+                "Your rewrite went BACKWARDS. The prior iter's algorithm was "
+                "closer to correct than your current one. REVERT to the prior "
+                "algorithm and apply a small patch instead of rewriting."
+            )
+        else:
+            lines.append(
+                "Mixed change: you fixed some pairs but broke others. Pull the "
+                "winning logic from the prior iter on the regressed pair(s) "
+                "back into your current code."
+            )
+        lines.append("")
+
+    per_pair = diagnosis.get("curr_per_pair") or []
+    if per_pair:
+        lines.append("=" * 80)
+        lines.append("PER-PAIR CELL CORRECTNESS")
+        lines.append("=" * 80)
+        lines.append("")
+        for p in per_pair:
+            tag = "PASS" if p.get("status") == "ok" and p["correct"] == p["total"] else "FAIL"
+            if p.get("status") == "crashed":
+                lines.append(f"  Pair {p['pair_idx']}: CRASHED")
+            elif p.get("status") == "dim_mismatch":
+                lines.append(f"  Pair {p['pair_idx']}: DIMENSION MISMATCH")
+            else:
+                lines.append(
+                    f"  Pair {p['pair_idx']}: {p['correct']}/{p['total']} "
+                    f"({p['fraction'] * 100:.1f}%)  [{tag}]"
+                )
+        lines.append("")
+
     lines.append("=" * 80)
     lines.append("DIAGNOSIS")
     lines.append("=" * 80)
     lines.append("")
+
+    if phase is None:
+        lines.append("All training pairs pass. No further diagnosis needed.")
+        return "\n".join(lines)
+
     lines.append(f"Phase: {phase}")
     lines.append(
         f"  Signals: training_pass={phase_info['training_pass_rate']:.2f}, "
