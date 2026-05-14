@@ -1,0 +1,117 @@
+Rule: treat the repeated long line color as the separator/wall color. The walls divide the grid into connected regions. In each region, seed colors placed on a corner diagonal define repeating nested rectangular frames. Missing outer frame colors default to the background color.
+
+```python
+def solve(input_grid):
+    from collections import Counter, deque
+
+    h, w = len(input_grid), len(input_grid[0])
+
+    counts = Counter(v for row in input_grid for v in row)
+    bg = counts.most_common(1)[0][0]
+    sep = max((c for c in counts if c != bg), key=lambda c: counts[c])
+
+    output_grid = [row[:] for row in input_grid]
+    seen = [[False] * w for _ in range(h)]
+
+    for sr in range(h):
+        for sc in range(w):
+            if seen[sr][sc] or input_grid[sr][sc] == sep:
+                continue
+
+            q = deque([(sr, sc)])
+            seen[sr][sc] = True
+            cells = []
+
+            while q:
+                r, c = q.popleft()
+                cells.append((r, c))
+                for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    nr, nc = r + dr, c + dc
+                    if (
+                        0 <= nr < h and 0 <= nc < w
+                        and not seen[nr][nc]
+                        and input_grid[nr][nc] != sep
+                    ):
+                        seen[nr][nc] = True
+                        q.append((nr, nc))
+
+            seeds = [
+                (r, c, input_grid[r][c])
+                for r, c in cells
+                if input_grid[r][c] != bg
+            ]
+
+            if not seeds:
+                continue
+
+            r0 = min(r for r, c in cells)
+            r1 = max(r for r, c in cells)
+            c0 = min(c for r, c in cells)
+            c1 = max(c for r, c in cells)
+
+            corner_tests = [
+                lambda r, c: r - r0 if r - r0 == c - c0 else None,      # top-left
+                lambda r, c: r - r0 if r - r0 == c1 - c else None,      # top-right
+                lambda r, c: r1 - r if r1 - r == c - c0 else None,      # bottom-left
+                lambda r, c: r1 - r if r1 - r == c1 - c else None,      # bottom-right
+            ]
+
+            best_offsets = []
+            for test in corner_tests:
+                offsets = []
+                for r, c, color in seeds:
+                    d = test(r, c)
+                    if d is not None:
+                        offsets.append((d, color))
+                if len(offsets) > len(best_offsets):
+                    best_offsets = offsets
+
+            if not best_offsets:
+                continue
+
+            max_offset = max(d for d, color in best_offsets)
+            sequence = [bg] * (max_offset + 1)
+            for d, color in best_offsets:
+                sequence[d] = color
+
+            for r, c in cells:
+                d = min(r - r0, r1 - r, c - c0, c1 - c)
+                output_grid[r][c] = sequence[d % len(sequence)]
+
+    return output_grid
+```
+
+```python
+TEST_OUTPUT = [
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8, 6, 6, 6, 6, 6, 6, 6, 6, 8, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+    [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 8, 6, 4, 4, 4, 4, 4, 4, 4, 8, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+    [1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 8, 6, 4, 5, 5, 5, 5, 5, 5, 8, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+    [1, 2, 1, 2, 2, 2, 2, 2, 1, 2, 1, 8, 6, 4, 5, 6, 6, 6, 6, 6, 8, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+    [1, 2, 1, 2, 1, 1, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 4, 4, 4, 8, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 5, 5, 5, 8, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 5, 6, 6, 8, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 8, 8, 8, 8, 8, 8, 8, 2, 2, 2, 2, 2, 2],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 8, 4, 4, 4, 4, 4, 8, 2, 2, 2, 2, 2, 2],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 8, 4, 1, 1, 1, 4, 8, 2, 2, 2, 2, 2, 2],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 8, 4, 1, 4, 1, 4, 8, 8, 8, 8, 8, 8, 8],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 8, 4, 1, 4, 1, 4, 8, 5, 4, 6, 5, 4, 6],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 8, 4, 1, 1, 1, 4, 8, 5, 4, 6, 5, 4, 6],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 8, 4, 4, 4, 4, 4, 8, 5, 4, 6, 5, 4, 6],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 8, 8, 8, 8, 8, 8, 8, 5, 4, 6, 5, 4, 6],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 5, 6, 4, 5, 5, 4, 6, 5, 4, 6, 5, 4, 6],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 5, 6, 4, 5, 5, 4, 6, 5, 4, 6, 5, 4, 6],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 5, 6, 4, 5, 5, 4, 6, 5, 4, 6, 5, 4, 6],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 5, 6, 4, 5, 5, 4, 6, 5, 4, 6, 5, 4, 6],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 5, 6, 4, 5, 5, 4, 6, 5, 4, 6, 5, 4, 6],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 5, 6, 4, 5, 5, 4, 6, 5, 4, 6, 5, 4, 6],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 5, 6, 4, 5, 5, 4, 6, 5, 4, 6, 5, 4, 6],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 5, 6, 4, 4, 4, 4, 6, 5, 4, 6, 5, 4, 6],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 5, 6, 6, 6, 6, 6, 6, 5, 4, 6, 5, 4, 6],
+    [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 8, 6, 4, 5, 6, 4, 5, 5, 5, 5, 5, 5, 5, 5, 4, 6, 5, 4, 6],
+    [1, 2, 1, 2, 1, 1, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 4, 4, 4, 4, 4, 4, 6, 5, 4, 6],
+    [1, 2, 1, 2, 2, 2, 8, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 8, 6, 6, 6, 6, 6, 6, 6, 5, 4, 6],
+    [1, 2, 1, 1, 1, 1, 8, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 8, 5, 5, 5, 5, 5, 5, 5, 5, 4, 6],
+    [1, 2, 2, 2, 2, 2, 8, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 8, 4, 4, 4, 4, 4, 4, 4, 4, 4, 6],
+    [1, 1, 1, 1, 1, 1, 8, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 8, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
+]
+```
