@@ -1,44 +1,18 @@
 def solve(input_grid):
     from collections import Counter, deque
 
-    grid = input_grid
-    H, W = len(grid), len(grid[0])
+    h, w = len(input_grid), len(input_grid[0])
 
-    counts = Counter(v for row in grid for v in row)
+    counts = Counter(v for row in input_grid for v in row)
     bg = counts.most_common(1)[0][0]
+    sep = max((c for c in counts if c != bg), key=lambda c: counts[c])
 
-    non_bg_counts = Counter(v for row in grid for v in row if v != bg)
-    wall = non_bg_counts.most_common(1)[0][0]
+    output_grid = [row[:] for row in input_grid]
+    seen = [[False] * w for _ in range(h)]
 
-    up = [[0] * W for _ in range(H)]
-    left = [[0] * W for _ in range(H)]
-    down = [[0] * W for _ in range(H)]
-    right = [[0] * W for _ in range(H)]
-
-    for r in range(H):
-        for c in range(W):
-            if grid[r][c] == wall:
-                continue
-            up[r][c] = 0 if r == 0 or grid[r - 1][c] == wall else up[r - 1][c] + 1
-            left[r][c] = 0 if c == 0 or grid[r][c - 1] == wall else left[r][c - 1] + 1
-
-    for r in range(H - 1, -1, -1):
-        for c in range(W - 1, -1, -1):
-            if grid[r][c] == wall:
-                continue
-            down[r][c] = 0 if r == H - 1 or grid[r + 1][c] == wall else down[r + 1][c] + 1
-            right[r][c] = 0 if c == W - 1 or grid[r][c + 1] == wall else right[r][c + 1] + 1
-
-    def depth(r, c):
-        return min(up[r][c], down[r][c], left[r][c], right[r][c])
-
-    output_grid = [row[:] for row in grid]
-    seen = [[False] * W for _ in range(H)]
-    dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-
-    for sr in range(H):
-        for sc in range(W):
-            if seen[sr][sc] or grid[sr][sc] == wall:
+    for sr in range(h):
+        for sc in range(w):
+            if seen[sr][sc] or input_grid[sr][sc] == sep:
                 continue
 
             q = deque([(sr, sc)])
@@ -48,39 +22,57 @@ def solve(input_grid):
             while q:
                 r, c = q.popleft()
                 cells.append((r, c))
-                for dr, dc in dirs:
+                for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                     nr, nc = r + dr, c + dc
                     if (
-                        0 <= nr < H and 0 <= nc < W
+                        0 <= nr < h and 0 <= nc < w
                         and not seen[nr][nc]
-                        and grid[nr][nc] != wall
+                        and input_grid[nr][nc] != sep
                     ):
                         seen[nr][nc] = True
                         q.append((nr, nc))
 
-            seed_by_depth = {}
-            for r, c in cells:
-                v = grid[r][c]
-                if v != bg:
-                    d = depth(r, c)
-                    seed_by_depth[d] = v
+            seeds = [
+                (r, c, input_grid[r][c])
+                for r, c in cells
+                if input_grid[r][c] != bg
+            ]
 
-            if not seed_by_depth:
+            if not seeds:
                 continue
 
-            if 0 not in seed_by_depth:
-                seed_by_depth[0] = bg
+            r0 = min(r for r, c in cells)
+            r1 = max(r for r, c in cells)
+            c0 = min(c for r, c in cells)
+            c1 = max(c for r, c in cells)
 
-            max_known = max(seed_by_depth)
-            pattern = []
-            last = seed_by_depth[0]
-            for d in range(max_known + 1):
-                if d in seed_by_depth:
-                    last = seed_by_depth[d]
-                pattern.append(last)
+            corner_tests = [
+                lambda r, c: r - r0 if r - r0 == c - c0 else None,      # top-left
+                lambda r, c: r - r0 if r - r0 == c1 - c else None,      # top-right
+                lambda r, c: r1 - r if r1 - r == c - c0 else None,      # bottom-left
+                lambda r, c: r1 - r if r1 - r == c1 - c else None,      # bottom-right
+            ]
+
+            best_offsets = []
+            for test in corner_tests:
+                offsets = []
+                for r, c, color in seeds:
+                    d = test(r, c)
+                    if d is not None:
+                        offsets.append((d, color))
+                if len(offsets) > len(best_offsets):
+                    best_offsets = offsets
+
+            if not best_offsets:
+                continue
+
+            max_offset = max(d for d, color in best_offsets)
+            sequence = [bg] * (max_offset + 1)
+            for d, color in best_offsets:
+                sequence[d] = color
 
             for r, c in cells:
-                d = depth(r, c)
-                output_grid[r][c] = pattern[d % len(pattern)]
+                d = min(r - r0, r1 - r, c - c0, c1 - c)
+                output_grid[r][c] = sequence[d % len(sequence)]
 
     return output_grid
