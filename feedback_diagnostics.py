@@ -123,45 +123,66 @@ def error_cluster_density(expected, actual):
     return clustered / len(errors)
 
 
-def classify_phase(input_grid, expected, actual, training_pass_rate):
-    """Decide whether the model is in code-debug or rule-comprehension phase.
+def classify_phase(puzzle, actual_outputs, training_pass_rate):
+    """Decide whether the model is in code-debug or rule-comprehension phase
+    using a single mechanical signal: aggregate cell-level correctness across
+    every training pair.
 
-    Code-debug signals (rule looks right, implementation has a bug):
-      - high training pass rate (model's algorithm mostly works)
-      - per-color transformation counts match (right kinds, right amounts)
-      - color distribution overlap is high (right palette in right amounts)
-      - errors are spatially clustered (structural bug at a specific location)
+    correctness = total cells matching expected / total cells across all pairs
+    (weighted by pair size, since larger pairs contribute more cells)
 
-    A score of 3+ ⇒ code_debug; 0–1 ⇒ rule_comprehension; 2 ⇒ ambiguous.
+    Binary decision:
+      - correctness >= 0.85  -> code_debug      ("rule right, fix the bug")
+      - correctness <  0.85  -> rule_comprehension ("rule wrong, re-derive")
+
+    Secondary signals (transformation_match, color_distribution_overlap,
+    error_cluster_density) are computed for diagnostic context but do NOT
+    gate the phase decision. They appear in the output for the model's
+    awareness only.
     """
-    tx_match = transformation_count_match(input_grid, expected, actual)
-    color_match = color_distribution_overlap(expected, actual)
-    cluster_density = error_cluster_density(expected, actual)
+    train = puzzle.get("train", [])
+    total_correct = 0
+    total_cells = 0
+    for pair, actual in zip(train, actual_outputs):
+        expected = pair["output"]
+        if actual is None:
+            total_cells += len(expected) * len(expected[0]) if expected else 0
+            continue
+        if (len(actual) != len(expected)
+                or any(len(actual[r]) != len(expected[r]) for r in range(len(expected)))):
+            total_cells += len(expected) * len(expected[0])
+            continue
+        for r in range(len(expected)):
+            for c in range(len(expected[0])):
+                total_cells += 1
+                if actual[r][c] == expected[r][c]:
+                    total_correct += 1
 
-    score = 0
-    if training_pass_rate >= 2 / 3:
-        score += 1
-    if tx_match > 0.99:
-        score += 2
-    if color_match > 0.95:
-        score += 1
-    if cluster_density > 0.7:
-        score += 1
+    correctness = total_correct / total_cells if total_cells else 0.0
+    phase = "code_debug" if correctness >= 0.85 else "rule_comprehension"
 
-    if score >= 3:
-        phase = "code_debug"
-    elif score <= 1:
-        phase = "rule_comprehension"
-    else:
-        phase = "ambiguous"
+    # Secondary signals on the first failing pair (for the model's awareness).
+    secondary = {}
+    for pair, actual in zip(train, actual_outputs):
+        if actual is None or actual == pair["output"]:
+            continue
+        secondary = {
+            "transformation_match": transformation_count_match(
+                pair["input"], pair["output"], actual),
+            "color_distribution_overlap": color_distribution_overlap(
+                pair["output"], actual),
+            "error_cluster_density": error_cluster_density(
+                pair["output"], actual),
+        }
+        break
 
     return {
         "phase": phase,
-        "code_bug_signals": score,
+        "correctness": correctness,
+        "total_correct": total_correct,
+        "total_cells": total_cells,
         "training_pass_rate": training_pass_rate,
-        "transformation_match": tx_match,
-        "color_distribution_overlap": color_match,
-        "error_cluster_density": cluster_density,
+        **secondary,
     }
 
 
@@ -514,21 +535,6 @@ def detect_regression(prev_per_pair, current_per_pair):
     }
 
 
-def diagnose(input_grid, expected, actual, training_pass_rate, wall_color=None):
-    """Per-pair diagnosis. Returns phase classification + matching bug diagnoses.
-
-    For full diagnosis with structural-diff and regression detection, use
-    diagnose_full() which takes the whole puzzle and iter history.
-    """
-    phase = classify_phase(input_grid, expected, actual, training_pass_rate)
-    bugs = []
-    for detector in DETECTORS:
-        result = detector(input_grid, expected, actual, wall_color)
-        if result:
-            bugs.append(result)
-    return {"phase": phase, "bugs": bugs}
-
-
 def diagnose_full(puzzle, actual_outputs, prev_code=None, current_code=None,
                   prev_actual_outputs=None, wall_color=None):
     """Full diagnosis using all training pairs + iter-over-iter regression check.
@@ -588,19 +594,19 @@ def diagnose_full(puzzle, actual_outputs, prev_code=None, current_code=None,
     if not failing_idx:
         return result
 
+    result["phase"] = classify_phase(puzzle, actual_outputs, pass_rate)
+
     first_failing = failing_idx[0]
     inp = train[first_failing]["input"]
     exp = train[first_failing]["output"]
     act = actual_outputs[first_failing]
-
-    result["phase"] = classify_phase(inp, exp, act, pass_rate)
 
     for detector in DETECTORS:
         match = detector(inp, exp, act, wall_color)
         if match:
             result["bugs"].append(match)
 
-    if result["phase"]["phase"] == "rule_comprehension" and passing_idx:
+    if result["phase"] and result["phase"]["phase"] == "rule_comprehension" and passing_idx:
         passing_pairs = [(train[i]["input"], train[i]["output"]) for i in passing_idx]
         failing_pairs = [(train[i]["input"], train[i]["output"]) for i in failing_idx]
         result["structural_diff"] = detect_structural_diff(
@@ -691,21 +697,31 @@ def format_targeted_feedback(diagnosis):
         lines.append("All training pairs pass. No further diagnosis needed.")
         return "\n".join(lines)
 
+    correctness_pct = phase_info.get("correctness", 0.0) * 100
     lines.append(f"Phase: {phase}")
     lines.append(
-        f"  Signals: training_pass={phase_info['training_pass_rate']:.2f}, "
-        f"transformation_match={phase_info['transformation_match']:.2f}, "
-        f"color_overlap={phase_info['color_distribution_overlap']:.2f}, "
-        f"error_cluster_density={phase_info['error_cluster_density']:.2f}"
+        f"  Cell correctness across all training pairs: "
+        f"{phase_info.get('total_correct', 0)}/{phase_info.get('total_cells', 0)} "
+        f"({correctness_pct:.1f}%)  [threshold: 85% for code_debug]"
     )
+    secondary_bits = []
+    if "transformation_match" in phase_info:
+        secondary_bits.append(
+            f"transformation_match={phase_info['transformation_match']:.2f}")
+        secondary_bits.append(
+            f"color_overlap={phase_info['color_distribution_overlap']:.2f}")
+        secondary_bits.append(
+            f"error_cluster_density={phase_info['error_cluster_density']:.2f}")
+    if secondary_bits:
+        lines.append(f"  Secondary (informational only): {', '.join(secondary_bits)}")
     lines.append("")
 
     if phase == "code_debug":
         lines.append(
-            "Your transformation rule looks correct (you are producing the right "
-            "color transformations in roughly the right quantities). The bug is "
-            "in the code-level implementation. Do NOT rewrite the algorithm — "
-            "find the implementation bug."
+            f"Cell correctness {correctness_pct:.1f}% is ABOVE the 85% threshold. "
+            "Your transformation rule looks correct. The bug is in the code-level "
+            "implementation. Do NOT rewrite the algorithm — find the implementation "
+            "bug."
         )
         lines.append("")
         if bugs:
@@ -722,8 +738,9 @@ def format_targeted_feedback(diagnosis):
                 "off-by-one errors, wrong adjacency choices (4-conn vs 8-conn), "
                 "boundary handling mistakes, or aliasing/mutation bugs."
             )
-    elif phase == "rule_comprehension":
+    else:
         lines.append(
+            f"Cell correctness {correctness_pct:.1f}% is BELOW the 85% threshold. "
             "The transformation rule appears wrong (not just a code bug). "
             "Re-derive the rule from the training pairs before changing code."
         )
@@ -744,11 +761,6 @@ def format_targeted_feedback(diagnosis):
                 "ones. Identify what's different about the failing input(s) and "
                 "make sure your rule accounts for it."
             )
-    else:
-        lines.append(
-            "Diagnosis ambiguous. The rule is partially right but the code may "
-            "also have bugs. Re-examine both rule and implementation."
-        )
 
     regression = diagnosis.get("regression")
     if regression:

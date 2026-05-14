@@ -51,7 +51,7 @@ front-load every diagnostic into iter-1.
 
 | Term | What it does | Output |
 |---|---|---|
-| **Phase classifier** | Combines training pass rate, transformation count match, color distribution overlap, and error spatial clustering | `code_debug` / `rule_comprehension` / `ambiguous` |
+| **Phase classifier** | One mechanical signal: cell-level correctness across all training pairs, weighted by pair size | `code_debug` (correctness ≥ 85%) / `rule_comprehension` (< 85%). Binary, no ambiguous bucket. |
 | **Bug-class fingerprint detector** | Spatial-pattern matchers for specific code bugs | E.g., `connectivity_mismatch` (4-conn vs 8-conn in distance/halo BFS), `boundary_unchanged` (cells skipped during processing). Library grows as we observe new patterns in the corpus. |
 | **Structural-diff detector** | Compares features of failing pairs vs passing pairs | E.g., "failing pairs are 20×20, passing pair is 10×13; failing pairs have palette size 6-7, passing has 5." Surfaces the structural feature the model's rule fails to handle. |
 | **Regression detector** | AST-diff iter N vs iter N-1 | Classifies as `patched` / `modified` / `rewritten`. When code is rewritten but the prior version was close (`code_debug` phase), warns the model to revert and patch instead. |
@@ -131,13 +131,20 @@ Add by appending to the `DETECTORS` list in `feedback_diagnostics.py`.
 ## Calibration discipline
 
 `research/calibration/outcomes.csv` is the single source of truth for
-"do our signals predict outcomes?" Every research-mode submit-eligible
-attempt appends one row. After ~50 rows we expect to see whether
-phase classifier signals reliably distinguish TRUE_SOLVE from
-FALSE_CONFIDENT_SUBMIT, and at what thresholds.
+"does cell correctness predict TRUE_SOLVE outcomes?" Every research-mode
+submit-eligible attempt appends one row. After ~30 rows we expect to see
+whether the 85% threshold reliably distinguishes TRUE_SOLVE from
+FALSE_CONFIDENT_SUBMIT, and whether secondary signals add discrimination.
 
-If the calibration data ever shows our signals don't predict outcomes,
-the signals are wrong and need redesign — not the threshold values.
+The `research/` directory auto-creates on first `paste_helper.py --label`
+invocation. It does NOT exist on a fresh repo clone — see `research/README.md`
+for the layout that will be populated.
+
+The phase classifier uses a single 85% threshold. If calibration data shows
+85% misclassifies in either direction, adjust the threshold based on data.
+If the metric itself (cell correctness) doesn't separate TRUE_SOLVE from
+FALSE_CONFIDENT_SUBMIT, the metric is wrong and needs redesign — not the
+threshold.
 
 ## What would falsify this framework
 
@@ -148,7 +155,7 @@ This framework is not religious. It loses if:
   bug-class library is decoration if so.
 - The seed prompt strip causes iter-1 solve rate to drop sharply vs the
   v6 substrate. We accepted some loss; we did not accept catastrophe.
-- The corpus signals (transformation_match, color_overlap, etc.) do not
+- Cell-level correctness (the primary phase-classifier signal) does not
   separate TRUE_SOLVE from FALSE_CONFIDENT_SUBMIT in calibration data.
 
 When any of these happen, the framework is wrong and we redesign.
