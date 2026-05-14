@@ -145,7 +145,7 @@ def next_iter_n(model_dir):
 
 
 def compute_diagnosis(puzzle_file, solution_path, prev_code_path=None,
-                      current_code_path=None):
+                      current_code_path=None, iter_n=None):
     """Run solver on every training pair, classify phase, match bug-class
     fingerprints, run structural-diff (if rule_comprehension), and detect
     iter-over-iter regression (if prev/current code provided).
@@ -214,7 +214,7 @@ def compute_diagnosis(puzzle_file, solution_path, prev_code_path=None,
     if diag.get("phase") is None and not diag.get("regression_alert"):
         return None
 
-    return format_targeted_feedback(diag)
+    return format_targeted_feedback(diag, iter_n=iter_n)
 
 
 def _format_runtime_error(pair_idx, exc, solution_path):
@@ -399,6 +399,7 @@ def main():
         puzzle_file, "solution.py",
         prev_code_path=prev_code_path,
         current_code_path=str(code_path),
+        iter_n=n,
     )
     if diagnosis_block:
         feedback = diagnosis_block + "\n\n" + feedback

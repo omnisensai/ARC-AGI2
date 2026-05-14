@@ -619,31 +619,110 @@ def diagnose_full(puzzle, actual_outputs, prev_code=None, current_code=None,
     return result
 
 
-def format_targeted_feedback(diagnosis):
-    """Render diagnosis as the targeted-feedback string for iter-2+ prompts."""
+_SECTION_TITLES = {
+    "code_debug": "CODE DEBUG DIAGNOSIS",
+    "rule_comprehension": "RULE COMPREHENSION DIAGNOSIS",
+    "runtime_error": "RUNTIME ERROR DETAILS",
+    "syntax_error": "SYNTAX ERROR DETAILS",
+    "module_load_error": "MODULE LOAD ERROR DETAILS",
+    "missing_solve": "MISSING SOLVE FUNCTION",
+    "malformed_output": "MALFORMED OUTPUT DETAILS",
+}
+
+
+def _per_pair_lines(per_pair):
+    out = []
+    for p in per_pair:
+        if p.get("status") == "crashed":
+            out.append(f"  Pair {p['pair_idx']}: CRASHED")
+        elif p.get("status") == "dim_mismatch":
+            out.append(f"  Pair {p['pair_idx']}: DIMENSION MISMATCH")
+        else:
+            tag = "PASS" if p["correct"] == p["total"] else "FAIL"
+            out.append(
+                f"  Pair {p['pair_idx']}: {p['correct']}/{p['total']} "
+                f"({p['fraction'] * 100:.1f}%)  [{tag}]"
+            )
+    return out
+
+
+def _summary_verdict_lines(phase, per_pair):
+    """Return the four-line verdict block for FEEDBACK SUMMARY."""
+    failed = [
+        p["pair_idx"] for p in per_pair
+        if p.get("status") == "ok" and p["correct"] < p["total"]
+    ]
+    if phase == "code_debug":
+        rule = "Correct"
+        code = (
+            f"Did not generalize across all training pairs "
+            f"(failed on pair(s) {failed})."
+            if failed else "All training pairs pass."
+        )
+        verdict = "Do NOT rewrite the algorithm — find the implementation bug"
+        next_step = "Review debug diagnosis and update your python code"
+    elif phase == "rule_comprehension":
+        rule = "Wrong"
+        code = (
+            f"Cannot evaluate while rule is wrong "
+            f"(failed on pair(s) {failed})."
+        )
+        verdict = "Re-derive the rule before changing code"
+        next_step = "Review rule diagnosis below, then re-derive and re-implement"
+    elif phase in ("runtime_error", "syntax_error", "module_load_error",
+                   "missing_solve", "malformed_output"):
+        rule = "Cannot evaluate (code did not run)"
+        code = "Error — see details below"
+        verdict = "Fix the error so the code can run"
+        next_step = "Read the error details below and revise your code"
+    else:
+        rule = "Unknown"
+        code = "Unknown"
+        verdict = "Re-examine both rule and implementation"
+        next_step = "Read diagnosis below and decide which layer to fix"
+
+    return [
+        f"Transformation rule: {rule}",
+        f"Python Code: {code}",
+        f"Verdict: {verdict}",
+        f"Next step: {next_step}",
+    ]
+
+
+def format_targeted_feedback(diagnosis, iter_n=None):
+    """Render diagnosis as the targeted-feedback string for iter prompts.
+
+    Two-section layout:
+      FEEDBACK SUMMARY     — action-oriented top: iter, per-pair scoreboard,
+                             optional REGRESSION line, then 4-line verdict.
+      <PHASE> DIAGNOSIS    — technical facts: cell correctness, secondary
+                             signals, bug-class fingerprints, structural diff,
+                             iter-over-iter AST change.
+    """
     phase_info = diagnosis["phase"]
     phase = phase_info["phase"] if phase_info else None
     bugs = diagnosis.get("bugs", [])
+    per_pair = diagnosis.get("curr_per_pair") or []
 
     lines = []
 
+    # ============ FEEDBACK SUMMARY ============
+    lines.append("=" * 80)
+    lines.append("FEEDBACK SUMMARY")
+    lines.append("=" * 80)
+    lines.append("")
+    if iter_n is not None:
+        lines.append(f"Iteration: {iter_n}")
+        lines.append("")
+    if per_pair:
+        lines.extend(_per_pair_lines(per_pair))
+        lines.append("")
+
     reg_alert = diagnosis.get("regression_alert")
     if reg_alert and reg_alert.get("cells_lost", 0) > 0:
-        lines.append("!" * 80)
-        lines.append("REGRESSION ALERT")
-        lines.append("!" * 80)
-        lines.append("")
         lines.append(
-            f"Your current iter destroyed {reg_alert['cells_lost']} cells that "
-            f"were correct in the prior iter."
+            f"REGRESSION: {reg_alert['cells_lost']} cells destroyed from prior iter"
         )
-        if reg_alert.get("cells_gained", 0) > 0:
-            lines.append(
-                f"You also gained {reg_alert['cells_gained']} cells, "
-                f"net change: {reg_alert['net']:+d}."
-            )
-        lines.append("")
-        lines.append("Per-pair changes:")
         for r in reg_alert.get("regressed_pairs", []):
             lines.append(
                 f"  Pair {r['pair_idx']}: {r['prev_correct']}/{r['total']} -> "
@@ -654,56 +733,36 @@ def format_targeted_feedback(diagnosis):
                 f"  Pair {r['pair_idx']}: {r['prev_correct']}/{r['total']} -> "
                 f"{r['curr_correct']}/{r['total']} (+{r['cells_gained']})"
             )
-        lines.append("")
         if reg_alert.get("net", 0) < 0:
-            lines.append(
-                "Your rewrite went BACKWARDS. The prior iter's algorithm was "
-                "closer to correct than your current one. REVERT to the prior "
-                "algorithm and apply a small patch instead of rewriting."
-            )
+            lines.append("  Revert to prior iter's algorithm and apply a small patch.")
         else:
-            lines.append(
-                "Mixed change: you fixed some pairs but broke others. Pull the "
-                "winning logic from the prior iter on the regressed pair(s) "
-                "back into your current code."
-            )
+            lines.append("  Pull winning logic from prior iter back into current code.")
         lines.append("")
 
-    per_pair = diagnosis.get("curr_per_pair") or []
-    if per_pair:
-        lines.append("=" * 80)
-        lines.append("PER-PAIR CELL CORRECTNESS")
-        lines.append("=" * 80)
-        lines.append("")
-        for p in per_pair:
-            tag = "PASS" if p.get("status") == "ok" and p["correct"] == p["total"] else "FAIL"
-            if p.get("status") == "crashed":
-                lines.append(f"  Pair {p['pair_idx']}: CRASHED")
-            elif p.get("status") == "dim_mismatch":
-                lines.append(f"  Pair {p['pair_idx']}: DIMENSION MISMATCH")
-            else:
-                lines.append(
-                    f"  Pair {p['pair_idx']}: {p['correct']}/{p['total']} "
-                    f"({p['fraction'] * 100:.1f}%)  [{tag}]"
-                )
-        lines.append("")
+    if phase is None:
+        lines.append("Transformation rule: Correct")
+        lines.append("Python Code: All training pairs pass.")
+        lines.append("Verdict: SUBMIT")
+        lines.append("Next step: Verify hand grid matches your code's test output, then submit.")
+        return "\n".join(lines)
 
+    lines.extend(_summary_verdict_lines(phase, per_pair))
+    lines.append("")
+
+    # ============ PHASE-SPECIFIC DIAGNOSIS ============
+    section_title = _SECTION_TITLES.get(phase, "DIAGNOSIS")
     lines.append("=" * 80)
-    lines.append("DIAGNOSIS")
+    lines.append(section_title)
     lines.append("=" * 80)
     lines.append("")
 
-    if phase is None:
-        lines.append("All training pairs pass. No further diagnosis needed.")
-        return "\n".join(lines)
-
     correctness_pct = phase_info.get("correctness", 0.0) * 100
-    lines.append(f"Phase: {phase}")
-    lines.append(
-        f"  Cell correctness across all training pairs: "
-        f"{phase_info.get('total_correct', 0)}/{phase_info.get('total_cells', 0)} "
-        f"({correctness_pct:.1f}%)  [threshold: 85% for code_debug]"
-    )
+    if "total_cells" in phase_info:
+        lines.append(
+            f"Cell correctness: {phase_info.get('total_correct', 0)}/"
+            f"{phase_info.get('total_cells', 0)} ({correctness_pct:.1f}%)"
+            f"  [threshold: 85% for code_debug]"
+        )
     secondary_bits = []
     if "transformation_match" in phase_info:
         secondary_bits.append(
@@ -713,21 +772,15 @@ def format_targeted_feedback(diagnosis):
         secondary_bits.append(
             f"error_cluster_density={phase_info['error_cluster_density']:.2f}")
     if secondary_bits:
-        lines.append(f"  Secondary (informational only): {', '.join(secondary_bits)}")
+        lines.append(f"Secondary signals (informational): {', '.join(secondary_bits)}")
     lines.append("")
 
     if phase == "code_debug":
-        lines.append(
-            f"Cell correctness {correctness_pct:.1f}% is ABOVE the 85% threshold. "
-            "Your transformation rule looks correct. The bug is in the code-level "
-            "implementation. Do NOT rewrite the algorithm — find the implementation "
-            "bug."
-        )
-        lines.append("")
         if bugs:
             for bug in bugs:
                 lines.append(
-                    f"BUG MATCHED: {bug['bug_class']} (confidence {bug['confidence']:.2f})"
+                    f"BUG MATCHED: {bug['bug_class']} "
+                    f"(confidence {bug['confidence']:.2f})"
                 )
                 lines.append(f"  Fingerprint: {bug['fingerprint']}")
                 lines.append(f"  Suggested fix: {bug['suggested_fix']}")
@@ -738,22 +791,16 @@ def format_targeted_feedback(diagnosis):
                 "off-by-one errors, wrong adjacency choices (4-conn vs 8-conn), "
                 "boundary handling mistakes, or aliasing/mutation bugs."
             )
-    else:
-        lines.append(
-            f"Cell correctness {correctness_pct:.1f}% is BELOW the 85% threshold. "
-            "The transformation rule appears wrong (not just a code bug). "
-            "Re-derive the rule from the training pairs before changing code."
-        )
+    elif phase == "rule_comprehension":
         struct = diagnosis.get("structural_diff") or []
         if struct:
-            lines.append("")
             lines.append(
                 "Structural difference between failing and passing training pairs:"
             )
             for diff in struct:
                 lines.append(
-                    f"  - {diff['feature']}: passing pairs={diff['passing_values']}, "
-                    f"failing pairs={diff['failing_values']}"
+                    f"  - {diff['feature']}: passing={diff['passing_values']}, "
+                    f"failing={diff['failing_values']}"
                 )
             lines.append("")
             lines.append(
@@ -761,20 +808,18 @@ def format_targeted_feedback(diagnosis):
                 "ones. Identify what's different about the failing input(s) and "
                 "make sure your rule accounts for it."
             )
+        else:
+            lines.append(
+                "Re-derive the rule by comparing inputs and expected outputs of "
+                "the failing pair(s)."
+            )
 
     regression = diagnosis.get("regression")
     if regression:
         lines.append("")
         lines.append(
-            f"Iter-over-iter change: {regression['kind']} "
+            f"Iter-over-iter code change: {regression['kind']} "
             f"(similarity={regression['similarity']:.2f})"
         )
-        if regression["kind"] == "rewritten" and phase == "code_debug":
-            lines.append(
-                "  Warning: you rewrote the algorithm but the prior version was "
-                "close to correct (rule was right; only the code had a bug). "
-                "Consider reverting to the prior structure and applying a small "
-                "patch instead."
-            )
 
     return "\n".join(lines)
