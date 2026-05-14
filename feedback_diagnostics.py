@@ -756,25 +756,6 @@ def format_targeted_feedback(diagnosis, iter_n=None):
     lines.append("=" * 80)
     lines.append("")
 
-    correctness_pct = phase_info.get("correctness", 0.0) * 100
-    if "total_cells" in phase_info:
-        lines.append(
-            f"Cell correctness: {phase_info.get('total_correct', 0)}/"
-            f"{phase_info.get('total_cells', 0)} ({correctness_pct:.1f}%)"
-            f"  [threshold: 85% for code_debug]"
-        )
-    secondary_bits = []
-    if "transformation_match" in phase_info:
-        secondary_bits.append(
-            f"transformation_match={phase_info['transformation_match']:.2f}")
-        secondary_bits.append(
-            f"color_overlap={phase_info['color_distribution_overlap']:.2f}")
-        secondary_bits.append(
-            f"error_cluster_density={phase_info['error_cluster_density']:.2f}")
-    if secondary_bits:
-        lines.append(f"Secondary signals (informational): {', '.join(secondary_bits)}")
-    lines.append("")
-
     if phase == "code_debug":
         if bugs:
             for bug in bugs:
@@ -813,13 +794,5 @@ def format_targeted_feedback(diagnosis, iter_n=None):
                 "Re-derive the rule by comparing inputs and expected outputs of "
                 "the failing pair(s)."
             )
-
-    regression = diagnosis.get("regression")
-    if regression:
-        lines.append("")
-        lines.append(
-            f"Iter-over-iter code change: {regression['kind']} "
-            f"(similarity={regression['similarity']:.2f})"
-        )
 
     return "\n".join(lines)
