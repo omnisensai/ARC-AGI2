@@ -129,14 +129,19 @@ def validate_code_on_test(puzzle_file, solution_path):
 
 
 def next_iter_n(model_dir):
-    if not model_dir.exists():
-        return 1
-    existing = [
-        int(p.stem.split("_")[1])
-        for p in model_dir.glob("iter_*_response.txt")
-        if p.stem.split("_")[1].isdigit()
-    ]
-    return max(existing, default=0) + 1
+    """Default to iter 1 (overwrite) when no explicit --iter given.
+
+    Rationale: when the user pastes <puzzle>__<model>.txt (no __iterN suffix),
+    that means a fresh chat session, which is iter 1. The auto-increment
+    behavior we used before treated fresh runs as continuations of any old
+    iter files lying around, which caused the regression detector to fire
+    spuriously against unrelated code.
+
+    For continuations within the same chat, the user passes an explicit
+    --iter N or uses the __iterN filename suffix (workflow translates that
+    to --iter N).
+    """
+    return 1
 
 
 def compute_diagnosis(puzzle_file, solution_path, prev_code_path=None,

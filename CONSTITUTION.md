@@ -92,6 +92,23 @@ correctness. It can compute confidence proxies:
 | Hand-grid consistency (model's hand grid matches its own code's output) | Catches model self-contradiction; otherwise weak |
 | Phase classifier signals at submit time (transformation_match=1.0 + color_overlap=1.0) | Empirically distinguishes TRUE_SOLVE from FALSE_CONFIDENT_SUBMIT in early calibration data |
 
+## Pastes/ filename convention (workflow trigger)
+
+The `.github/workflows/paste-file.yml` workflow auto-runs `paste_helper.py`
+when you commit a file to `Pastes/<filename>.txt` on main. Filename rules:
+
+| Filename | Interpretation |
+|---|---|
+| `<puzzle_id>__<model>.txt` | **Fresh chat session, iter 1.** Overwrites any `iter_1_*` files in `Model Results/<Model>/<puzzle>/`. Older iter files (iter_2+) are left alone. No iter-over-iter regression check is performed. |
+| `<puzzle_id>__<model>__iter<N>.txt` | **Continuation in the same chat, iter N.** Looks at `iter_N-1_response.py` for regression detection. |
+
+Use the suffix-less form when starting a new chat from the seed prompt. Use
+the `__iterN` form when pasting a follow-up response in the same chat to
+preserve iter-over-iter regression checks.
+
+Model name must match a key in `MODEL_DIR` in `paste_helper.py`
+(`claude`, `gpt`, `gemini`, `grok`, `openrouter`).
+
 ## Pipeline files
 
 | File | Responsibility |
