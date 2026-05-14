@@ -328,6 +328,21 @@ def main():
 
     n = args.iter if args.iter is not None else next_iter_n(out_dir)
 
+    # Fresh iter 1 wipes any leftover iter_2+ files from a previous session
+    # in this puzzle directory. Prevents cross-session pollution where stale
+    # iter files confuse the regression detector (the prior iter looked at
+    # for comparison must belong to the same chat session).
+    if n == 1 and out_dir.exists():
+        for stale in list(out_dir.iterdir()):
+            if not (stale.is_file() and stale.name.startswith("iter_")):
+                continue
+            parts = stale.name.split("_")
+            if len(parts) < 2:
+                continue
+            iter_n_str = parts[1]
+            if iter_n_str.isdigit() and int(iter_n_str) > 1:
+                stale.unlink()
+
     history_file = f"{args.puzzle_id}_history.json"
     if n == 1 and os.path.exists(history_file):
         os.remove(history_file)

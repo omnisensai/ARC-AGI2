@@ -99,7 +99,7 @@ when you commit a file to `Pastes/<filename>.txt` on main. Filename rules:
 
 | Filename | Interpretation |
 |---|---|
-| `<puzzle_id>__<model>.txt` | **Fresh chat session, iter 1.** Overwrites any `iter_1_*` files in `Model Results/<Model>/<puzzle>/`. Older iter files (iter_2+) are left alone. No iter-over-iter regression check is performed. |
+| `<puzzle_id>__<model>.txt` | **Fresh chat session, iter 1.** Overwrites `iter_1_*` files AND wipes any leftover `iter_2_*`, `iter_3_*`, etc. from previous sessions in this puzzle directory. Guarantees the regression detector compares against iter files from the same session. No iter-over-iter regression check is performed (no prior iter exists). |
 | `<puzzle_id>__<model>__iter<N>.txt` | **Continuation in the same chat, iter N.** Looks at `iter_N-1_response.py` for regression detection. |
 
 Use the suffix-less form when starting a new chat from the seed prompt. Use
