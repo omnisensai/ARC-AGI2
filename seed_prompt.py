@@ -1,20 +1,13 @@
 """
-Seed prompt generator (iter-1 only).
+Seed prompt generator (iter-1) and iteration prompt builder (iter-N+1).
 
-Replaces the v6 substrate prompt for iter-1. The substrate prompt's transformation
-grids and heavy heuristics drowned the model in noise without consistently
-helping (data showed identical results with/without transformation grids on
-13e47133). The seed prompt instead:
+Iter 1 seed prompt: minimal — task line, training pairs, test input, a single
+CoT sentence, mandatory output format. Used for fresh chat sessions OR
+stateless iter-1 API calls.
 
-  - Lists training pairs as input/output only (no transformation symbols)
-  - Provides a structured-CoT scaffold (rule -> code -> trace -> apply) instead
-    of heuristic TIPS
-  - Keeps the dual-output requirement (def solve + TEST_OUTPUT) since
-    code-as-output appears to be doing real work
-  - Stays under ~3KB for typical 3-pair puzzles
-
-Iter-N feedback (paste_helper.py + feedback_diagnostics.py) is where the
-framework's intelligence lives. The seed prompt is intentionally minimal.
+Iter N+1 iteration prompt: same seed structure + the model's prior code +
+the diagnosis block + "update solve()" instruction. Self-contained for
+stateless API calls (no chat history needed).
 
 Usage:
     python seed_prompt.py evaluation/13e47133.json [out_path]
@@ -26,41 +19,26 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
-def format_grid(grid: List[List[int]]) -> str:
-    return "\n".join(str(row) for row in grid)
+TASK_STATEMENT = (
+    "Solve this ARC-AGI puzzle. Identify the transformation rule from the "
+    "training pairs and write a Python `def solve(input_grid):` function "
+    "that generalizes to ALL training pairs and the test input."
+)
 
 
-COT_SCAFFOLD = """\
-================================================================================
-HOW TO APPROACH
-================================================================================
-
-Work through the puzzle in this order:
-
-1. Identify the transformation rule from the training pairs.
-   State it in plain English, then in pseudocode.
-
-2. Write `def solve(input_grid):` that implements the rule.
-
-3. For each training pair, mentally trace your code on the pair's input.
-   - State your code's output for that pair (in your reasoning, not in the
-     final output block).
-   - Compare to the expected output.
-   - If they don't match, REVISE your code in step 2 before submitting.
-   Do not submit code that you cannot mentally trace as matching every
-   training pair.
-
-4. Apply your code to the test input. The result goes in TEST_OUTPUT below.
-"""
+MINIMAL_COT = (
+    "Think through the rule. Write the code. Mentally trace it on every "
+    "training pair before submitting."
+)
 
 
 OUTPUT_FORMAT = """\
 ================================================================================
-OUTPUT FORMAT (required)
+MANDATORY OUTPUT FORMAT
 ================================================================================
 
-Your response must include BOTH a `def solve(input_grid):` function AND a
-hand-written TEST_OUTPUT grid:
+Return BOTH a `def solve(input_grid):` function AND a hand-written TEST_OUTPUT
+grid:
 
 ```python
 def solve(input_grid):
@@ -76,20 +54,16 @@ TEST_OUTPUT = [
 Requirements:
 - The function must work on grids of any size (do not hardcode dimensions).
 - Return a 2D list of integers (colors 0-9).
-- TEST_OUTPUT must be the result of solve(test_input).
+- TEST_OUTPUT must equal solve(test_input).
 """
 
 
-def generate_seed_prompt(puzzle: Dict[str, Any]) -> str:
-    parts = [
-        "You are an ARC-AGI solver.",
-        "",
-        "Each puzzle gives you a small set of input -> output training pairs.",
-        "Your job is to identify the transformation rule that produces every",
-        "output from its input, then apply that rule to the test input.",
-        "",
-    ]
+def format_grid(grid: List[List[int]]) -> str:
+    return "\n".join(str(row) for row in grid)
 
+
+def _format_training_pairs(puzzle: Dict[str, Any]) -> str:
+    parts = []
     for idx, pair in enumerate(puzzle["train"], 1):
         parts.append("=" * 80)
         parts.append(f"TRAINING PAIR {idx}")
@@ -101,24 +75,79 @@ def generate_seed_prompt(puzzle: Dict[str, Any]) -> str:
         parts.append("OUTPUT:")
         parts.append(format_grid(pair["output"]))
         parts.append("")
+    return "\n".join(parts)
 
-    parts.append(COT_SCAFFOLD)
 
-    if puzzle.get("test"):
-        parts.append("=" * 80)
-        parts.append("TEST INPUT")
-        parts.append("=" * 80)
-        parts.append("")
-        parts.append(format_grid(puzzle["test"][0]["input"]))
-        parts.append("")
+def _format_test_input(puzzle: Dict[str, Any]) -> str:
+    if not puzzle.get("test"):
+        return ""
+    parts = [
+        "=" * 80,
+        "TEST INPUT",
+        "=" * 80,
+        "",
+        format_grid(puzzle["test"][0]["input"]),
+        "",
+    ]
+    return "\n".join(parts)
 
-    parts.append(OUTPUT_FORMAT)
+
+def generate_seed_prompt(puzzle: Dict[str, Any]) -> str:
+    """Iter-1 seed prompt. Minimal."""
+    return "\n".join([
+        TASK_STATEMENT,
+        "",
+        MINIMAL_COT,
+        "",
+        _format_training_pairs(puzzle),
+        _format_test_input(puzzle),
+        OUTPUT_FORMAT,
+    ])
+
+
+def build_iteration_prompt(puzzle: Dict[str, Any],
+                           prior_code: str,
+                           diagnosis_block: str,
+                           iter_n: int) -> str:
+    """Iter-N prompt for stateless API calls.
+
+    iter_n is the NEW iter number being generated (so prior_code is iter_n-1's
+    code). Self-contained: includes seed structure + prior code + diagnosis +
+    update instruction. No chat history required.
+    """
+    parts = [
+        TASK_STATEMENT,
+        "",
+        _format_training_pairs(puzzle),
+        _format_test_input(puzzle),
+        "=" * 80,
+        f"YOUR PREVIOUS CODE (iter {iter_n - 1})",
+        "=" * 80,
+        "",
+        "```python",
+        prior_code.rstrip(),
+        "```",
+        "",
+        diagnosis_block,
+        "",
+        "=" * 80,
+        f"TASK FOR ITER {iter_n}",
+        "=" * 80,
+        "",
+        "Update your `def solve(input_grid):` function based on the diagnosis "
+        "above. Preserve the logic that produces the correct output for "
+        "passing training pair(s); fix what's wrong with the failing one(s). "
+        "Return the full updated function plus an updated TEST_OUTPUT.",
+        "",
+        OUTPUT_FORMAT,
+    ]
     return "\n".join(parts)
 
 
 def main():
     if len(sys.argv) < 2:
-        print("usage: python seed_prompt.py <puzzle.json> [out_path]", file=sys.stderr)
+        print("usage: python seed_prompt.py <puzzle.json> [out_path]",
+              file=sys.stderr)
         sys.exit(1)
 
     puzzle_path = Path(sys.argv[1])

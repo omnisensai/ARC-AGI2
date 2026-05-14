@@ -307,6 +307,12 @@ def main():
                         help="Path to the hedge response paste (fresh invocation's "
                              "response). Compares its hand grid to the first solve's "
                              "code output and reports agreement.")
+    parser.add_argument("--stateless", action="store_true",
+                        help="When training pairs fail, also emit a self-contained "
+                             "iter-N+1 prompt ready for stateless API submission. "
+                             "The prompt includes seed structure + this iter's code "
+                             "+ diagnosis, so no chat history is required to "
+                             "continue iterating.")
     args = parser.parse_args()
 
     model_key = args.model.lower()
@@ -425,6 +431,50 @@ def main():
     }
     summary_path = out_dir / f"iter_{n}_summary.json"
     summary_path.write_text(json.dumps(summary, indent=2))
+
+    stateless_artifacts = {}
+    if args.stateless:
+        try:
+            from seed_prompt import build_iteration_prompt
+        except ImportError:
+            stateless_artifacts = {"error": "seed_prompt module unavailable"}
+        else:
+            with open(puzzle_file) as f:
+                puzzle_obj_s = json.load(f)
+            # Compute training_pass_rate so we know if we even need an iter prompt
+            train_pairs_s = puzzle_obj_s.get("train", [])
+            try:
+                spec_s = importlib.util.spec_from_file_location("_state_check", "solution.py")
+                mod_s = importlib.util.module_from_spec(spec_s)
+                spec_s.loader.exec_module(mod_s)
+                pass_count_s = sum(
+                    1 for p in train_pairs_s
+                    if mod_s.solve(p["input"]) == p["output"]
+                )
+            except Exception:
+                pass_count_s = 0
+            if pass_count_s < len(train_pairs_s) and code_path.exists():
+                # Strip the diagnosis block out of the just-written feedback.
+                # It already has FEEDBACK SUMMARY + DIAGNOSIS at the top.
+                diagnosis_only = feedback.split(
+                    "================================================================================\n"
+                    "VALIDATION SUMMARY\n"
+                )[0].rstrip()
+                next_iter_prompt = build_iteration_prompt(
+                    puzzle_obj_s,
+                    code_path.read_text(),
+                    diagnosis_only,
+                    iter_n=n + 1,
+                )
+                next_prompt_path = out_dir / f"iter_{n + 1}_stateless_prompt.txt"
+                next_prompt_path.write_text(next_iter_prompt)
+                stateless_artifacts["next_iter_prompt"] = str(next_prompt_path)
+                stateless_artifacts["bytes"] = len(next_iter_prompt)
+            else:
+                stateless_artifacts["skipped"] = (
+                    f"training_pass_rate={pass_count_s}/{len(train_pairs_s)} "
+                    "(no next iter needed)"
+                )
 
     hedge_artifacts = {}
     if args.hedge or args.hedge_result:
@@ -585,6 +635,7 @@ def main():
         },
         **({"research": research_artifacts} if research_artifacts else {}),
         **({"hedge": hedge_artifacts} if hedge_artifacts else {}),
+        **({"stateless": stateless_artifacts} if stateless_artifacts else {}),
     }
     print(json.dumps(manifest, indent=2))
 
