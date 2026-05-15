@@ -1,4 +1,3 @@
-```python
 def solve(input_grid):
     from collections import Counter, deque, defaultdict
 
@@ -107,4 +106,3 @@ def solve(input_grid):
                         out[r][c] = cycle[d % period]
 
     return out
-```
