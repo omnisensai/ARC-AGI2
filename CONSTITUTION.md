@@ -136,10 +136,11 @@ The library grows by:
    targeted hint.
 4. Adding it to `DETECTORS` list in `feedback_diagnostics.py`.
 
-Currently 3 detectors:
+Currently 4 detectors:
 - `connectivity_mismatch` (4-conn vs 8-conn in distance/halo BFS)
 - `boundary_unchanged` (cells skipped during processing)
 - `no_transformation_applied` (code returns input unchanged; main loop never executes)
+- `nonrectangular_chamber` (bounding-box distance used in a non-rectangular chamber that wraps around interior walls)
 
 Next candidates: `off_by_one_period`, `wrong_starting_offset`,
 `mirror_axis_wrong`, `default_fill_wrong`. Each is independently shippable.

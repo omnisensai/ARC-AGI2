@@ -269,10 +269,107 @@ def detect_no_transformation_applied(input_grid, expected, actual, wall_color=No
     }
 
 
+def detect_nonrectangular_chamber(input_grid, expected, actual, wall_color=None):
+    """Bug: chamber treated as bounding-box rectangle, missing interior walls.
+
+    Fingerprint: error cells lie inside a 4-connected non-wall region whose
+    bounding box contains barrier-color cells. The model likely computed
+    depth as min(r - r_min, r_max - r, c - c_min, c_max - c), which treats
+    the chamber as if it were rectangular. For chambers that wrap around
+    interior walls, this gives wrong distances.
+
+    Repeatedly observed on 13e47133's chamber-with-interior-box. The fix is
+    to replace bounding-box distance with BFS-from-walls distance.
+    """
+    if wall_color is None:
+        wall_color = detect_wall_color(input_grid)
+    if wall_color is None:
+        return None
+
+    H, W = len(input_grid), len(input_grid[0])
+    error_cells = [(r, c) for r in range(H) for c in range(W)
+                   if expected[r][c] != actual[r][c]]
+    if not error_cells:
+        return None
+
+    # Map every cell to its 4-conn non-wall region id, plus region metadata.
+    region_id = [[-1] * W for _ in range(H)]
+    region_bbox = {}     # id -> (rmin, rmax, cmin, cmax)
+    region_contains_wall_in_bbox = {}  # id -> bool
+    next_id = 0
+    for r in range(H):
+        for c in range(W):
+            if region_id[r][c] != -1 or input_grid[r][c] == wall_color:
+                continue
+            cells = []
+            q = deque([(r, c)])
+            region_id[r][c] = next_id
+            while q:
+                x, y = q.popleft()
+                cells.append((x, y))
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nx, ny = x + dx, y + dy
+                    if (0 <= nx < H and 0 <= ny < W
+                            and region_id[nx][ny] == -1
+                            and input_grid[nx][ny] != wall_color):
+                        region_id[nx][ny] = next_id
+                        q.append((nx, ny))
+            rmin = min(p[0] for p in cells)
+            rmax = max(p[0] for p in cells)
+            cmin = min(p[1] for p in cells)
+            cmax = max(p[1] for p in cells)
+            region_bbox[next_id] = (rmin, rmax, cmin, cmax)
+            contains_wall = False
+            for rr in range(rmin, rmax + 1):
+                if contains_wall:
+                    break
+                for cc in range(cmin, cmax + 1):
+                    if input_grid[rr][cc] == wall_color:
+                        contains_wall = True
+                        break
+            region_contains_wall_in_bbox[next_id] = contains_wall
+            next_id += 1
+
+    # Count error cells that lie in non-rectangular chambers.
+    nonrect_count = 0
+    for r, c in error_cells:
+        rid = region_id[r][c]
+        if rid < 0:
+            continue  # error cell is on a wall (rare)
+        if region_contains_wall_in_bbox[rid]:
+            nonrect_count += 1
+
+    ratio = nonrect_count / len(error_cells)
+    if ratio < 0.6:
+        return None
+
+    return {
+        "bug_class": "nonrectangular_chamber",
+        "confidence": ratio,
+        "fingerprint": (
+            f"{nonrect_count}/{len(error_cells)} error cells are inside a "
+            f"non-rectangular chamber (a 4-connected non-wall region whose "
+            f"bounding box contains barrier-color cells). Your code likely "
+            f"uses bounding-box distance "
+            f"`min(r - r_min, r_max - r, c - c_min, c_max - c)`, which "
+            f"treats the chamber as if it were rectangular."
+        ),
+        "suggested_fix": (
+            "Replace bounding-box distance with BFS-from-walls distance. "
+            "For each cell in the chamber, depth = shortest BFS distance "
+            "to the nearest barrier cell or grid edge. This handles "
+            "non-rectangular chambers (including those that wrap around "
+            "interior walls) correctly. Keep the same color-by-depth "
+            "cycling logic — only change how depth is computed."
+        ),
+    }
+
+
 DETECTORS = [
     detect_conn_mismatch,
     detect_boundary_unchanged,
     detect_no_transformation_applied,
+    detect_nonrectangular_chamber,
 ]
 
 
