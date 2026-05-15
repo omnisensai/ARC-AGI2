@@ -101,31 +101,73 @@ def validate_hand_grid(hand_grid, puzzle_file):
 
 
 def validate_code_on_test(puzzle_file, solution_path):
+    """Run solve() against every test pair that has ground-truth output.
+
+    Returns aggregate stats across all test pairs plus a per-pair breakdown.
+    Some ARC puzzles ship multiple test inputs (13e47133 has 2); the framework
+    previously only looked at puzzle['test'][0] and silently ignored the rest,
+    which caused TRUE_SOLVE / FALSE_CONFIDENT_SUBMIT labels to be wrong for
+    multi-test puzzles.
+    """
     with open(puzzle_file) as f:
         puzzle = json.load(f)
-    if not puzzle.get("test") or "output" not in puzzle["test"][0]:
+    test_pairs = [t for t in puzzle.get("test", []) if "output" in t]
+    if not test_pairs:
         return None
-    test_input = puzzle["test"][0]["input"]
-    truth = puzzle["test"][0]["output"]
     spec = importlib.util.spec_from_file_location("_iter_sol", solution_path)
     mod = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(mod)
-        out = mod.solve(test_input)
     except Exception as e:
         return {"status": "error", "msg": str(e)}
-    if not isinstance(out, list) or not out or not isinstance(out[0], list):
-        return {"status": "error", "msg": "solve() did not return 2D list"}
-    if len(out) != len(truth) or any(
-        len(out[r]) != len(truth[r]) for r in range(len(truth))
-    ):
-        return {"status": "dim_mismatch", "got": f"{len(out)}x{len(out[0])}"}
-    diffs = sum(
-        1 for r in range(len(truth)) for c in range(len(truth[0]))
-        if out[r][c] != truth[r][c]
-    )
-    total = len(truth) * len(truth[0])
-    return {"matches": diffs == 0, "diffs": diffs, "total": total}
+
+    per_pair = []
+    total_diffs = 0
+    total_cells = 0
+    for idx, tpair in enumerate(test_pairs):
+        truth = tpair["output"]
+        try:
+            out = mod.solve(tpair["input"])
+        except Exception as e:
+            per_pair.append({"idx": idx, "status": "error", "msg": str(e)})
+            continue
+        if not isinstance(out, list) or not out or not isinstance(out[0], list):
+            per_pair.append({"idx": idx, "status": "error", "msg": "solve() did not return 2D list"})
+            continue
+        if len(out) != len(truth) or any(
+            len(out[r]) != len(truth[r]) for r in range(len(truth))
+        ):
+            per_pair.append({"idx": idx, "status": "dim_mismatch",
+                             "got": f"{len(out)}x{len(out[0])}"})
+            continue
+        diffs = sum(
+            1 for r in range(len(truth)) for c in range(len(truth[0]))
+            if out[r][c] != truth[r][c]
+        )
+        total = len(truth) * len(truth[0])
+        per_pair.append({"idx": idx, "diffs": diffs, "total": total,
+                         "matches": diffs == 0})
+        total_diffs += diffs
+        total_cells += total
+
+    # Status surfaces if any per-pair errored; otherwise aggregate.
+    any_error = any(p.get("status") == "error" for p in per_pair)
+    any_dim = any(p.get("status") == "dim_mismatch" for p in per_pair)
+    if any_error:
+        return {"status": "error",
+                "msg": next(p["msg"] for p in per_pair if p.get("status") == "error"),
+                "per_pair": per_pair}
+    if any_dim:
+        return {"status": "dim_mismatch",
+                "got": next(p["got"] for p in per_pair if p.get("status") == "dim_mismatch"),
+                "per_pair": per_pair}
+    return {
+        "matches": total_diffs == 0,
+        "diffs": total_diffs,
+        "total": total_cells,
+        "per_pair": per_pair,
+        "num_test_pairs": len(per_pair),
+    }
 
 
 def next_iter_n(model_dir):
@@ -312,7 +354,7 @@ def _format_ground_truth_check(code_test_result):
     pct = 100.0 * correct / total if total else 0.0
     if diffs == 0:
         label = "TRUE_SOLVE"
-        verdict_line = "Code's test output exactly matches ground truth."
+        verdict_line = "Code's test output exactly matches ground truth on all test pairs."
     elif diffs <= 20:
         label = "NEAR_MISS"
         verdict_line = (
@@ -325,13 +367,31 @@ def _format_ground_truth_check(code_test_result):
             f"Off by {diffs} cells (>20 threshold). Training passed but the "
             f"rule generalizes wrong — high-value corpus row."
         )
+
+    per_pair_lines = []
+    per_pair = code_test_result.get("per_pair") or []
+    if len(per_pair) > 1:
+        per_pair_lines.append("")
+        for p in per_pair:
+            if p.get("matches"):
+                per_pair_lines.append(f"  Test pair {p['idx']}: PASS ({p['total']} cells)")
+            else:
+                d, t = p["diffs"], p["total"]
+                per_pair_lines.append(
+                    f"  Test pair {p['idx']}: off by {d}/{t} ({100.0*(t-d)/t:.1f}% correct)"
+                )
+
     return (
         "=" * 80 + "\n"
         "GROUND TRUTH CHECK\n"
         + "=" * 80 + "\n\n"
         f"Label: {label}\n"
-        f"Test cells correct: {correct}/{total} ({pct:.1f}%)\n"
+        f"Test cells correct: {correct}/{total} ({pct:.1f}%)"
+        + (f" across {len(per_pair)} test pairs" if len(per_pair) > 1 else "")
+        + "\n"
         f"{verdict_line}\n"
+        + "\n".join(per_pair_lines)
+        + ("\n" if per_pair_lines else "")
     )
 
 
