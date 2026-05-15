@@ -26,10 +26,14 @@ TASK_STATEMENT = (
 )
 
 
-MINIMAL_COT = (
-    "Think through the rule. Write the code. Mentally trace it on every "
-    "training pair before submitting."
-)
+PER_PAIR_ANALYSIS = """\
+Analyze this pair:
+- Anchor cells (unique seeds, single markers, distinctive objects):
+- Barriers (walls, lines, obstacles):
+- Adjacency that the rule uses: 4-connectivity or 8-connectivity?
+- Your hypothesis for the rule (one sentence):
+- Python sketch for this pair (a partial `solve()` that handles this pair):
+"""
 
 
 OUTPUT_FORMAT = """\
@@ -37,8 +41,9 @@ OUTPUT_FORMAT = """\
 MANDATORY OUTPUT FORMAT
 ================================================================================
 
-Return BOTH a `def solve(input_grid):` function AND a hand-written TEST_OUTPUT
-grid:
+After analyzing all training pairs above, write ONE final
+`def solve(input_grid):` that generalizes across all training pairs AND the
+test input.
 
 ```python
 def solve(input_grid):
@@ -52,6 +57,7 @@ TEST_OUTPUT = [
 ]
 
 Requirements:
+- The python must generalize across all training pairs.
 - The function must work on grids of any size (do not hardcode dimensions).
 - Return a 2D list of integers (colors 0-9).
 - TEST_OUTPUT must equal solve(test_input).
@@ -62,7 +68,7 @@ def format_grid(grid: List[List[int]]) -> str:
     return "\n".join(str(row) for row in grid)
 
 
-def _format_training_pairs(puzzle: Dict[str, Any]) -> str:
+def _format_training_pairs(puzzle: Dict[str, Any], include_analysis: bool = True) -> str:
     parts = []
     for idx, pair in enumerate(puzzle["train"], 1):
         parts.append("=" * 80)
@@ -75,6 +81,8 @@ def _format_training_pairs(puzzle: Dict[str, Any]) -> str:
         parts.append("OUTPUT:")
         parts.append(format_grid(pair["output"]))
         parts.append("")
+        if include_analysis:
+            parts.append(PER_PAIR_ANALYSIS)
     return "\n".join(parts)
 
 
@@ -93,11 +101,9 @@ def _format_test_input(puzzle: Dict[str, Any]) -> str:
 
 
 def generate_seed_prompt(puzzle: Dict[str, Any]) -> str:
-    """Iter-1 seed prompt. Minimal."""
+    """Iter-1 seed prompt. Per-pair structured analysis + final solve()."""
     return "\n".join([
         TASK_STATEMENT,
-        "",
-        MINIMAL_COT,
         "",
         _format_training_pairs(puzzle),
         _format_test_input(puzzle),
@@ -118,7 +124,7 @@ def build_iteration_prompt(puzzle: Dict[str, Any],
     parts = [
         TASK_STATEMENT,
         "",
-        _format_training_pairs(puzzle),
+        _format_training_pairs(puzzle, include_analysis=False),
         _format_test_input(puzzle),
         "=" * 80,
         f"YOUR PREVIOUS CODE (iter {iter_n - 1})",
