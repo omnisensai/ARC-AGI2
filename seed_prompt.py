@@ -45,6 +45,8 @@ After analyzing all training pairs above, write ONE final
 `def solve(input_grid):` that generalizes across all training pairs AND the
 test input.
 
+STATED_RULE: <one sentence describing the transformation rule your code implements>
+
 ```python
 def solve(input_grid):
     # ...
@@ -57,6 +59,9 @@ TEST_OUTPUT = [
 ]
 
 Requirements:
+- STATED_RULE must be a single sentence on its own line, starting with
+  "STATED_RULE: ". It must describe the transformation the code performs —
+  not the failure mode, not the bug fix, not the diff against a prior attempt.
 - The python must generalize across all training pairs.
 - The function must work on grids of any size (do not hardcode dimensions).
 - Return a 2D list of integers (colors 0-9).
@@ -147,6 +152,113 @@ def build_iteration_prompt(puzzle: Dict[str, Any],
         "",
         OUTPUT_FORMAT,
     ]
+    return "\n".join(parts)
+
+
+FRESH_REFINE_TASK = (
+    "Solve this ARC-AGI puzzle. A previous attempt got a partial result — its "
+    "code, its stated rule, and per-pair outcomes are below. Your job is to "
+    "deliver a `def solve(input_grid):` that passes ALL training pairs and "
+    "generalizes to the test input."
+)
+
+
+FRESH_REFINE_JUDGE_BLOCK = """\
+================================================================================
+YOUR TASK — JUDGE THEN REPAIR
+================================================================================
+
+Phase 1 — Judge. Pick exactly one before writing any code:
+  A. The stated rule is correct; the code has a small implementation bug.
+  B. The stated rule is wrong or overfit; the abstraction must change.
+
+Justify your choice in 1-2 sentences using the failing training pair(s). If \
+a failing pair's correct output cannot be produced by ANY parameter tuning \
+of the stated rule, you must pick B.
+
+Phase 2 — Repair.
+  - If A: produce a minimal patch that preserves the logic which passes the \
+currently passing pair(s).
+  - If B: write a new one-sentence rule, then write a new `def solve()` from \
+scratch based on it.
+
+Hard constraints (any violation invalidates the answer):
+  - Do not hardcode grid dimensions, pair IDs, or specific mismatch cells.
+  - Do not add special cases unless they follow from the task rule itself.
+  - If the previous code added a special case that fixes some cells but \
+would clearly break other regions of the grid, that is evidence for B, not \
+a license to add another special case."""
+
+
+def _format_training_pairs_with_status(puzzle: Dict[str, Any],
+                                       pair_status: Dict[int, str]) -> str:
+    parts = []
+    for idx, pair in enumerate(puzzle["train"], 1):
+        status = pair_status.get(idx, "?")
+        parts.append("=" * 80)
+        parts.append(f"TRAINING PAIR {idx}  [previous attempt: {status}]")
+        parts.append("=" * 80)
+        parts.append("")
+        parts.append("INPUT:")
+        parts.append(format_grid(pair["input"]))
+        parts.append("")
+        parts.append("OUTPUT:")
+        parts.append(format_grid(pair["output"]))
+        parts.append("")
+    return "\n".join(parts)
+
+
+def build_fresh_refine_prompt(puzzle: Dict[str, Any],
+                              prior_code: str,
+                              prior_rule: str,
+                              pair_status: Dict[int, str],
+                              rejected_rules: List[str] = None) -> str:
+    """Fresh-refinement prompt: judge prior rule, then patch or replace.
+
+    pair_status maps 1-indexed pair number to a status string like "PASS" or
+    "FAIL (26/400 cells wrong)". Both the rule and the code come from the
+    model's own prior output, so this prompt leaks no information that wasn't
+    derivable from the puzzle file + the model's previous attempt.
+
+    rejected_rules is an optional list of one-sentence rules the model has
+    already proposed and seen fail; included so a second fresh refinement on
+    the same puzzle doesn't re-propose them.
+    """
+    parts = [
+        FRESH_REFINE_TASK,
+        "",
+        _format_training_pairs_with_status(puzzle, pair_status),
+        _format_test_input(puzzle),
+        "=" * 80,
+        "PREVIOUS ATTEMPT'S STATED RULE",
+        "=" * 80,
+        "",
+        prior_rule.strip(),
+        "",
+    ]
+    if rejected_rules:
+        parts.extend([
+            "=" * 80,
+            "RULES ALREADY TRIED AND REJECTED ON THIS PUZZLE",
+            "=" * 80,
+            "",
+        ])
+        for r in rejected_rules:
+            parts.append(f"- {r.strip()}")
+        parts.append("")
+    parts.extend([
+        "=" * 80,
+        "PREVIOUS CODE",
+        "=" * 80,
+        "",
+        "```python",
+        prior_code.rstrip(),
+        "```",
+        "",
+        FRESH_REFINE_JUDGE_BLOCK,
+        "",
+        OUTPUT_FORMAT,
+    ])
     return "\n".join(parts)
 
 

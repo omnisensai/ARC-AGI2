@@ -51,6 +51,29 @@ def extract_solve(text):
     return None
 
 
+def extract_rule(text):
+    """Extract the STATED_RULE: <sentence> line that the seed prompt requires.
+
+    Returns the rule sentence (without the STATED_RULE: prefix) or None if not
+    present. The rule is captured verbatim from the model's response so it can
+    be replayed into a fresh-refinement prompt without paraphrasing.
+    """
+    # Look for STATED_RULE on its own line (with or without leading markdown
+    # markers like "* ", "- ", "**"). Stop at the next blank line, code fence,
+    # or another all-caps heading-looking line.
+    pattern = re.compile(
+        r"^\s*(?:[-*]\s+)?\**\s*STATED_RULE\s*\**\s*:\s*\**\s*(.+?)\s*$",
+        re.MULTILINE,
+    )
+    m = pattern.search(text)
+    if not m:
+        return None
+    rule = m.group(1).strip()
+    # Strip stray markdown emphasis around the sentence itself.
+    rule = rule.strip("*_`").strip()
+    return rule or None
+
+
 def extract_hand_grid(text):
     m = re.search(r"TEST_OUTPUT\s*=\s*\[", text)
     if not m:
@@ -431,6 +454,15 @@ def main():
                              "The prompt includes seed structure + this iter's code "
                              "+ diagnosis, so no chat history is required to "
                              "continue iterating.")
+    parser.add_argument("--fresh-refine", action="store_true",
+                        help="When training pairs partially pass (>=1 PASS and >=1 "
+                             "FAIL), emit a fresh-refinement prompt for a NEW chat "
+                             "session. The prompt contains prior code + prior "
+                             "STATED_RULE + per-pair PASS/FAIL status + "
+                             "judge-then-repair instructions. The model first picks "
+                             "A (rule correct, patch code) or B (rule wrong, replace "
+                             "abstraction). Comp-clean: leaks no info derived from "
+                             "test ground truth.")
     args = parser.parse_args()
 
     model_key = args.model.lower()
@@ -492,6 +524,12 @@ def main():
     code_path = out_dir / f"iter_{n}_response.py"
     code_path.write_text(code)
     Path("solution.py").write_text(code)
+
+    rule = extract_rule(response)
+    rule_path = None
+    if rule:
+        rule_path = out_dir / f"iter_{n}_rule.txt"
+        rule_path.write_text(rule + "\n")
 
     hand_grid = extract_hand_grid(response)
     hand_grid_path = None
@@ -604,6 +642,93 @@ def main():
                     f"training_pass_rate={pass_count_s}/{len(train_pairs_s)} "
                     "(no next iter needed)"
                 )
+
+    fresh_refine_artifacts = {}
+    if args.fresh_refine:
+        try:
+            from seed_prompt import build_fresh_refine_prompt
+        except ImportError:
+            fresh_refine_artifacts = {"error": "seed_prompt module unavailable"}
+        else:
+            puzzle_obj_fr = json.load(open(puzzle_file))
+            train_pairs_fr = puzzle_obj_fr.get("train", [])
+            pair_status = {}
+            try:
+                spec_fr = importlib.util.spec_from_file_location("_fr_check", "solution.py")
+                mod_fr = importlib.util.module_from_spec(spec_fr)
+                spec_fr.loader.exec_module(mod_fr)
+                for idx, pair in enumerate(train_pairs_fr, 1):
+                    try:
+                        out_fr = mod_fr.solve(pair["input"])
+                    except Exception as e:
+                        pair_status[idx] = f"ERROR ({type(e).__name__})"
+                        continue
+                    truth = pair["output"]
+                    if out_fr == truth:
+                        pair_status[idx] = "PASS"
+                    else:
+                        h_t = len(truth)
+                        w_t = len(truth[0]) if truth else 0
+                        if (not isinstance(out_fr, list) or len(out_fr) != h_t
+                                or any(len(out_fr[r]) != w_t for r in range(h_t))):
+                            pair_status[idx] = "FAIL (dimension mismatch)"
+                        else:
+                            d = sum(1 for r in range(h_t) for c in range(w_t)
+                                    if out_fr[r][c] != truth[r][c])
+                            pair_status[idx] = f"FAIL ({d}/{h_t*w_t} cells wrong)"
+            except Exception as e:
+                fresh_refine_artifacts["error"] = f"could not evaluate code: {e}"
+
+            pass_n = sum(1 for s in pair_status.values() if s == "PASS")
+            fail_n = sum(1 for s in pair_status.values()
+                         if s.startswith("FAIL") or s.startswith("ERROR"))
+
+            if not pair_status:
+                fresh_refine_artifacts.setdefault(
+                    "skipped", "could not evaluate code on training pairs"
+                )
+            elif pass_n == 0:
+                fresh_refine_artifacts["skipped"] = (
+                    f"no training pair passes ({pass_n}/{len(train_pairs_fr)}); "
+                    "use --stateless for iteration prompt instead"
+                )
+            elif fail_n == 0:
+                fresh_refine_artifacts["skipped"] = (
+                    f"all training pairs pass ({pass_n}/{len(train_pairs_fr)}); "
+                    "use --hedge instead"
+                )
+            elif rule is None:
+                fresh_refine_artifacts["skipped"] = (
+                    "no STATED_RULE: line found in response. Fresh refinement "
+                    "requires the model's own stated rule to feed back into "
+                    "the new prompt. Re-run iter 1 with the updated seed "
+                    "prompt that requires STATED_RULE."
+                )
+            else:
+                # Gather any rules that have already been tried and rejected
+                # on this puzzle. Looks at iter_*_rule.txt files in this dir
+                # other than the current iter — those represent previous
+                # rule statements the model has already proposed.
+                rejected = []
+                for prev_rule_file in sorted(out_dir.glob("iter_*_rule.txt")):
+                    if prev_rule_file == rule_path:
+                        continue
+                    txt = prev_rule_file.read_text().strip()
+                    if txt and txt != rule:
+                        rejected.append(txt)
+                fresh_prompt = build_fresh_refine_prompt(
+                    puzzle_obj_fr,
+                    prior_code=code_path.read_text(),
+                    prior_rule=rule,
+                    pair_status=pair_status,
+                    rejected_rules=rejected or None,
+                )
+                fresh_prompt_path = out_dir / f"iter_{n + 1}_fresh_refine_prompt.txt"
+                fresh_prompt_path.write_text(fresh_prompt)
+                fresh_refine_artifacts["next_prompt"] = str(fresh_prompt_path)
+                fresh_refine_artifacts["bytes"] = len(fresh_prompt)
+                fresh_refine_artifacts["pair_status"] = pair_status
+                fresh_refine_artifacts["rejected_rules_count"] = len(rejected)
 
     hedge_artifacts = {}
     if args.hedge or args.hedge_result:
@@ -761,10 +886,13 @@ def main():
             "feedback": str(feedback_path),
             "summary": str(summary_path),
             **({"hand_grid": str(hand_grid_path)} if hand_grid_path else {}),
+            **({"rule": str(rule_path)} if rule_path else {}),
         },
+        **({"stated_rule": rule} if rule else {}),
         **({"research": research_artifacts} if research_artifacts else {}),
         **({"hedge": hedge_artifacts} if hedge_artifacts else {}),
         **({"stateless": stateless_artifacts} if stateless_artifacts else {}),
+        **({"fresh_refine": fresh_refine_artifacts} if fresh_refine_artifacts else {}),
     }
     print(json.dumps(manifest, indent=2))
 
