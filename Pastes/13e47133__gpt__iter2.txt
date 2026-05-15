@@ -1,0 +1,110 @@
+```python
+def solve(input_grid):
+    from collections import Counter, deque, defaultdict
+
+    grid = input_grid
+    h, w = len(grid), len(grid[0])
+
+    counts = Counter(v for row in grid for v in row)
+    background = counts.most_common(1)[0][0]
+
+    non_bg = [c for c in counts if c != background]
+    barrier = max(non_bg, key=lambda c: counts[c])
+
+    out = [row[:] for row in grid]
+    seen = [[False] * w for _ in range(h)]
+    dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+
+    for sr in range(h):
+        for sc in range(w):
+            if seen[sr][sc] or grid[sr][sc] == barrier:
+                continue
+
+            q = deque([(sr, sc)])
+            seen[sr][sc] = True
+            comp = []
+
+            while q:
+                r, c = q.popleft()
+                comp.append((r, c))
+                for dr, dc in dirs:
+                    nr, nc = r + dr, c + dc
+                    if (
+                        0 <= nr < h
+                        and 0 <= nc < w
+                        and not seen[nr][nc]
+                        and grid[nr][nc] != barrier
+                    ):
+                        seen[nr][nc] = True
+                        q.append((nr, nc))
+
+            comp_set = set(comp)
+
+            # Split each connected free-space component into maximal rectangles
+            # made from equal horizontal runs. This fixes C-shaped components
+            # around internal wall segments.
+            runs_by_span = defaultdict(list)
+
+            rows = sorted(set(r for r, c in comp))
+            for r in rows:
+                c = 0
+                while c < w:
+                    while c < w and (r, c) not in comp_set:
+                        c += 1
+                    if c >= w:
+                        break
+                    l = c
+                    while c < w and (r, c) in comp_set:
+                        c += 1
+                    rr = c - 1
+                    runs_by_span[(l, rr)].append(r)
+
+            rects = []
+            for (l, rr), rs in runs_by_span.items():
+                rs.sort()
+                start = prev = rs[0]
+                for r in rs[1:]:
+                    if r == prev + 1:
+                        prev = r
+                    else:
+                        rects.append((start, prev, l, rr))
+                        start = prev = r
+                rects.append((start, prev, l, rr))
+
+            rect_cycles = {}
+            component_cycles = []
+
+            for idx, (r0, r1, c0, c1) in enumerate(rects):
+                colors_by_depth = {}
+
+                for r in range(r0, r1 + 1):
+                    for c in range(c0, c1 + 1):
+                        val = grid[r][c]
+                        if val != background and val != barrier:
+                            d = min(r - r0, r1 - r, c - c0, c1 - c)
+                            colors_by_depth.setdefault(d, val)
+
+                if colors_by_depth:
+                    max_d = max(colors_by_depth)
+                    cycle = [background] * (max_d + 1)
+                    for d, val in colors_by_depth.items():
+                        cycle[d] = val
+                    rect_cycles[idx] = cycle
+                    component_cycles.append(cycle)
+
+            if not component_cycles:
+                continue
+
+            inherited = component_cycles[0]
+
+            for idx, (r0, r1, c0, c1) in enumerate(rects):
+                cycle = rect_cycles.get(idx, inherited)
+                period = len(cycle)
+
+                for r in range(r0, r1 + 1):
+                    for c in range(c0, c1 + 1):
+                        d = min(r - r0, r1 - r, c - c0, c1 - c)
+                        out[r][c] = cycle[d % period]
+
+    return out
+```
