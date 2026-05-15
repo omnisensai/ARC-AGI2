@@ -277,6 +277,64 @@ def _format_missing_solve():
     )
 
 
+def _format_ground_truth_check(code_test_result):
+    """When training passes 3/3, surface whether code's test output matches truth.
+
+    Returns None if no ground truth is available (real competition mode — puzzle
+    file has no test[0]['output']) or if validate_code_on_test errored. This
+    block is appended AFTER iteration is already over (training passed → no
+    further model call), so it never influences a model — it's strictly a
+    human-facing label for research/practice runs.
+
+    Thresholds match the constitution:
+      - exact match → TRUE_SOLVE
+      - ≤20 diff cells → NEAR_MISS
+      - >20 diff cells → FALSE_CONFIDENT_SUBMIT
+    """
+    if code_test_result is None:
+        return None
+    if code_test_result.get("status") == "error":
+        return None
+    if code_test_result.get("status") == "dim_mismatch":
+        return (
+            "=" * 80 + "\n"
+            "GROUND TRUTH CHECK\n"
+            + "=" * 80 + "\n\n"
+            f"Label: FALSE_CONFIDENT_SUBMIT (dimension mismatch)\n"
+            f"Code's test output is {code_test_result.get('got', '?')} but ground "
+            f"truth has different dimensions.\n"
+        )
+    if "matches" not in code_test_result:
+        return None
+    diffs = code_test_result["diffs"]
+    total = code_test_result["total"]
+    correct = total - diffs
+    pct = 100.0 * correct / total if total else 0.0
+    if diffs == 0:
+        label = "TRUE_SOLVE"
+        verdict_line = "Code's test output exactly matches ground truth."
+    elif diffs <= 20:
+        label = "NEAR_MISS"
+        verdict_line = (
+            f"Off by {diffs} cells (≤20 threshold). Submitted answer is "
+            f"close but not exact."
+        )
+    else:
+        label = "FALSE_CONFIDENT_SUBMIT"
+        verdict_line = (
+            f"Off by {diffs} cells (>20 threshold). Training passed but the "
+            f"rule generalizes wrong — high-value corpus row."
+        )
+    return (
+        "=" * 80 + "\n"
+        "GROUND TRUTH CHECK\n"
+        + "=" * 80 + "\n\n"
+        f"Label: {label}\n"
+        f"Test cells correct: {correct}/{total} ({pct:.1f}%)\n"
+        f"{verdict_line}\n"
+    )
+
+
 def _format_malformed_output(pair_idx, out):
     return (
         "=" * 80 + "\n"
@@ -410,9 +468,6 @@ def main():
     if diagnosis_block:
         feedback = diagnosis_block + "\n\n" + feedback
 
-    feedback_path = out_dir / f"iter_{n}_feedback.txt"
-    feedback_path.write_text(feedback)
-
     verdict = "UNKNOWN"
     if "Verdict: SUBMIT" in feedback or "VERDICT: SUBMIT" in feedback:
         verdict = "SUBMIT"
@@ -420,6 +475,20 @@ def main():
         verdict = "DO NOT SUBMIT"
 
     code_test_result = validate_code_on_test(puzzle_file, "solution.py")
+
+    # When training passes (Verdict: SUBMIT) and the puzzle file has test
+    # ground truth available, append the TRUE_SOLVE / NEAR_MISS /
+    # FALSE_CONFIDENT_SUBMIT label. Safe: iteration is over by this point, so
+    # showing ground truth doesn't feed back into any model call. In real
+    # competition the puzzle file won't carry test['output'] and this is a
+    # no-op.
+    if verdict == "SUBMIT":
+        gt_block = _format_ground_truth_check(code_test_result)
+        if gt_block:
+            feedback = feedback.rstrip() + "\n\n" + gt_block
+
+    feedback_path = out_dir / f"iter_{n}_feedback.txt"
+    feedback_path.write_text(feedback)
 
     summary = {
         "iter": n,
