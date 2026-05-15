@@ -212,7 +212,8 @@ def build_fresh_refine_prompt(puzzle: Dict[str, Any],
                               prior_code: str,
                               prior_rule: str,
                               pair_status: Dict[int, str],
-                              rejected_rules: List[str] = None) -> str:
+                              rejected_rules: List[str] = None,
+                              observations_block: str = "") -> str:
     """Fresh-refinement prompt: judge prior rule, then patch or replace.
 
     pair_status maps 1-indexed pair number to a status string like "PASS" or
@@ -220,9 +221,16 @@ def build_fresh_refine_prompt(puzzle: Dict[str, Any],
     model's own prior output, so this prompt leaks no information that wasn't
     derivable from the puzzle file + the model's previous attempt.
 
-    rejected_rules is an optional list of one-sentence rules the model has
-    already proposed and seen fail; included so a second fresh refinement on
-    the same puzzle doesn't re-propose them.
+    rejected_rules: optional list of one-sentence rules the model has already
+    proposed and seen fail; included so a second fresh refinement on the same
+    puzzle doesn't re-propose them.
+
+    observations_block: optional pre-formatted OBSERVED PATTERN block from
+    feedback_diagnostics.format_observations_block(). Rides along when a
+    detector fingerprint matched or a structural diff was found. The block
+    describes the spatial pattern of training-pair errors but does NOT
+    prescribe a fix — that judgment is left to the model's Phase 1 step.
+    Comp-clean: everything in the block is derived from training-pair errors.
     """
     parts = [
         FRESH_REFINE_TASK,
@@ -255,6 +263,11 @@ def build_fresh_refine_prompt(puzzle: Dict[str, Any],
         prior_code.rstrip(),
         "```",
         "",
+    ])
+    if observations_block:
+        parts.append(observations_block.rstrip())
+        parts.append("")
+    parts.extend([
         FRESH_REFINE_JUDGE_BLOCK,
         "",
         OUTPUT_FORMAT,

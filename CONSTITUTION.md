@@ -61,10 +61,15 @@ front-load every diagnostic into iter-1.
 
 | Term | When | Action |
 |---|---|---|
-| **Iterate** | Training fails, continuation chat | Run diagnosers → emit Iteration prompt → get new code in the same chat |
-| **Fresh refinement** | Training partially passes (≥1 pair passes, ≥1 fails) | Fresh new invocation. Show prior code + prior stated rule + per-pair PASS/FAIL. Model first picks A (rule correct, patch code) or B (rule wrong, replace abstraction). Used when continuation iters are at risk of patching defensively rather than re-judging the abstraction. |
+| **Iterate (fresh)** | Training fails or partially fails | Fresh new invocation (no chat history). Prior code + prior stated rule + per-pair PASS/FAIL + detector observations (when any fired). Model first picks A (rule correct, patch code) or B (rule wrong, replace abstraction). **Every iter is a fresh context; same-chat continuation is retired** — continuation iters anchor the model in defensive patching. |
 | **Submit** | Training passes, no hedge | Submit `solve(test_input)` as final answer |
-| **Hedge** | Training passes, hedge enabled | Fresh new invocation with Seed prompt → compare answer to first solve. If both agree, submit. If disagree, escalate or pick one. **Must be a fresh invocation; continuation hedges produce the same grid because models don't pivot in the same context.** |
+| **Hedge** | Training passes, hedge enabled | Fresh new invocation with Seed prompt → compare answer to first solve. If both agree, submit. If disagree, escalate or pick one. **Fresh invocation; continuation hedges produce the same grid.** |
+
+**Every operation that asks the model for code runs in a fresh context.** No
+exceptions. Iter 1 uses the seed prompt; iter N≥2 uses the fresh-refinement
+prompt; hedge uses the seed prompt again. The continuation-style iteration
+prompt (`build_iteration_prompt` in `seed_prompt.py`) remains in the codebase
+for backward compatibility with `--stateless` but is not the default path.
 
 ## Modes
 
@@ -199,6 +204,32 @@ Currently 4 detectors:
 Next candidates: `off_by_one_period`, `wrong_starting_offset`,
 `mirror_axis_wrong`, `default_fill_wrong`. Each is independently shippable.
 Add by appending to the `DETECTORS` list in `feedback_diagnostics.py`.
+
+### Trust the eyes, not the hands
+
+Detectors return both a `fingerprint` (what spatial pattern they observe in
+the failing-pair errors) and a `suggested_fix` (what code change they think
+would resolve it). **We trust the fingerprint and never surface the
+suggested fix to the model.**
+
+Reason: detectors are local pattern matchers. Their observation is a fact
+about the error geometry; their prescription is a guess about the right
+repair, and that guess biases the model toward A-pick (small code fix) even
+when the correct move is B (replace the abstraction). On 13e47133 the
+`nonrectangular_chamber` detector's observation was correct ("errors inside
+a non-rectangular chamber") but its prescribed fix ("replace bbox distance
+with BFS-from-walls") was a directional hint, not the actual correct
+abstraction (Chebyshev BFS from the room boundary). Surfacing the
+prescription pushed the continuation chat into 2 more failed iters; the
+fresh-refinement path with observation only let the model judge B and
+write the right rule.
+
+`feedback_diagnostics.format_observations_block(diagnosis)` returns just
+the fingerprint lines for ride-along in fresh-refinement prompts.
+`format_targeted_feedback(diagnosis)` (the FEEDBACK SUMMARY + DIAGNOSIS
+block for the human-facing feedback file) drops the suggested-fix line as
+of this revision — keeping it in the dict on the detector source for
+inspection but not surfacing it anywhere a model might read it.
 
 ## Calibration discipline
 

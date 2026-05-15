@@ -857,12 +857,18 @@ def format_targeted_feedback(diagnosis, iter_n=None):
         if bugs:
             for bug in bugs:
                 lines.append(
-                    f"BUG MATCHED: {bug['bug_class']} "
+                    f"OBSERVED PATTERN: {bug['bug_class']} "
                     f"(confidence {bug['confidence']:.2f})"
                 )
                 lines.append(f"  Fingerprint: {bug['fingerprint']}")
-                lines.append(f"  Suggested fix: {bug['suggested_fix']}")
                 lines.append("")
+            lines.append(
+                "The pattern above describes what the failing-pair errors look "
+                "like spatially. It does not prescribe a fix. Decide for "
+                "yourself whether your rule is correct and the code has a bug "
+                "(small patch) or your rule is wrong and the abstraction must "
+                "change."
+            )
         else:
             lines.append(
                 "No specific bug-class fingerprint matched. Scan your code for "
@@ -892,4 +898,50 @@ def format_targeted_feedback(diagnosis, iter_n=None):
                 "the failing pair(s)."
             )
 
+    return "\n".join(lines)
+
+
+def format_observations_block(diagnosis):
+    """Detector observations only, no header or verdict — for ride-along.
+
+    Returns the OBSERVED PATTERN block (fingerprint sentences only, no
+    SUGGESTED FIX) that can be embedded inside a fresh-refinement prompt.
+    Returns empty string when no detector fired and no structural diff was
+    computed, so the caller can skip the block entirely.
+
+    Comp-clean: every observation is computed from training-pair errors
+    (`solve(train.input)` vs `train.output`). Nothing here derives from test
+    ground truth.
+    """
+    bugs = diagnosis.get("bugs", [])
+    struct = diagnosis.get("structural_diff") or []
+
+    if not bugs and not struct:
+        return ""
+
+    lines = []
+    lines.append("=" * 80)
+    lines.append("OBSERVED PATTERN IN FAILING-PAIR ERRORS (training only)")
+    lines.append("=" * 80)
+    lines.append("")
+    if bugs:
+        for bug in bugs:
+            lines.append(
+                f"- {bug['bug_class']} (confidence {bug['confidence']:.2f})"
+            )
+            lines.append(f"  {bug['fingerprint']}")
+            lines.append("")
+    if struct:
+        lines.append("Structural difference between failing and passing training pairs:")
+        for diff in struct:
+            lines.append(
+                f"  - {diff['feature']}: passing={diff['passing_values']}, "
+                f"failing={diff['failing_values']}"
+            )
+        lines.append("")
+    lines.append(
+        "These observations describe what the errors look like. They do NOT "
+        "prescribe a fix. Use them as input to your Phase 1 judgment (rule "
+        "correct? or abstraction wrong?), not as a directive."
+    )
     return "\n".join(lines)

@@ -454,15 +454,16 @@ def main():
                              "The prompt includes seed structure + this iter's code "
                              "+ diagnosis, so no chat history is required to "
                              "continue iterating.")
-    parser.add_argument("--fresh-refine", action="store_true",
-                        help="When training pairs partially pass (>=1 PASS and >=1 "
-                             "FAIL), emit a fresh-refinement prompt for a NEW chat "
-                             "session. The prompt contains prior code + prior "
-                             "STATED_RULE + per-pair PASS/FAIL status + "
-                             "judge-then-repair instructions. The model first picks "
-                             "A (rule correct, patch code) or B (rule wrong, replace "
-                             "abstraction). Comp-clean: leaks no info derived from "
-                             "test ground truth.")
+    parser.add_argument("--no-fresh-refine", action="store_true",
+                        help="Disable automatic fresh-refinement prompt emission. "
+                             "By default, when training pairs partially pass (>=1 "
+                             "PASS and >=1 FAIL), paste_helper writes a "
+                             "self-contained fresh-refinement prompt for a NEW "
+                             "chat session — prior code + prior STATED_RULE + "
+                             "per-pair PASS/FAIL + detector observations (if any) "
+                             "+ judge-then-repair instructions. This flag turns "
+                             "that off; use --stateless for the legacy "
+                             "continuation-style iteration prompt.")
     args = parser.parse_args()
 
     model_key = args.model.lower()
@@ -644,9 +645,13 @@ def main():
                 )
 
     fresh_refine_artifacts = {}
-    if args.fresh_refine:
+    if not args.no_fresh_refine:
         try:
             from seed_prompt import build_fresh_refine_prompt
+            try:
+                from feedback_diagnostics import format_observations_block
+            except ImportError:
+                format_observations_block = None
         except ImportError:
             fresh_refine_artifacts = {"error": "seed_prompt module unavailable"}
         else:
@@ -716,12 +721,38 @@ def main():
                     txt = prev_rule_file.read_text().strip()
                     if txt and txt != rule:
                         rejected.append(txt)
+                # Compute the OBSERVED PATTERN ride-along block. Re-uses the
+                # diagnosis we already computed via compute_diagnosis() above
+                # (which ran the same detectors against training-pair errors),
+                # so this is comp-clean and free.
+                obs_block = ""
+                if format_observations_block is not None:
+                    try:
+                        from feedback_diagnostics import diagnose_full
+                        actual_outputs_fr = []
+                        for pair in train_pairs_fr:
+                            try:
+                                actual_outputs_fr.append(mod_fr.solve(pair["input"]))
+                            except Exception:
+                                actual_outputs_fr.append(None)
+                        # Only run detector synthesis if every training pair
+                        # produced a 2D-list output; otherwise diagnose_full
+                        # would have already short-circuited and detectors
+                        # aren't applicable.
+                        if all(isinstance(o, list) and o and isinstance(o[0], list)
+                               for o in actual_outputs_fr):
+                            diag_fr = diagnose_full(puzzle_obj_fr, actual_outputs_fr)
+                            obs_block = format_observations_block(diag_fr)
+                    except Exception:
+                        obs_block = ""
+
                 fresh_prompt = build_fresh_refine_prompt(
                     puzzle_obj_fr,
                     prior_code=code_path.read_text(),
                     prior_rule=rule,
                     pair_status=pair_status,
                     rejected_rules=rejected or None,
+                    observations_block=obs_block,
                 )
                 fresh_prompt_path = out_dir / f"iter_{n + 1}_fresh_refine_prompt.txt"
                 fresh_prompt_path.write_text(fresh_prompt)
@@ -729,6 +760,7 @@ def main():
                 fresh_refine_artifacts["bytes"] = len(fresh_prompt)
                 fresh_refine_artifacts["pair_status"] = pair_status
                 fresh_refine_artifacts["rejected_rules_count"] = len(rejected)
+                fresh_refine_artifacts["observations_included"] = bool(obs_block)
 
     hedge_artifacts = {}
     if args.hedge or args.hedge_result:
