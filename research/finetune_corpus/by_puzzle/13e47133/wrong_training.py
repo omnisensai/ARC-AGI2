@@ -571,77 +571,70 @@ def solve(input_grid):
     w = len(input_grid[0])
     flat = [cell for row in input_grid for cell in row]
     from collections import Counter
-    color_counts = Counter(flat)
-    sorted_colors = color_counts.most_common()
-    bg_color = sorted_colors[0][0]
-    wall_color = sorted_colors[1][0]
+    count = Counter(flat)
+    bg = count.most_common(1)[0][0]
+    wall = count.most_common(2)[1][0]
     output = [row[:] for row in input_grid]
-    visited = [[False] * w for _ in range(h)]
-    dirs = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    dirs = [(-1,0),(1,0),(0,-1),(0,1)]
+    visited = [[False for _ in range(w)] for _ in range(h)]
     from collections import deque
     for i in range(h):
         for j in range(w):
-            if output[i][j] == wall_color or visited[i][j]:
-                continue
-            region_cells = []
-            seed_list = []
-            q = deque([(i, j)])
-            visited[i][j] = True
-            region_cells.append((i, j))
-            if input_grid[i][j] != bg_color:
-                seed_list.append((i, j, input_grid[i][j]))
-            while q:
-                r, c = q.popleft()
-                for dr, dc in dirs:
-                    nr, nc = r + dr, c + dc
-                    if 0 <= nr < h and 0 <= nc < w and not visited[nr][nc] and input_grid[nr][nc] != wall_color:
-                        visited[nr][nc] = True
-                        q.append((nr, nc))
-                        region_cells.append((nr, nc))
-                        if input_grid[nr][nc] != bg_color:
-                            seed_list.append((nr, nc, input_grid[nr][nc]))
-            if not region_cells:
-                continue
-            region_set = set(region_cells)
-            perimeter = set()
-            for r, c in region_cells:
-                is_peri = (r == 0 or r == h - 1 or c == 0 or c == w - 1)
-                if not is_peri:
+            if input_grid[i][j] != wall and not visited[i][j]:
+                component = []
+                q_comp = deque([(i,j)])
+                visited[i][j] = True
+                while q_comp:
+                    r,c = q_comp.popleft()
+                    component.append((r,c))
+                    for dr,dc in dirs:
+                        nr,nc = r+dr, c+dc
+                        if 0<=nr<h and 0<=nc<w and input_grid[nr][nc] != wall and not visited[nr][nc]:
+                            visited[nr][nc] = True
+                            q_comp.append((nr,nc))
+                comp_set = set(component)
+                border = []
+                for r,c in component:
+                    is_b = False
+                    for dr,dc in dirs:
+                        nr = r + dr
+                        nc = c + dc
+                        if not (0 <= nr < h and 0 <= nc < w) or input_grid[nr][nc] == wall:
+                            is_b = True
+                            break
+                    if is_b:
+                        border.append((r,c))
+                layer_dict = {}
+                vis_layer = set()
+                q_layer = deque()
+                for pos in border:
+                    layer_dict[pos] = 0
+                    q_layer.append(pos)
+                    vis_layer.add(pos)
+                while q_layer:
+                    cur = q_layer.popleft()
+                    r, c = cur
                     for dr, dc in dirs:
                         nr, nc = r + dr, c + dc
-                        if not (0 <= nr < h and 0 <= nc < w) or input_grid[nr][nc] == wall_color:
-                            is_peri = True
-                            break
-                if is_peri:
-                    perimeter.add((r, c))
-            depth = {}
-            q = deque()
-            for pr, pc in perimeter:
-                depth[(pr, pc)] = 0
-                q.append((pr, pc))
-            while q:
-                r, c = q.popleft()
-                for dr, dc in dirs:
-                    nr, nc = r + dr, c + dc
-                    if (nr, nc) in depth or (nr, nc) not in region_set:
-                        continue
-                    depth[(nr, nc)] = depth[(r, c)] + 1
-                    q.append((nr, nc))
-            layer_color = {}
-            for sr, sc, scol in seed_list:
-                k = depth.get((sr, sc))
-                if k is not None:
-                    layer_color[k] = scol
-            if 0 not in layer_color:
-                layer_color[0] = bg_color
-            if not layer_color:
-                continue
-            max_k = max(layer_color.keys())
-            period = max_k + 1
-            for r, c in region_cells:
-                k = depth.get((r, c), 0)
-                col_idx = k % period
-                output[r][c] = layer_color[col_idx]
+                        pos_n = (nr, nc)
+                        if 0<=nr<h and 0<=nc<w and input_grid[nr][nc] != wall and pos_n in comp_set and pos_n not in vis_layer:
+                            vis_layer.add(pos_n)
+                            layer_dict[pos_n] = layer_dict[cur] + 1
+                            q_layer.append(pos_n)
+                seed_d = {}
+                for r,c in component:
+                    colr = input_grid[r][c]
+                    if colr != bg:
+                        l = layer_dict[(r,c)]
+                        seed_d[l] = colr
+                maxl = max(seed_d.keys()) if seed_d else 0
+                period = maxl + 1
+                seq = [bg] * period
+                for l, c in seed_d.items():
+                    seq[l] = c
+                for r,c in component:
+                    l = layer_dict[(r,c)]
+                    output[r][c] = seq[l % period]
     return output
 
 
