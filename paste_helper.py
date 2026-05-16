@@ -636,7 +636,9 @@ def main():
             finetune_record_path = append_record(record)
 
     feedback_path = out_dir / f"iter_{n}_feedback.txt"
-    feedback_path.write_text(feedback)
+    # Defer write until after fresh_refine has a chance to compute its
+    # output path; the feedback file gets a NEXT STEP banner pointing to
+    # iter_N+1_fresh_refine_prompt.txt when that prompt was generated.
 
     summary = {
         "iter": n,
@@ -751,19 +753,24 @@ def main():
                     f"all training pairs pass ({pass_n}/{len(train_pairs_fr)}); "
                     "use --hedge instead"
                 )
-            elif rule is None:
-                fresh_refine_artifacts["skipped"] = (
-                    "no STATED_RULE: line found in response. Fresh refinement "
-                    "requires the model's own stated rule to feed back into "
-                    "the new prompt. Re-run iter 1 with the updated seed "
-                    "prompt that requires STATED_RULE."
-                )
             else:
                 # Gather any rules that have already been tried and rejected
                 # on this puzzle. Looks at iter_*_rule.txt files in this dir
                 # other than the current iter — those represent previous
                 # rule statements the model has already proposed.
                 rejected = []
+                if rule is None:
+                    # Legacy paste predating the STATED_RULE requirement. Still
+                    # emit a fresh-refinement prompt — just frame the missing
+                    # rule so the model derives it from the code before judging.
+                    effective_rule = (
+                        "(no rule was stated by the previous attempt — derive "
+                        "what rule the code below appears to be implementing "
+                        "before performing Phase 1 judgment)"
+                    )
+                    fresh_refine_artifacts["rule_missing"] = True
+                else:
+                    effective_rule = rule
                 for prev_rule_file in sorted(out_dir.glob("iter_*_rule.txt")):
                     if prev_rule_file == rule_path:
                         continue
@@ -798,7 +805,7 @@ def main():
                 fresh_prompt = build_fresh_refine_prompt(
                     puzzle_obj_fr,
                     prior_code=code_path.read_text(),
-                    prior_rule=rule,
+                    prior_rule=effective_rule,
                     pair_status=pair_status,
                     rejected_rules=rejected or None,
                     observations_block=obs_block,
@@ -810,6 +817,29 @@ def main():
                 fresh_refine_artifacts["pair_status"] = pair_status
                 fresh_refine_artifacts["rejected_rules_count"] = len(rejected)
                 fresh_refine_artifacts["observations_included"] = bool(obs_block)
+
+    # Now that we know whether a fresh-refinement prompt was written, prepend
+    # a NEXT STEP banner to the feedback file pointing the user at the right
+    # file to paste into a fresh chat. Without this banner users open the
+    # feedback file (which is the legacy diagnostic dump) and assume that's
+    # what to paste next — it isn't.
+    next_prompt_for_banner = fresh_refine_artifacts.get("next_prompt") if fresh_refine_artifacts else None
+    if next_prompt_for_banner:
+        banner = (
+            "=" * 80 + "\n"
+            "NEXT STEP — DO NOT PASTE THIS FILE INTO A CHAT\n"
+            + "=" * 80 + "\n\n"
+            f"This file ({feedback_path}) is the inspection dump for iter {n}.\n"
+            "It is for humans to read, not for the next model invocation.\n\n"
+            "For iter " + str(n + 1) + ", open this file and paste it into a NEW chat:\n\n"
+            f"    {next_prompt_for_banner}\n\n"
+            "Use a fresh chat session (not a continuation of iter " + str(n) + "'s chat).\n"
+            "The framework retired same-chat continuation because it anchors\n"
+            "the model in defensive patching.\n\n"
+            + "=" * 80 + "\n\n"
+        )
+        feedback = banner + feedback
+    feedback_path.write_text(feedback)
 
     hedge_artifacts = {}
     if args.hedge or args.hedge_result:
