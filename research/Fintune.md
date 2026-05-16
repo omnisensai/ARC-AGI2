@@ -16,6 +16,14 @@ Empirical proof: on puzzle 13e47133, 12 runs across GPT and Grok produced accura
 
 ---
 
+**The Blind Man Effect.** In-context recursion fails because the model's own prior reasoning contaminates its interpretation space. When a model picks Algorithm A on iteration 1 and then sees its own Algorithm A reasoning in iterations 2-7, it cannot escape Algorithm A's frame — it refines within the lock instead of finding Algorithm B. We observed this empirically: 7 iterations in the same context window failed to solve puzzles that 2 fresh-context passes solved trivially. The fix is architectural, not parametric: discard the first model's context entirely and give a fresh model instance only the wrong code and the error description. No inherited reasoning, no prior justification, no contamination. The second model sees bad code with fresh eyes and is free to interpret the puzzle independently. This explains why TRM's 16 latent-space passes converge to local minima, why ARChitects needed "cold restarts" mid-sampling, and why SOAR's refinements hit diminishing returns. All three recurse within a contaminated state. Our approach breaks the recursion into independent passes with clean interpretation spaces — which is why 2 passes beats 7. The blind man can't find the door by feeling the same wall harder. You give him a new room.
+
+This challenges the dominant scaling-inference-compute narrative directly. The entire field is pushing toward deeper recursion — TRM with 16 passes, ARChitects with 100 refinement steps, SOAR with 6,000 evolutionary attempts, OpenAI's o3 burning 138,000 reasoning tokens on a single problem. The implicit assumption is that more thinking equals better answers. Our data says the opposite: past a certain point, thinking longer within the same context makes the model dumber, not smarter. It doesn't discover new solutions — it entrenches the first wrong answer with increasingly elaborate justification. The correct mental model is not "LLM as a thinker that improves with more thought" but "LLM as a pattern matcher that locks onto one pattern." And the correct strategy for a pattern matcher is not to let it pattern-match harder within its initial lock. It is to reset, re-roll, and let it match fresh. This connects directly to interpretation drift theory: drift isn't only between models — it occurs within a single model's context window as prior reasoning narrows the interpretation space from "all possible solutions" to "variations of my first guess." Fresh context collapses the space back to its full width. The substrate was never about making the model think longer. It was about making each independent attempt land closer to the correct slot.
+
+---
+
+---
+
 ## Model choice
 
 **Qwen-2.5-7B-Instruct**
