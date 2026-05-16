@@ -2,6 +2,8 @@
 
 **Status:** Active plan. Collection pipeline in progress. First fine-tune target: $5 and a weekend.
 
+**Philosophy:** Separate interpretation from computation. The model interprets — it reads grids, sees patterns, identifies rules. Python computes — it executes the rule with precision, verifies against training pairs, produces the output. Neither is reliable alone. The model drifts without code to anchor it. The code is wrong without the model to see the pattern. Fine-tuning sharpens the interpretation. The code handles the rest.
+
 ---
 
 ## Core insight
@@ -110,8 +112,10 @@ Recurring failure modes across models and puzzles. Fine-tuning penalizes these s
 | `over_extended_scoped_fix` | regression on passing pair after fixing failing pair | High | Additive condition, not rewrite |
 | `identical_code_resubmission` | byte-equal code across iterations | Medium | Detect and force actual changes |
 | `generic_perimeter_framing` | output has border ring regardless of seed position | Medium | BFS from anchor, not grid perimeter |
+| `hardcoded_test_output` | returns literal grid, 0/N on training pairs | High | Code must use input_grid, not return a constant |
+| `no_code_response` | prose or pseudocode only, no def solve() | Medium | Response must contain executable def solve(input_grid) |
 
-**Training examples per pattern:** inject each bug into 50+ correct solvers, generate feedback, pair with the fix. ~400 examples per bug pattern × 8 patterns = ~3,200 bug-specific training examples.
+**Training examples per pattern:** inject each bug into 50+ correct solvers, generate feedback, pair with the fix. ~400 examples per bug pattern × 10 patterns = ~4,000 bug-specific training examples.
 
 ---
 
