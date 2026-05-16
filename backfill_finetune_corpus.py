@@ -1,12 +1,15 @@
 """Backfill the fine-tuning corpus from existing Model Results/ + research/true_solves/.
 
-Walks every iter_N_response.py under Model Results/<Model>/<puzzle>/ and the
-canonical solver under research/true_solves/<puzzle>_<model>.py if present,
-re-runs each against the puzzle file to get training pass count + test diff,
-and appends one record per attempt to research/finetune_corpus/.
+Walks every R<N>.py under Model Results/<Model>/<puzzle>/ and the canonical
+solver under research/true_solves/<puzzle>_<model>.py if present, re-runs each
+against the puzzle file to get training pass count + test diff, and appends
+one record per attempt to research/finetune_corpus/.
 
 Idempotent: re-running replaces existing records keyed on
-(puzzle_id, model, iter). Records migrate buckets if their label changed.
+(puzzle_id, model, n). Records migrate buckets if their label changed.
+
+Curated solvers under research/true_solves/ get n=0 — a reserved sentinel that
+never collides with R-numbered responses (which start at 1).
 
 Usage:
     python backfill_finetune_corpus.py            # walk everything
@@ -80,11 +83,16 @@ def derive_test_label(test_diff):
     return "FALSE_CONFIDENT_SUBMIT"
 
 
-def backfill_one_iter(puzzle_id, model_name, iter_n, code_path, puzzle, source_label):
+def backfill_one_response(puzzle_id, model_name, n, code_path, puzzle, source_label):
     """Read code + rule, run, build and append record. Returns label or None."""
     code = code_path.read_text()
-    rule_path = code_path.parent / f"iter_{iter_n}_rule.txt"
-    stated_rule = rule_path.read_text().strip() if rule_path.exists() else None
+    # R<N>.py at code_path; R<N>_rule.txt is the sibling rule file. For n=0
+    # (curated true_solves), there's no rule file — leave stated_rule None.
+    if n == 0:
+        rule_path = None
+    else:
+        rule_path = code_path.parent / f"R{n}_rule.txt"
+    stated_rule = rule_path.read_text().strip() if rule_path and rule_path.exists() else None
 
     mod = load_solve(code_path)
     if mod is None:
@@ -96,7 +104,7 @@ def backfill_one_iter(puzzle_id, model_name, iter_n, code_path, puzzle, source_l
     record = build_record(
         puzzle_id=puzzle_id,
         model=model_name,
-        iter_n=iter_n,
+        n=n,
         code=code,
         stated_rule=stated_rule,
         training_pass=train_pass,
@@ -135,13 +143,13 @@ def backfill_all(puzzle_filter=None):
                 puzzle = json.loads(puzzle_file.read_text())
                 seen_puzzles.add(puzzle_id)
 
-                for code_path in sorted(puzzle_dir.glob("iter_*_response.py")):
-                    m = re.match(r"iter_(\d+)_response\.py", code_path.name)
+                for code_path in sorted(puzzle_dir.glob("R*.py")):
+                    m = re.match(r"R(\d+)\.py$", code_path.name)
                     if not m:
                         continue
-                    iter_n = int(m.group(1))
-                    label = backfill_one_iter(
-                        puzzle_id, model_name, iter_n, code_path, puzzle,
+                    n = int(m.group(1))
+                    label = backfill_one_response(
+                        puzzle_id, model_name, n, code_path, puzzle,
                         source_label="Model Results",
                     )
                     if label:
@@ -165,9 +173,9 @@ def backfill_all(puzzle_filter=None):
                 continue
             puzzle = json.loads(puzzle_file.read_text())
             seen_puzzles.add(puzzle_id)
-            # Use a sentinel iter index of 0 to mark "canonical curated solver"
-            # so it doesn't collide with iter_N from Model Results.
-            label = backfill_one_iter(
+            # n=0 is the sentinel for "canonical curated solver" so it doesn't
+            # collide with R-numbered responses (which start at 1).
+            label = backfill_one_response(
                 puzzle_id, model_name, 0, path, puzzle,
                 source_label="research/true_solves",
             )

@@ -786,7 +786,7 @@ def _summary_verdict_lines(phase, per_pair):
     ]
 
 
-def format_targeted_feedback(diagnosis, iter_n=None):
+def format_targeted_feedback(diagnosis, n=None):
     """Render diagnosis as the targeted-feedback string for iter prompts.
 
     Two-section layout:
@@ -808,8 +808,8 @@ def format_targeted_feedback(diagnosis, iter_n=None):
     lines.append("FEEDBACK SUMMARY")
     lines.append("=" * 80)
     lines.append("")
-    if iter_n is not None:
-        lines.append(f"Iteration: {iter_n}")
+    if n is not None:
+        lines.append(f"Response: R{n}")
         lines.append("")
     if per_pair:
         lines.extend(_per_pair_lines(per_pair))

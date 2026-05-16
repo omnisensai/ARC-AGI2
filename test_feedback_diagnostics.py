@@ -17,7 +17,7 @@ from feedback_diagnostics import diagnose_full, format_targeted_feedback
 
 
 PUZZLE = Path("evaluation/13e47133.json")
-SOLVER = Path("Model Results/Grok_NoTrans/13e47133/iter_1_response.py")
+SOLVER = Path("legacy/Model Results/Grok_NoTrans/13e47133/iter_1_response.py")
 
 
 def load_solver(path):

@@ -5,11 +5,15 @@ When the user pastes a model response (from claude.ai / chatgpt.com / gemini /
 grok web browser), this script:
   1. Extracts def solve() and TEST_OUTPUT (hand grid)
   2. Runs run_feedback.py against the puzzle
-  3. Saves all artifacts under Model Results/<Model>/<puzzle>/iter_N_*
-  4. Prints a JSON manifest of paths so the caller can push to GitHub
+  3. Saves all artifacts under Model Results/<Model>/<puzzle>/R<N>.* where
+     N is the response number (R1 is the response to the seed prompt; R2 is
+     the response to F1; and so on)
+  4. Auto-emits F<N>.txt (the next feedback prompt) when training partially
+     passes — paste F<N> into a fresh chat to produce R<N+1>
+  5. Prints a JSON manifest of paths so the caller can push to GitHub
 
 Usage:
-  python paste_helper.py <puzzle_id> <model> <paste_file> [--iter N]
+  python paste_helper.py <puzzle_id> <model> <paste_file> [--r N]
 
 Example:
   python paste_helper.py 13e47133 gemini /tmp/paste.txt
@@ -206,24 +210,37 @@ def validate_code_on_test(puzzle_file, solution_path):
     }
 
 
-def next_iter_n(model_dir):
-    """Default to iter 1 (overwrite) when no explicit --iter given.
+def default_response_n():
+    """Default to R1 (overwrite) when no explicit --r given.
 
-    Rationale: when the user pastes <puzzle>__<model>.txt (no __iterN suffix),
-    that means a fresh chat session, which is iter 1. The auto-increment
-    behavior we used before treated fresh runs as continuations of any old
-    iter files lying around, which caused the regression detector to fire
-    spuriously against unrelated code.
+    When the user pastes <puzzle>_<model>.txt (no _R<N> suffix) it means
+    "this is a new R1 — the response to the seed prompt." Auto-incrementing
+    from existing files would treat fresh runs as continuations of any old
+    R-files lying around, which is wrong (the new R1 isn't related to the
+    previous puzzle's R3).
 
-    For continuations within the same chat, the user passes an explicit
-    --iter N or uses the __iterN filename suffix (workflow translates that
-    to --iter N).
+    For refinement responses, the user passes --r N or the workflow
+    translates a `_R<N>` filename suffix into --r N.
     """
     return 1
 
 
+def r_path(out_dir, n, suffix=""):
+    """Path for R<N> artifacts. suffix='' → R1.txt, '_rule.txt' → R1_rule.txt, etc."""
+    if suffix and not suffix.startswith((".", "_")):
+        suffix = "_" + suffix
+    if not suffix:
+        suffix = ".txt"
+    return out_dir / f"R{n}{suffix}"
+
+
+def f_path(out_dir, n):
+    """Path for F<N>.txt — the feedback prompt generated from R<N>."""
+    return out_dir / f"F{n}.txt"
+
+
 def compute_diagnosis(puzzle_file, solution_path, prev_code_path=None,
-                      current_code_path=None, iter_n=None):
+                      current_code_path=None, n=None):
     """Run solver on every training pair, classify phase, match bug-class
     fingerprints, run structural-diff (if rule_comprehension), and detect
     iter-over-iter regression (if prev/current code provided).
@@ -292,7 +309,7 @@ def compute_diagnosis(puzzle_file, solution_path, prev_code_path=None,
     if diag.get("phase") is None and not diag.get("regression_alert"):
         return None
 
-    return format_targeted_feedback(diag, iter_n=iter_n)
+    return format_targeted_feedback(diag, n=n)
 
 
 def _format_runtime_error(pair_idx, exc, solution_path):
@@ -448,35 +465,30 @@ def main():
     parser.add_argument("puzzle_id")
     parser.add_argument("model", help=f"One of: {', '.join(MODEL_DIR)}")
     parser.add_argument("paste_file")
-    parser.add_argument("--iter", type=int, default=None)
+    parser.add_argument("--r", type=int, default=None,
+                        help="Response number. R1 is the response to the seed "
+                             "prompt; R2 is the response to F1; etc. Defaults "
+                             "to 1 — fresh seed response.")
     parser.add_argument("--label", action="store_true",
                         help="Research mode: when training pass rate=1.0, label outcome "
                              "against test ground truth and save to research/ corpus.")
     parser.add_argument("--hedge", action="store_true",
-                        help="When training pass rate=1.0, save the current solve as "
-                             "iter_N_first_solve and emit a hedge prompt path for a "
-                             "fresh independent invocation. Use --hedge-result to "
-                             "compare the second solve to the first.")
+                        help="When training pass rate=1.0, save the current solve "
+                             "and emit a hedge prompt for a fresh independent "
+                             "invocation. Use --hedge-result to compare the "
+                             "second solve to the first.")
     parser.add_argument("--hedge-result", default=None,
                         help="Path to the hedge response paste (fresh invocation's "
                              "response). Compares its hand grid to the first solve's "
                              "code output and reports agreement.")
-    parser.add_argument("--stateless", action="store_true",
-                        help="When training pairs fail, also emit a self-contained "
-                             "iter-N+1 prompt ready for stateless API submission. "
-                             "The prompt includes seed structure + this iter's code "
-                             "+ diagnosis, so no chat history is required to "
-                             "continue iterating.")
     parser.add_argument("--no-fresh-refine", action="store_true",
-                        help="Disable automatic fresh-refinement prompt emission. "
-                             "By default, when training pairs partially pass (>=1 "
-                             "PASS and >=1 FAIL), paste_helper writes a "
-                             "self-contained fresh-refinement prompt for a NEW "
-                             "chat session — prior code + prior STATED_RULE + "
-                             "per-pair PASS/FAIL + detector observations (if any) "
-                             "+ judge-then-repair instructions. This flag turns "
-                             "that off; use --stateless for the legacy "
-                             "continuation-style iteration prompt.")
+                        help="Disable automatic F<N> emission. By default, when "
+                             "training partially passes (>=1 PASS and >=1 FAIL), "
+                             "paste_helper writes F<N>.txt — a self-contained "
+                             "feedback prompt for a NEW chat session containing "
+                             "prior code + prior stated rule + per-pair PASS/FAIL "
+                             "+ detector observations (if any) + judge-then-repair "
+                             "instructions. R<N+1> is the response to F<N>.")
     args = parser.parse_args()
 
     model_key = args.model.lower()
@@ -496,21 +508,24 @@ def main():
     out_dir = Path("Model Results") / MODEL_DIR[model_key] / args.puzzle_id
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    n = args.iter if args.iter is not None else next_iter_n(out_dir)
+    n = args.r if args.r is not None else default_response_n()
 
-    # Fresh iter 1 wipes any leftover iter_2+ files from a previous session
-    # in this puzzle directory. Prevents cross-session pollution where stale
-    # iter files confuse the regression detector (the prior iter looked at
-    # for comparison must belong to the same chat session).
+    # Fresh R1 wipes any leftover R2+ / F1+ files from a previous session in
+    # this puzzle directory. Prevents cross-session pollution where stale R/F
+    # files confuse the regression detector (the prior R looked at for
+    # comparison must belong to the same chat session).
     if n == 1 and out_dir.exists():
         for stale in list(out_dir.iterdir()):
-            if not (stale.is_file() and stale.name.startswith("iter_")):
+            if not stale.is_file():
                 continue
-            parts = stale.name.split("_")
-            if len(parts) < 2:
+            m = re.match(r"^([RF])(\d+)(?:[._].*)?$", stale.name)
+            if not m:
                 continue
-            iter_n_str = parts[1]
-            if iter_n_str.isdigit() and int(iter_n_str) > 1:
+            kind, num_str = m.group(1), m.group(2)
+            num = int(num_str)
+            # Wipe R>=2 and any F (F1 was generated FROM the prior R1 and
+            # belongs to the prior session).
+            if (kind == "R" and num >= 2) or (kind == "F" and num >= 1):
                 stale.unlink()
 
     history_file = f"{args.puzzle_id}_history.json"
@@ -520,7 +535,7 @@ def main():
             ckpt.unlink()
 
     response = Path(args.paste_file).read_text()
-    response_path = out_dir / f"iter_{n}_response.txt"
+    response_path = out_dir / f"R{n}.txt"
     response_path.write_text(response)
 
     code = extract_solve(response)
@@ -535,21 +550,21 @@ def main():
         print(json.dumps(manifest, indent=2))
         sys.exit(1)
 
-    code_path = out_dir / f"iter_{n}_response.py"
+    code_path = out_dir / f"R{n}.py"
     code_path.write_text(code)
     Path("solution.py").write_text(code)
 
     rule = extract_rule(response)
     rule_path = None
     if rule:
-        rule_path = out_dir / f"iter_{n}_rule.txt"
+        rule_path = out_dir / f"R{n}_rule.txt"
         rule_path.write_text(rule + "\n")
 
     hand_grid = extract_hand_grid(response)
     hand_grid_path = None
     hand_validation = None
     if hand_grid is not None:
-        hand_grid_path = out_dir / f"iter_{n}_hand_grid.json"
+        hand_grid_path = out_dir / f"R{n}_hand_grid.json"
         hand_grid_path.write_text(json.dumps(hand_grid))
         hand_validation = validate_hand_grid(hand_grid, puzzle_file)
 
@@ -567,7 +582,7 @@ def main():
 
     prev_code_path = None
     if n > 1:
-        candidate = out_dir / f"iter_{n - 1}_response.py"
+        candidate = out_dir / f"R{n - 1}.py"
         if candidate.exists():
             prev_code_path = str(candidate)
 
@@ -575,7 +590,7 @@ def main():
         puzzle_file, "solution.py",
         prev_code_path=prev_code_path,
         current_code_path=str(code_path),
-        iter_n=n,
+        n=n,
     )
     if diagnosis_block:
         feedback = diagnosis_block + "\n\n" + feedback
@@ -635,7 +650,7 @@ def main():
         record = build_record(
             puzzle_id=args.puzzle_id,
             model=MODEL_DIR[model_key],
-            iter_n=n,
+            n=n,
             code=code,
             stated_rule=rule,
             training_pass=ft_pass,
@@ -648,7 +663,7 @@ def main():
         if record is not None:
             finetune_record_path = append_record(record)
 
-    feedback_path = out_dir / f"iter_{n}_feedback.txt"
+    feedback_path = out_dir / f"R{n}_feedback.txt"
     # Defer write until after fresh_refine has a chance to compute its
     # output path; the feedback file gets a NEXT STEP banner pointing to
     # iter_N+1_fresh_refine_prompt.txt when that prompt was generated.
@@ -661,52 +676,8 @@ def main():
         "hand_grid_validation": hand_validation,
         "code_test_result": code_test_result,
     }
-    summary_path = out_dir / f"iter_{n}_summary.json"
+    summary_path = out_dir / f"R{n}_summary.json"
     summary_path.write_text(json.dumps(summary, indent=2))
-
-    stateless_artifacts = {}
-    if args.stateless:
-        try:
-            from seed_prompt import build_iteration_prompt
-        except ImportError:
-            stateless_artifacts = {"error": "seed_prompt module unavailable"}
-        else:
-            with open(puzzle_file) as f:
-                puzzle_obj_s = json.load(f)
-            # Compute training_pass_rate so we know if we even need an iter prompt
-            train_pairs_s = puzzle_obj_s.get("train", [])
-            try:
-                spec_s = importlib.util.spec_from_file_location("_state_check", "solution.py")
-                mod_s = importlib.util.module_from_spec(spec_s)
-                spec_s.loader.exec_module(mod_s)
-                pass_count_s = sum(
-                    1 for p in train_pairs_s
-                    if mod_s.solve(p["input"]) == p["output"]
-                )
-            except Exception:
-                pass_count_s = 0
-            if pass_count_s < len(train_pairs_s) and code_path.exists():
-                # Strip the diagnosis block out of the just-written feedback.
-                # It already has FEEDBACK SUMMARY + DIAGNOSIS at the top.
-                diagnosis_only = feedback.split(
-                    "================================================================================\n"
-                    "VALIDATION SUMMARY\n"
-                )[0].rstrip()
-                next_iter_prompt = build_iteration_prompt(
-                    puzzle_obj_s,
-                    code_path.read_text(),
-                    diagnosis_only,
-                    iter_n=n + 1,
-                )
-                next_prompt_path = out_dir / f"iter_{n + 1}_stateless_prompt.txt"
-                next_prompt_path.write_text(next_iter_prompt)
-                stateless_artifacts["next_iter_prompt"] = str(next_prompt_path)
-                stateless_artifacts["bytes"] = len(next_iter_prompt)
-            else:
-                stateless_artifacts["skipped"] = (
-                    f"training_pass_rate={pass_count_s}/{len(train_pairs_s)} "
-                    "(no next iter needed)"
-                )
 
     fresh_refine_artifacts = {}
     if not args.no_fresh_refine:
@@ -823,7 +794,7 @@ def main():
                     rejected_rules=rejected or None,
                     observations_block=obs_block,
                 )
-                fresh_prompt_path = out_dir / f"iter_{n + 1}_fresh_refine_prompt.txt"
+                fresh_prompt_path = out_dir / f"F{n}.txt"
                 fresh_prompt_path.write_text(fresh_prompt)
                 fresh_refine_artifacts["next_prompt"] = str(fresh_prompt_path)
                 fresh_refine_artifacts["bytes"] = len(fresh_prompt)
@@ -842,11 +813,11 @@ def main():
             "=" * 80 + "\n"
             "NEXT STEP — DO NOT PASTE THIS FILE INTO A CHAT\n"
             + "=" * 80 + "\n\n"
-            f"This file ({feedback_path}) is the inspection dump for iter {n}.\n"
+            f"This file ({feedback_path}) is the inspection dump for R{n}.\n"
             "It is for humans to read, not for the next model invocation.\n\n"
-            "For iter " + str(n + 1) + ", open this file and paste it into a NEW chat:\n\n"
+            f"To produce R{n + 1}, open this file and paste it into a NEW chat:\n\n"
             f"    {next_prompt_for_banner}\n\n"
-            "Use a fresh chat session (not a continuation of iter " + str(n) + "'s chat).\n"
+            f"Use a fresh chat session (not a continuation of R{n}'s chat).\n"
             "The framework retired same-chat continuation because it anchors\n"
             "the model in defensive patching.\n\n"
             + "=" * 80 + "\n\n"
@@ -971,8 +942,8 @@ def main():
                 prev_iter_data = None
                 prev_n = n - 1
                 if prev_n >= 1:
-                    prev_summary_path = out_dir / f"iter_{prev_n}_summary.json"
-                    prev_code_path = out_dir / f"iter_{prev_n}_response.py"
+                    prev_summary_path = out_dir / f"R{prev_n}_summary.json"
+                    prev_code_path = out_dir / f"R{prev_n}.py"
                     if prev_summary_path.exists() and prev_code_path.exists():
                         prev_iter_data = {
                             "iter": prev_n,
@@ -1016,7 +987,6 @@ def main():
         **({"finetune_corpus": finetune_record_path} if finetune_record_path else {}),
         **({"research": research_artifacts} if research_artifacts else {}),
         **({"hedge": hedge_artifacts} if hedge_artifacts else {}),
-        **({"stateless": stateless_artifacts} if stateless_artifacts else {}),
         **({"fresh_refine": fresh_refine_artifacts} if fresh_refine_artifacts else {}),
     }
     print(json.dumps(manifest, indent=2))

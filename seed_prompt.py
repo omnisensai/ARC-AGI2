@@ -116,45 +116,6 @@ def generate_seed_prompt(puzzle: Dict[str, Any]) -> str:
     ])
 
 
-def build_iteration_prompt(puzzle: Dict[str, Any],
-                           prior_code: str,
-                           diagnosis_block: str,
-                           iter_n: int) -> str:
-    """Iter-N prompt for stateless API calls.
-
-    iter_n is the NEW iter number being generated (so prior_code is iter_n-1's
-    code). Self-contained: includes seed structure + prior code + diagnosis +
-    update instruction. No chat history required.
-    """
-    parts = [
-        TASK_STATEMENT,
-        "",
-        _format_training_pairs(puzzle, include_analysis=False),
-        _format_test_input(puzzle),
-        "=" * 80,
-        f"YOUR PREVIOUS CODE (iter {iter_n - 1})",
-        "=" * 80,
-        "",
-        "```python",
-        prior_code.rstrip(),
-        "```",
-        "",
-        diagnosis_block,
-        "",
-        "=" * 80,
-        f"TASK FOR ITER {iter_n}",
-        "=" * 80,
-        "",
-        "Update your `def solve(input_grid):` function based on the diagnosis "
-        "above. Preserve the logic that produces the correct output for "
-        "passing training pair(s); fix what's wrong with the failing one(s). "
-        "Return the full updated function plus an updated TEST_OUTPUT.",
-        "",
-        OUTPUT_FORMAT,
-    ]
-    return "\n".join(parts)
-
-
 FRESH_REFINE_OUTPUT_FORMAT = """\
 ================================================================================
 MANDATORY OUTPUT FORMAT

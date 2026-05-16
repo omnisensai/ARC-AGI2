@@ -5,7 +5,7 @@ Three buckets keyed by failure mode:
 - wrong_test.jsonl: training passed but test failed (NEAR_MISS or FCS)
 - correct.jsonl: TRUE_SOLVE (training passed AND every test pair exact)
 
-Records are idempotent on (puzzle_id, model, iter_n): re-running paste_helper
+Records are idempotent on (puzzle_id, model, n): re-running paste_helper
 on the same iter overwrites that record and migrates it across buckets if its
 label changed.
 
@@ -46,8 +46,8 @@ def classify(training_pass, training_total, test_diff_total):
     return "wrong_test"
 
 
-def _key(puzzle_id, model, iter_n):
-    return f"{puzzle_id}__{model}__iter{iter_n}"
+def _key(puzzle_id, model, n):
+    return f"{puzzle_id}__{model}__R{n}"
 
 
 def _read_jsonl(path):
@@ -74,7 +74,7 @@ def _write_jsonl(path, records):
     path.write_text("\n".join(json.dumps(r) for r in records) + "\n")
 
 
-def build_record(puzzle_id, model, iter_n, code, stated_rule,
+def build_record(puzzle_id, model, n, code, stated_rule,
                  training_pass, training_total, training_diff_total,
                  test_diff_total, test_label, source_path):
     """Construct a record dict ready for append_record, or None if unclassifiable."""
@@ -84,7 +84,7 @@ def build_record(puzzle_id, model, iter_n, code, stated_rule,
     return {
         "puzzle_id": puzzle_id,
         "model": model,
-        "iter": iter_n,
+        "n": n,
         "label": label,
         "training_pass": training_pass,
         "training_total": training_total,
@@ -111,12 +111,12 @@ def append_record(record, corpus_root=None):
     bucket = record["label"]
     if bucket is None:
         return None
-    key = _key(record["puzzle_id"], record["model"], record["iter"])
+    key = _key(record["puzzle_id"], record["model"], record["n"])
 
     for other in BUCKETS:
         path = root / f"{other}.jsonl"
         recs = _read_jsonl(path)
-        filtered = [r for r in recs if _key(r["puzzle_id"], r["model"], r["iter"]) != key]
+        filtered = [r for r in recs if _key(r["puzzle_id"], r["model"], r["n"]) != key]
         if other == bucket:
             filtered.append(record)
         if filtered != recs:
@@ -139,7 +139,7 @@ def _rebuild_py_mirror(puzzle_id, root=None):
     for bucket in BUCKETS:
         jsonl_path = root / f"{bucket}.jsonl"
         records = [r for r in _read_jsonl(jsonl_path) if r["puzzle_id"] == puzzle_id]
-        records.sort(key=lambda r: (r["model"], r["iter"]))
+        records.sort(key=lambda r: (r["model"], r["n"]))
         py_path = py_dir / f"{bucket}.py"
         if not records:
             if py_path.exists():
@@ -153,7 +153,7 @@ def _rebuild_py_mirror(puzzle_id, root=None):
         for r in records:
             header = (
                 "# " + "=" * 70 + "\n"
-                f"# {r['model']} iter {r['iter']} -- {bucket}\n"
+                f"# {r['model']} R{r['n']} -- {bucket}\n"
                 f"# training_pass={r['training_pass']}/{r['training_total']}  "
                 f"training_diff_total={r.get('training_diff_total')}  "
                 f"test_diff_total={r.get('test_diff_total')}  "

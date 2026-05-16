@@ -46,20 +46,30 @@ jobs:
           for f in Pastes/*.txt; do
             [ -f "$f" ] || continue
             base=$(basename "$f" .txt)
-            puzzle_id=$(echo "$base" | awk -F'__' '{print $1}')
-            model=$(echo "$base" | awk -F'__' '{print $2}')
-            iter_part=$(echo "$base" | awk -F'__' '{print $3}')
-            if [ -z "$puzzle_id" ] || [ -z "$model" ] || [ "$puzzle_id" = "$base" ]; then
-              echo "Skipping $f - filename must be <puzzle_id>__<model>[.__iter<N>].txt"
+            # Filename: <puzzle>_<model>[_R<N>].txt — single underscores. ARC
+            # puzzle IDs are 8-char hex so no collision with the separator.
+            # Last token: R<N> → response number; otherwise the seed response (R1).
+            n_tokens=$(echo "$base" | awk -F'_' '{print NF}')
+            puzzle_id=$(echo "$base" | awk -F'_' '{print $1}')
+            model=$(echo "$base" | awk -F'_' '{print $2}')
+            r_arg=''
+            if [ "$n_tokens" -ge 3 ]; then
+              last=$(echo "$base" | awk -F'_' '{print $NF}')
+              # Match R<digits>; if it doesn't match, treat as malformed.
+              if echo "$last" | grep -qE '^R[0-9]+$'; then
+                r_n=$(echo "$last" | sed 's/^R//')
+                r_arg="--r $r_n"
+              else
+                echo "Skipping $f - third token must be R<N> (got '$last')"
+                continue
+              fi
+            fi
+            if [ -z "$puzzle_id" ] || [ -z "$model" ]; then
+              echo "Skipping $f - filename must be <puzzle>_<model>[_R<N>].txt"
               continue
             fi
-            iter_arg=''
-            if [ -n "$iter_part" ]; then
-              iter_n=$(echo "$iter_part" | sed 's/iter//')
-              iter_arg="--iter $iter_n"
-            fi
-            echo "Processing puzzle=$puzzle_id model=$model file=$f iter_arg=$iter_arg"
-            python paste_helper.py "$puzzle_id" "$model" "$f" $iter_arg | tee /tmp/manifest_$base.json
+            echo "Processing puzzle=$puzzle_id model=$model file=$f r_arg=$r_arg"
+            python paste_helper.py "$puzzle_id" "$model" "$f" $r_arg | tee /tmp/manifest_$base.json
             mv "$f" "Pastes/processed/$(basename $f)"
             echo '## Manifest for `'$base'`' >> $GITHUB_STEP_SUMMARY
             echo '```json' >> $GITHUB_STEP_SUMMARY
