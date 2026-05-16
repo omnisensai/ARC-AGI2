@@ -13,6 +13,7 @@ pair** of its source puzzle, verified by `run_feedback.py`.
 
 | Rule | Source | One-line description |
 |---|---|---|
+| [`chebyshev_room_erosion_fill`](chebyshev_room_erosion_fill.py) | [13e47133](https://arcprize.org/tasks/13e47133) | Partition the grid into 4-connected non-wall rooms; fill each cell with a repeating cycle of the room's seed colors indexed by its Chebyshev depth from the room's actual perimeter (so non-rectangular rooms work the same as rectangular ones); preserve walls. |
 | [`seeded_reachable_wall_contouring`](seeded_reachable_wall_contouring.py) | [8f3a5a89](https://arcprize.org/tasks/8f3a5a89) | From a unique seed, flood-fill the reachable region; only edge-touching 1-clusters act as wall barriers; draw the contour in 7; preserve walls adjacent to or inside the region, remove unreachable walls. |
 
 ## Solver structure
