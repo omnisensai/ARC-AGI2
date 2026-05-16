@@ -40,6 +40,16 @@ MODEL_DIR = {
 
 
 def extract_solve(text):
+    # Normalize mashed language identifiers. Some paste paths render
+    # ```python\nimport ... as a single line like `Pythonimport ...` (the
+    # opening fence vanished, the "python" label glued to the next token).
+    # Recover by stripping a leading `Python` / `**Python**` prefix when it
+    # sits flush against a real Python keyword.
+    text = re.sub(
+        r"(?mi)^\**python\**(?=(import|from|def|class)\b)",
+        "",
+        text,
+    )
     fence_matches = re.findall(
         r"```(?:python)?\s*\n([\s\S]*?def solve\b[\s\S]*?)\n```",
         text,
@@ -48,12 +58,16 @@ def extract_solve(text):
     if fence_matches:
         block = fence_matches[-1].rstrip()
     else:
-        raw_matches = re.findall(
-            r"^(def solve\b[\s\S]*?)(?=\n```|\n# end|\Z)",
+        # No fence — capture from the first top-level Python statement
+        # (import/from/def/class) onward, so imports preceding `def solve`
+        # are included. Without this, imports above `def solve` were
+        # silently dropped and the module wouldn't load.
+        first_stmt = re.search(
+            r"^(?:import|from|def|class)\b",
             text, re.MULTILINE,
         )
-        if raw_matches:
-            block = raw_matches[-1].rstrip()
+        if first_stmt:
+            block = text[first_stmt.start():].rstrip()
     if block is None:
         return None
     return _trim_to_solve_module(block)
