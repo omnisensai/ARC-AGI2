@@ -44,15 +44,59 @@ def extract_solve(text):
         r"```(?:python)?\s*\n([\s\S]*?def solve\b[\s\S]*?)\n```",
         text,
     )
+    block = None
     if fence_matches:
-        return fence_matches[-1].rstrip()
-    raw_matches = re.findall(
-        r"^(def solve\b[\s\S]*?)(?=\n```|\n# end|\Z)",
-        text, re.MULTILINE,
-    )
-    if raw_matches:
-        return raw_matches[-1].rstrip()
-    return None
+        block = fence_matches[-1].rstrip()
+    else:
+        raw_matches = re.findall(
+            r"^(def solve\b[\s\S]*?)(?=\n```|\n# end|\Z)",
+            text, re.MULTILINE,
+        )
+        if raw_matches:
+            block = raw_matches[-1].rstrip()
+    if block is None:
+        return None
+    return _trim_to_solve_module(block)
+
+
+def _trim_to_solve_module(block):
+    """Drop top-level non-import code outside `def solve`.
+
+    Models sometimes put `def solve(...)` and `TEST_OUTPUT = [[...]]` inside a
+    single ```python fence. The TEST_OUTPUT assignment is a hand grid, not part
+    of the solver, and may not even be valid Python (e.g. ``TEST_OUTPUT =\\n[[...]]``
+    is a syntax error). Keep only imports + the solve function so the module
+    loads.
+    """
+    try:
+        tree = ast.parse(block)
+    except SyntaxError:
+        # Block doesn't parse as-is — likely TEST_OUTPUT or similar trailing
+        # junk broke it. Truncate at the first sign of obvious data sections
+        # and try again.
+        for marker in ("\nTEST_OUTPUT", "\n# TEST_OUTPUT"):
+            idx = block.find(marker)
+            if idx >= 0:
+                try:
+                    return ast.unparse(ast.parse(block[:idx]))
+                except SyntaxError:
+                    return block[:idx].rstrip()
+        return block
+    # Keep only imports + the solve function. Anything else at module top
+    # level (TEST_OUTPUT assignments, debug prints, sample calls) is dropped.
+    kept = []
+    for node in tree.body:
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            kept.append(node)
+        elif isinstance(node, ast.FunctionDef) and node.name == "solve":
+            kept.append(node)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            # Helper functions defined alongside solve — keep them (solve may
+            # call them).
+            kept.append(node)
+    if not kept:
+        return block
+    return ast.unparse(ast.Module(body=kept, type_ignores=[]))
 
 
 def extract_rule(text):
@@ -730,7 +774,8 @@ def main():
             elif pass_n == 0:
                 fresh_refine_artifacts["skipped"] = (
                     f"no training pair passes ({pass_n}/{len(train_pairs_fr)}); "
-                    "use --stateless for iteration prompt instead"
+                    "the rule is fundamentally wrong — re-seed in a fresh chat "
+                    "rather than refining"
                 )
             elif fail_n == 0:
                 fresh_refine_artifacts["skipped"] = (
