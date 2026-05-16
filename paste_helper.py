@@ -586,6 +586,55 @@ def main():
         if gt_block:
             feedback = feedback.rstrip() + "\n\n" + gt_block
 
+    # Fine-tuning corpus: append a record to wrong_training/wrong_test/correct.
+    # Idempotent on (puzzle, model, iter) — re-runs replace the prior record
+    # and migrate buckets if the label changed. Skipped silently when test
+    # ground truth is absent and training passes (real comp).
+    finetune_record_path = None
+    try:
+        from finetune_corpus import build_record, append_record, compute_training_stats
+    except ImportError:
+        pass
+    else:
+        with open(puzzle_file) as f_ft:
+            puzzle_ft = json.load(f_ft)
+        train_pairs_ft = puzzle_ft.get("train", [])
+        ft_pass = ft_diff = 0
+        try:
+            spec_ft = importlib.util.spec_from_file_location("_ft_check", "solution.py")
+            mod_ft = importlib.util.module_from_spec(spec_ft)
+            spec_ft.loader.exec_module(mod_ft)
+            ft_pass, ft_diff = compute_training_stats(mod_ft, train_pairs_ft)
+        except Exception:
+            ft_pass, ft_diff = 0, None
+
+        ft_test_diff = None
+        ft_test_label = None
+        if isinstance(code_test_result, dict) and "diffs" in code_test_result:
+            ft_test_diff = code_test_result["diffs"]
+            if ft_test_diff == 0:
+                ft_test_label = "TRUE_SOLVE"
+            elif ft_test_diff <= 20:
+                ft_test_label = "NEAR_MISS"
+            else:
+                ft_test_label = "FALSE_CONFIDENT_SUBMIT"
+
+        record = build_record(
+            puzzle_id=args.puzzle_id,
+            model=MODEL_DIR[model_key],
+            iter_n=n,
+            code=code,
+            stated_rule=rule,
+            training_pass=ft_pass,
+            training_total=len(train_pairs_ft),
+            training_diff_total=ft_diff,
+            test_diff_total=ft_test_diff,
+            test_label=ft_test_label,
+            source_path=str(code_path),
+        )
+        if record is not None:
+            finetune_record_path = append_record(record)
+
     feedback_path = out_dir / f"iter_{n}_feedback.txt"
     feedback_path.write_text(feedback)
 
@@ -921,6 +970,7 @@ def main():
             **({"rule": str(rule_path)} if rule_path else {}),
         },
         **({"stated_rule": rule} if rule else {}),
+        **({"finetune_corpus": finetune_record_path} if finetune_record_path else {}),
         **({"research": research_artifacts} if research_artifacts else {}),
         **({"hedge": hedge_artifacts} if hedge_artifacts else {}),
         **({"stateless": stateless_artifacts} if stateless_artifacts else {}),

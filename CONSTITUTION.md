@@ -231,6 +231,33 @@ block for the human-facing feedback file) drops the suggested-fix line as
 of this revision — keeping it in the dict on the detector source for
 inspection but not surfacing it anywhere a model might read it.
 
+## Fine-tuning corpus
+
+`research/finetune_corpus/` accumulates (code, label, metadata) records
+keyed on (puzzle, model, iter). Three buckets by failure mode:
+
+- `wrong_training.jsonl` — code that fails ≥1 training pair.
+- `wrong_test.jsonl` — training pass but test wrong (NEAR_MISS or
+  FALSE_CONFIDENT_SUBMIT). Rarest and most valuable — the model overfit a
+  rule that survived the visible examples but didn't generalize.
+- `correct.jsonl` — TRUE_SOLVE (training pass + test exact).
+
+Each record is idempotent on (puzzle_id, model, iter). `paste_helper.py`
+appends one record per iter automatically; `backfill_finetune_corpus.py`
+walks existing `Model Results/` + `research/true_solves/` to populate
+retroactively. Per-puzzle `.py` mirrors under `by_puzzle/<puzzle>/` let a
+human scan all attempts on one puzzle side-by-side.
+
+Comp-clean: `test_diff_total` is only computed when the puzzle file carries
+`test[i].output`. In real competition this is absent and the corpus silently
+skips — there is no leak path from test ground truth into model prompts.
+The corpus is a post-hoc training artifact, never a feedback signal.
+
+DPO / preference pairs: pair `correct` with `wrong_test` on the same puzzle
+(same prompt, only the completion differs — that's where the model should
+learn the hard distinction). `wrong_training` pairs work too but the signal
+is weaker because the wrong code fails for visible-example reasons.
+
 ## Calibration discipline
 
 `research/calibration/outcomes.csv` is the single source of truth for
