@@ -41,9 +41,9 @@ Solvers extracted as named, generalizable operations:
 
 When running a puzzle through a model:
 
-1. Copy the substrate prompt from `Substrate Prompts/<puzzle_id>.txt` into a fresh chat with the model (or run `auto_iter.py` which does it for you).
-2. Save each iteration's response to `Model Results/<Model>/<puzzle_id>/iter_N_response.txt`.
-3. Run the validator (`run_feedback.py`) and save the feedback to `Model Results/<Model>/<puzzle_id>/iter_N_feedback.txt`.
-4. Repeat until SUBMIT or budget exhausted.
+1. Copy the seed prompt from `Seed Prompts/<puzzle_id>_seed.txt` into a fresh chat with the model.
+2. Paste the response into `Pastes/<puzzle_id>_<model>.txt` (R1). The workflow runs `paste_helper.py` and saves artifacts to `Model Results/<Model>/<puzzle_id>/R1.*`.
+3. If training partially passes, `F1.txt` is auto-emitted. Paste that into a NEW chat; paste the resulting response into `Pastes/<puzzle_id>_<model>_R2.txt`.
+4. Repeat with R3/F2, R4/F3, etc. until SUBMIT or budget exhausted.
 5. Update this scoreboard with the iteration count (or DNF).
 6. If a clean solver emerges, add it to `Solvers/` and link in the row.

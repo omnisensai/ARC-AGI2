@@ -541,7 +541,7 @@ def main():
     code = extract_solve(response)
     if code is None:
         manifest = {
-            "iter": n,
+            "n": n,
             "model": args.model,
             "puzzle_id": args.puzzle_id,
             "error": "no def solve() in response",
@@ -666,10 +666,10 @@ def main():
     feedback_path = out_dir / f"R{n}_feedback.txt"
     # Defer write until after fresh_refine has a chance to compute its
     # output path; the feedback file gets a NEXT STEP banner pointing to
-    # iter_N+1_fresh_refine_prompt.txt when that prompt was generated.
+    # F<N>.txt when that prompt was generated.
 
     summary = {
-        "iter": n,
+        "n": n,
         "model": args.model,
         "puzzle_id": args.puzzle_id,
         "verdict": verdict,
@@ -946,7 +946,7 @@ def main():
                     prev_code_path = out_dir / f"R{prev_n}.py"
                     if prev_summary_path.exists() and prev_code_path.exists():
                         prev_iter_data = {
-                            "iter": prev_n,
+                            "n": prev_n,
                             "code_path": str(prev_code_path),
                             "summary": json.loads(prev_summary_path.read_text()),
                         }
@@ -969,7 +969,7 @@ def main():
                 )
 
     manifest = {
-        "iter": n,
+        "n": n,
         "model": args.model,
         "puzzle_id": args.puzzle_id,
         "verdict": verdict,

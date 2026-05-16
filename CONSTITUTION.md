@@ -66,10 +66,10 @@ front-load every diagnostic into iter-1.
 | **Hedge** | Training passes, hedge enabled | Fresh new invocation with Seed prompt → compare answer to first solve. If both agree, submit. If disagree, escalate or pick one. **Fresh invocation; continuation hedges produce the same grid.** |
 
 **Every operation that asks the model for code runs in a fresh context.** No
-exceptions. Iter 1 uses the seed prompt; iter N≥2 uses the fresh-refinement
-prompt; hedge uses the seed prompt again. The continuation-style iteration
-prompt (`build_iteration_prompt` in `seed_prompt.py`) remains in the codebase
-for backward compatibility with `--stateless` but is not the default path.
+exceptions. R1 uses the seed prompt; R\<N≥2\> uses F\<N-1\> (the
+feedback prompt built from R\<N-1\>); hedge uses the seed prompt again.
+Same-chat continuation has been retired — the legacy `build_iteration_prompt`
+and `--stateless` flag were removed in the R/F refactor.
 
 ## Modes
 
