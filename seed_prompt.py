@@ -155,6 +155,29 @@ def build_iteration_prompt(puzzle: Dict[str, Any],
     return "\n".join(parts)
 
 
+FRESH_REFINE_OUTPUT_FORMAT = """\
+================================================================================
+MANDATORY OUTPUT FORMAT
+================================================================================
+
+Choice (A or B): ...
+Justification (1-2 sentences): ...
+Updated rule (one sentence): ...
+
+
+```python
+def solve(input_grid):
+    ...
+    return output_grid
+```
+
+
+TEST_OUTPUT = [
+    [...row 0 values...],
+    ...
+]"""
+
+
 FRESH_REFINE_TASK = (
     "Solve this ARC-AGI puzzle. A previous attempt got a partial result — its "
     "code, its stated rule, and per-pair outcomes are below. Your job is to "
@@ -270,7 +293,7 @@ def build_fresh_refine_prompt(puzzle: Dict[str, Any],
     parts.extend([
         FRESH_REFINE_JUDGE_BLOCK,
         "",
-        OUTPUT_FORMAT,
+        FRESH_REFINE_OUTPUT_FORMAT,
     ])
     return "\n".join(parts)
 

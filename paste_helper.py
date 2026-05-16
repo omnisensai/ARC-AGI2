@@ -52,26 +52,39 @@ def extract_solve(text):
 
 
 def extract_rule(text):
-    """Extract the STATED_RULE: <sentence> line that the seed prompt requires.
+    """Extract the one-sentence rule the model wrote.
 
-    Returns the rule sentence (without the STATED_RULE: prefix) or None if not
-    present. The rule is captured verbatim from the model's response so it can
-    be replayed into a fresh-refinement prompt without paraphrasing.
+    Tries multiple labels because the two prompt templates use different
+    headings:
+      - Seed prompt uses `STATED_RULE: <sentence>` (top-level output field).
+      - Fresh-refinement prompt uses `Updated rule (one sentence): <sentence>`
+        as part of the judge-shaped output block.
+
+    Returns the rule verbatim (markdown emphasis stripped) or None if no
+    match. STATED_RULE wins when both are present so we always prefer the
+    canonical label.
     """
-    # Look for STATED_RULE on its own line (with or without leading markdown
-    # markers like "* ", "- ", "**"). Stop at the next blank line, code fence,
-    # or another all-caps heading-looking line.
-    pattern = re.compile(
+    stated = re.search(
         r"^\s*(?:[-*]\s+)?\**\s*STATED_RULE\s*\**\s*:\s*\**\s*(.+?)\s*$",
-        re.MULTILINE,
+        text, re.MULTILINE,
     )
-    m = pattern.search(text)
-    if not m:
-        return None
-    rule = m.group(1).strip()
-    # Strip stray markdown emphasis around the sentence itself.
-    rule = rule.strip("*_`").strip()
-    return rule or None
+    if stated:
+        rule = stated.group(1).strip().strip("*_`").strip()
+        if rule:
+            return rule
+
+    updated = re.search(
+        r"^\s*(?:[-*]\s+)?\**\s*Updated rule(?:\s*\(one sentence\))?\s*\**\s*:\s*\**\s*(.+?)\s*$",
+        text, re.MULTILINE | re.IGNORECASE,
+    )
+    if updated:
+        rule = updated.group(1).strip().strip("*_`").strip()
+        # Reject placeholder like "..." that the model echoed back without
+        # filling in. A real rule sentence has at least one letter.
+        if rule and rule not in ("...", "..", ".") and re.search(r"[A-Za-z]", rule):
+            return rule
+
+    return None
 
 
 def extract_hand_grid(text):
