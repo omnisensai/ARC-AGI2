@@ -265,7 +265,7 @@ def main():
     ap.add_argument("--runs", type=int, default=10)
     ap.add_argument("--workers", type=int, default=5)
     ap.add_argument("--temperature", type=float, default=0.7)
-    ap.add_argument("--splits", default="splits/baseline_10.json")
+    ap.add_argument("--splits", default="splits/baseline_qwen_run.json")
     ap.add_argument("--puzzle-dir", default="data/training")
     ap.add_argument("--mode", default="raw", choices=["raw"])
     args = ap.parse_args()
