@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "845d6e51",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import deque\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find the divider: a row of 5s and a column of 5s that form an L\n    # Find row with most 5s\n    row5 = -1\n    col5 = -1\n    best_row = 0\n    for r in range(H):\n        c = sum(1 for x in input_grid[r] if x == 5)\n        if c > best_row:\n            best_row = c\n            row5 = r\n    best_col = 0\n    for c in range(W):\n        cnt = sum(1 for r in range(H) if input_grid[r][c] == 5)\n        if cnt > best_col:\n            best_col = cnt\n            col5 = c\n\n    # Legend region: rows 0..row5-1, cols 0..col5-1 (assuming legend in top-left)\n    # Determine quadrant by where 5s are\n    # legend is enclosed by the L of 5s\n    # find bounds\n    # The legend area is the rectangle bordered by the L\n    legend_r0, legend_r1 = 0, row5 - 1\n    legend_c0, legend_c1 = 0, col5 - 1\n\n    # Extract templates: connected components of non-zero, non-5 cells in legend area\n    def get_components(cells_set):\n        visited = set()\n        comps = []\n        for cell in cells_set:\n            if cell in visited:\n                continue\n            color = None\n            q = deque([cell])\n            visited.add(cell)\n            comp = []\n            while q:\n                r, c = q.popleft()\n                comp.append((r, c))\n                for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                    nr, nc = r + dr, c + dc\n                    if (nr, nc) in cells_set and (nr, nc) not in visited:\n                        visited.add((nr, nc))\n                        q.append((nr, nc))\n            comps.append(comp)\n        return comps\n\n    # Build legend cells: cells in legend region with value != 0 and != 5\n    legend_cells = {}\n    legend_set = set()\n    for r in range(legend_r0, legend_r1 + 1):\n        for c in range(legend_c0, legend_c1 + 1):\n            v = input_grid[r][c]\n            if v != 0 and v != 5:\n                legend_cells[(r, c)] = v\n                legend_set.add((r, c))\n\n    # Group by color first (each template is one color)\n    templates = {}  # color -> normalized shape (frozenset of (dr,dc))\n    color_groups = {}\n    for cell, v in legend_cells.items():\n        color_groups.setdefault(v, []).append(cell)\n    for color, cells in color_groups.items():\n        # find connected components (should be one)\n        cells_set = set(cells)\n        visited = set()\n        all_shapes = []\n        for cell in cells:\n            if cell in visited:\n                continue\n            q = deque([cell])\n            visited.add(cell)\n            comp = []\n            while q:\n                r, c = q.popleft()\n                comp.append((r, c))\n                for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                    nr, nc = r + dr, c + dc\n                    if (nr, nc) in cells_set and (nr, nc) not in visited:\n                        visited.add((nr, nc))\n                        q.append((nr, nc))\n            all_shapes.append(comp)\n        # take union of all components for this color (or pick first)\n        comp = []\n        for s in all_shapes:\n            comp.extend(s)\n        minr = min(p[0] for p in comp)\n        minc = min(p[1] for p in comp)\n        shape = frozenset((r - minr, c - minc) for r, c in comp)\n        templates[color] = shape\n\n    # Generate all 8 symmetries\n    def symmetries(shape):\n        results = []\n        s = shape\n        for _ in range(4):\n            # normalize\n            minr = min(p[0] for p in s)\n            minc = min(p[1] for p in s)\n            ns = frozenset((r - minr, c - minc) for r, c in s)\n            results.append(ns)\n            # also mirror\n            mirrored = frozenset((r, -c) for r, c in s)\n            minr2 = min(p[0] for p in mirrored)\n            minc2 = min(p[1] for p in mirrored)\n            nm = frozenset((r - minr2, c - minc2) for r, c in mirrored)\n            results.append(nm)\n            # rotate 90\n            s = frozenset((c, -r) for r, c in s)\n        return results\n\n    template_syms = {}\n    for color, shape in templates.items():\n        template_syms[color] = set(symmetries(shape))\n\n    # Find all 3-shapes outside legend\n    threes = set()\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 3:\n                # check if inside legend\n                in_legend = (legend_r0 <= r <= legend_r1 and legend_c0 <= c <= legend_c1)\n                if not in_legend:\n                    threes.add((r, c))\n\n    visited = set()\n    for cell in list(threes):\n        if cell in visited:\n            continue\n        q = deque([cell])\n        visited.add(cell)\n        comp = []\n        while q:\n            r, c = q.popleft()\n            comp.append((r, c))\n            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                nr, nc = r + dr, c + dc\n                if (nr, nc) in threes and (nr, nc) not in visited:\n                    visited.add((nr, nc))\n                    q.append((nr, nc))\n        minr = min(p[0] for p in comp)\n        minc = min(p[1] for p in comp)\n        shape = frozenset((r - minr, c - minc) for r, c in comp)\n        # match\n        matched_color = None\n        for color, syms in template_syms.items():\n            if shape in syms:\n                matched_color = color\n                break\n        if matched_color is not None:\n            for r, c in comp:\n                grid[r][c] = matched_color\n\n    return grid\n",
+      "source": "claude_agent_batch_014_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

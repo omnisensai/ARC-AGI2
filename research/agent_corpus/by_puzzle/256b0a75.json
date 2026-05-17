@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "256b0a75",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find bounding box of all 8s\n    eights = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 8]\n    rs = [r for r, c in eights]\n    cs = [c for r, c in eights]\n    r1, r2 = min(rs), max(rs)\n    c1, c2 = min(cs), max(cs)\n\n    # Identify which of the 4 corners does NOT have an 8 (it's the odd-color corner)\n    corners = [(r1, c1), (r1, c2), (r2, c1), (r2, c2)]\n    odd_corner = None\n    for cr, cc in corners:\n        if grid[cr][cc] != 8:\n            odd_corner = (cr, cc)\n            break\n\n    # Determine fill color from the odd corner's L-shape\n    fill = grid[odd_corner[0]][odd_corner[1]] if odd_corner else 0\n    if fill == 0:\n        for dr in (-1, 0, 1):\n            for dc in (-1, 0, 1):\n                nr, nc = odd_corner[0] + dr, odd_corner[1] + dc\n                if 0 <= nr < H and 0 <= nc < W and grid[nr][nc] not in (0, 8):\n                    fill = grid[nr][nc]\n                    break\n            if fill != 0:\n                break\n\n    out = [row[:] for row in grid]\n\n    # Build the box: border 8s, interior fill\n    for r in range(r1, r2 + 1):\n        for c in range(c1, c2 + 1):\n            if r == r1 or r == r2 or c == c1 or c == c2:\n                out[r][c] = 8\n            else:\n                out[r][c] = fill\n\n    # For each cell in the four rays, look up nearest colored input pixel in the\n    # AWAY-from-box direction (inclusive). If none, use fill.\n\n    def cell_color(r, c):\n        v = input_grid[r][c]\n        if v == 0 or v == 8:\n            return None\n        return v\n\n    # Top ray: rows 0..r1-1, cols c1..c2. For cell (rr,c), find min r in [rr, r1-1]\n    # with colored input pixel. (Nearest pixel going toward box.)\n    for c in range(c1, c2 + 1):\n        for rr in range(0, r1):\n            val = fill\n            for r in range(rr, r1):\n                cv = cell_color(r, c)\n                if cv is not None:\n                    val = cv\n                    break\n            out[rr][c] = val\n\n    # Bottom ray: rows r2+1..H-1, cols c1..c2. For cell (rr,c), find max r in\n    # [r2+1, rr] with colored pixel.\n    for c in range(c1, c2 + 1):\n        for rr in range(r2 + 1, H):\n            val = fill\n            for r in range(rr, r2, -1):\n                cv = cell_color(r, c)\n                if cv is not None:\n                    val = cv\n                    break\n            out[rr][c] = val\n\n    # Left ray: rows r1..r2, cols 0..c1-1.\n    for r in range(r1, r2 + 1):\n        for cc in range(0, c1):\n            val = fill\n            for c in range(cc, c1):\n                cv = cell_color(r, c)\n                if cv is not None:\n                    val = cv\n                    break\n            out[r][cc] = val\n\n    # Right ray: rows r1..r2, cols c2+1..W-1.\n    for r in range(r1, r2 + 1):\n        for cc in range(c2 + 1, W):\n            val = fill\n            for c in range(cc, c2, -1):\n                cv = cell_color(r, c)\n                if cv is not None:\n                    val = cv\n                    break\n            out[r][cc] = val\n\n    return out\n",
+      "source": "claude_agent_batch_014_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

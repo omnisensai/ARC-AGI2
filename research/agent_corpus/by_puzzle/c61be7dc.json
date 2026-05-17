@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "c61be7dc",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Detect 0-lines: rows / cols that contain many 0s.\n    zero_rows = []\n    for r in range(H):\n        zero_count = sum(1 for c in range(W) if input_grid[r][c] == 0)\n        if zero_count >= W // 2:\n            zero_rows.append(r)\n\n    zero_cols = []\n    for c in range(W):\n        zero_count = sum(1 for r in range(H) if input_grid[r][c] == 0)\n        if zero_count >= H // 2:\n            zero_cols.append(c)\n\n    # Count 5s in the input shape: this is the length of the output bar.\n    n5 = sum(1 for r in range(H) for c in range(W) if input_grid[r][c] == 5)\n\n    out = [[7] * W for _ in range(H)]\n\n    if len(zero_cols) == 2 and len(zero_rows) == 1:\n        # Two vertical 0-lines flanking a vertical bar of 5s.\n        mid_col = (zero_cols[0] + zero_cols[1]) // 2\n        new_cols = [mid_col - 1, mid_col + 1]\n        single_row = zero_rows[0]\n        # Single horizontal 0-line stays.\n        for c in range(W):\n            out[single_row][c] = 0\n        # Two new vertical 0-lines.\n        for c in new_cols:\n            for r in range(H):\n                out[r][c] = 0\n        # Vertical bar of 5s, centered on the single horizontal line, length n5.\n        half = n5 // 2\n        start_r = single_row - half\n        end_r = single_row + half\n        for r in range(start_r, end_r + 1):\n            if 0 <= r < H:\n                out[r][mid_col] = 5\n    elif len(zero_rows) == 2 and len(zero_cols) == 1:\n        # Two horizontal 0-lines flanking a horizontal bar of 5s.\n        mid_row = (zero_rows[0] + zero_rows[1]) // 2\n        new_rows = [mid_row - 1, mid_row + 1]\n        single_col = zero_cols[0]\n        # Single vertical 0-line stays.\n        for r in range(H):\n            out[r][single_col] = 0\n        # Two new horizontal 0-lines.\n        for r in new_rows:\n            for c in range(W):\n                out[r][c] = 0\n        # Horizontal bar of 5s, centered on the single vertical line, length n5.\n        half = n5 // 2\n        start_c = single_col - half\n        end_c = single_col + half\n        for c in range(start_c, end_c + 1):\n            if 0 <= c < W:\n                out[mid_row][c] = 5\n\n    return out\n",
+      "source": "claude_agent_batch_014_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
