@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "31adaf00",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    g = [row[:] for row in input_grid]\n\n    # Find all maximal-as-square all-zero regions (cannot be extended to a (k+1)x(k+1) all-zero square)\n    squares = []\n    for k in range(min(rows, cols), 1, -1):\n        for r in range(rows - k + 1):\n            for c in range(cols - k + 1):\n                all_zero = True\n                for i in range(k):\n                    for j in range(k):\n                        if g[r+i][c+j] != 0:\n                            all_zero = False\n                            break\n                    if not all_zero:\n                        break\n                if not all_zero:\n                    continue\n                can_extend = False\n                for dr, dc in [(-1, -1), (-1, 0), (0, -1), (0, 0)]:\n                    nr, nc = r + dr, c + dc\n                    if 0 <= nr and nr + k + 1 <= rows and 0 <= nc and nc + k + 1 <= cols:\n                        all_zero2 = True\n                        for i in range(k + 1):\n                            for j in range(k + 1):\n                                if g[nr+i][nc+j] != 0:\n                                    all_zero2 = False\n                                    break\n                            if not all_zero2:\n                                break\n                        if all_zero2:\n                            can_extend = True\n                            break\n                if not can_extend:\n                    squares.append((r, c, k))\n\n    # A square is marked iff it doesn't overlap with a strictly larger square\n    result = [row[:] for row in input_grid]\n    for r, c, k in squares:\n        overlapped = False\n        for r2, c2, k2 in squares:\n            if k2 > k:\n                if r < r2 + k2 and r2 < r + k and c < c2 + k2 and c2 < c + k:\n                    overlapped = True\n                    break\n        if not overlapped:\n            for i in range(k):\n                for j in range(k):\n                    result[r+i][c+j] = 1\n    return result\n",
+      "source": "claude_agent_batch_003_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

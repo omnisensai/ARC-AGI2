@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "baf41dbf",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    rs = [r for r in range(H) for c in range(W) if input_grid[r][c] == 3]\n    cs = [c for r in range(H) for c in range(W) if input_grid[r][c] == 3]\n    top, bottom = min(rs), max(rs)\n    left, right = min(cs), max(cs)\n\n    wall_rows = []\n    for r in range(top + 1, bottom):\n        if all(input_grid[r][c] == 3 for c in range(left, right + 1)):\n            wall_rows.append(r)\n    wall_cols = []\n    for c in range(left + 1, right):\n        if all(input_grid[r][c] == 3 for r in range(top, bottom + 1)):\n            wall_cols.append(c)\n\n    sixes = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 6]\n\n    new_top, new_bottom, new_left, new_right = top, bottom, left, right\n    for (r, c) in sixes:\n        if c < left:\n            new_left = min(new_left, c + 1)\n        if c > right:\n            new_right = max(new_right, c - 1)\n        if r < top:\n            new_top = min(new_top, r + 1)\n        if r > bottom:\n            new_bottom = max(new_bottom, r - 1)\n\n    out = [row[:] for row in input_grid]\n    for r in range(H):\n        for c in range(W):\n            if out[r][c] == 3:\n                out[r][c] = 0\n\n    for c in range(new_left, new_right + 1):\n        out[new_top][c] = 3\n        out[new_bottom][c] = 3\n    for r in range(new_top, new_bottom + 1):\n        out[r][new_left] = 3\n        out[r][new_right] = 3\n\n    for wr in wall_rows:\n        for c in range(new_left, new_right + 1):\n            out[wr][c] = 3\n    for wc in wall_cols:\n        for r in range(new_top, new_bottom + 1):\n            out[r][wc] = 3\n\n    return out\n",
+      "source": "claude_agent_batch_003_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

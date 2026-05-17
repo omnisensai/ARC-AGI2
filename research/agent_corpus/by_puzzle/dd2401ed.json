@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "dd2401ed",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find old 5 column\n    old5 = None\n    for c in range(W):\n        if all(input_grid[r][c] == 5 for r in range(H)):\n            old5 = c\n            break\n\n    new5 = 2 * old5 + 1\n\n    # Find 1 distances from old5 (1s are left of old5)\n    ones_dists = set()\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 1:\n                ones_dists.add(old5 - c)\n\n    # Find 2 distances from old5 (2s are right of old5)\n    twos_dists = set()\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 2:\n                twos_dists.add(c - old5)\n\n    # Convert 2s in mirror region iff every 1's distance has a matching 2 distance\n    convert = ones_dists.issubset(twos_dists)\n\n    # Build output\n    output = [[0] * W for _ in range(H)]\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v == 5:\n                continue  # old 5s become 0\n            if v == 1:\n                output[r][c] = 1\n            elif v == 2:\n                if convert and old5 < c < new5:\n                    output[r][c] = 1\n                else:\n                    output[r][c] = 2\n        if new5 < W:\n            output[r][new5] = 5\n\n    return output\n",
+      "source": "claude_agent_batch_003_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
