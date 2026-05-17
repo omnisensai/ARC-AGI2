@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "4c5c2cf0",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find connected components by color (4-connectivity? use 8 to keep diagonal touches together)\n    from collections import defaultdict\n    cells_by_color = defaultdict(list)\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != 0:\n                cells_by_color[v].append((r, c))\n\n    # There should be exactly two colors\n    colors = list(cells_by_color.keys())\n\n    # Determine anchor: the shape that is symmetric under both horizontal and vertical reflection\n    def is_symmetric(cells):\n        rs = [r for r, c in cells]\n        cs = [c for r, c in cells]\n        # Center using min/max\n        cr2 = min(rs) + max(rs)  # 2*center_row\n        cc2 = min(cs) + max(cs)\n        s = set(cells)\n        for (r, c) in cells:\n            if (cr2 - r, c) not in s:\n                return False\n            if (r, cc2 - c) not in s:\n                return False\n            if (cr2 - r, cc2 - c) not in s:\n                return False\n        return True\n\n    anchor_color = None\n    other_color = None\n    for col in colors:\n        if is_symmetric(cells_by_color[col]):\n            anchor_color = col\n        else:\n            other_color = col\n\n    # Anchor center (as 2*center coordinates to handle .5)\n    arc = cells_by_color[anchor_color]\n    rs = [r for r, c in arc]\n    cs = [c for r, c in arc]\n    cr2 = min(rs) + max(rs)\n    cc2 = min(cs) + max(cs)\n\n    # Build output\n    output = [row[:] for row in input_grid]\n\n    for (r, c) in cells_by_color[other_color]:\n        candidates = [\n            (r, c),\n            (cr2 - r, c),\n            (r, cc2 - c),\n            (cr2 - r, cc2 - c),\n        ]\n        for (nr, nc) in candidates:\n            if 0 <= nr < H and 0 <= nc < W:\n                output[nr][nc] = other_color\n\n    return output\n",
+      "source": "claude_agent_batch_007_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

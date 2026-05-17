@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "689c358e",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    h = len(grid)\n    w = len(grid[0])\n    border_color = grid[0][0]\n    bg_color = grid[1][1]\n\n    # Find all distinct shape colors (non-border, non-bg)\n    cells_by_color = {}\n    for r in range(h):\n        for c in range(w):\n            v = grid[r][c]\n            if v != border_color and v != bg_color:\n                cells_by_color.setdefault(v, []).append((r, c))\n\n    for color, cells in cells_by_color.items():\n        cellset = set(cells)\n        # The shape is a plus with one extended arm. The \"center\" is the cell\n        # that has neighbors in all 4 directions (up, down, left, right).\n        center = None\n        for (r, c) in cells:\n            if ((r - 1, c) in cellset and (r + 1, c) in cellset and\n                    (r, c - 1) in cellset and (r, c + 1) in cellset):\n                center = (r, c)\n                break\n        if center is None:\n            continue\n        cr, cc = center\n        # Count arm length in each direction\n        def arm_len(dr, dc):\n            n = 0\n            r, c = cr + dr, cc + dc\n            while (r, c) in cellset:\n                n += 1\n                r += dr\n                c += dc\n            return n\n        arms = {\n            'up': arm_len(-1, 0),\n            'down': arm_len(1, 0),\n            'left': arm_len(0, -1),\n            'right': arm_len(0, 1),\n        }\n        # The longest arm is the extended one\n        long_dir = max(arms, key=lambda k: arms[k])\n        # Place color at opposite border, 0 at same-direction border\n        if long_dir == 'up':\n            grid[0][cc] = 0\n            grid[h - 1][cc] = color\n        elif long_dir == 'down':\n            grid[0][cc] = color\n            grid[h - 1][cc] = 0\n        elif long_dir == 'left':\n            grid[cr][0] = 0\n            grid[cr][w - 1] = color\n        elif long_dir == 'right':\n            grid[cr][0] = color\n            grid[cr][w - 1] = 0\n\n    return grid\n",
+      "source": "claude_agent_batch_007_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

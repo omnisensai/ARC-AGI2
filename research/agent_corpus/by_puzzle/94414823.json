@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "94414823",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    H = len(grid)\n    W = len(grid[0])\n\n    # Find bounding box of 5s\n    rs = [r for r in range(H) for c in range(W) if grid[r][c] == 5]\n    cs = [c for r in range(H) for c in range(W) if grid[r][c] == 5]\n    r0, r1 = min(rs), max(rs)\n    c0, c1 = min(cs), max(cs)\n\n    # Interior of the box\n    ir0, ir1 = r0 + 1, r1 - 1\n    ic0, ic1 = c0 + 1, c1 - 1\n\n    # Find markers outside the box (non-zero, non-5)\n    # Their position relative to the box corners determines the quadrant\n    tl_color = None\n    tr_color = None\n    bl_color = None\n    br_color = None\n    for r in range(H):\n        for c in range(W):\n            v = grid[r][c]\n            if v == 0 or v == 5:\n                continue\n            # Determine which corner this marker is near\n            top = r < r0\n            bottom = r > r1\n            left = c < c0\n            right = c > c1\n            if top and left:\n                tl_color = v\n            elif top and right:\n                tr_color = v\n            elif bottom and left:\n                bl_color = v\n            elif bottom and right:\n                br_color = v\n\n    # Each marker fills its own corner quadrant AND the diagonally opposite one\n    # The other diagonal gets the other marker's color\n    corners = {'TL': tl_color, 'TR': tr_color, 'BL': bl_color, 'BR': br_color}\n    # Diagonal pairs: TL<->BR, TR<->BL\n    # Fill missing via diagonal partner\n    if corners['TL'] is None and corners['BR'] is not None:\n        corners['TL'] = corners['BR']\n    if corners['BR'] is None and corners['TL'] is not None:\n        corners['BR'] = corners['TL']\n    if corners['TR'] is None and corners['BL'] is not None:\n        corners['TR'] = corners['BL']\n    if corners['BL'] is None and corners['TR'] is not None:\n        corners['BL'] = corners['TR']\n\n    # Interior dimensions\n    h = ir1 - ir0 + 1\n    w = ic1 - ic0 + 1\n    mh = h // 2\n    mw = w // 2\n\n    for r in range(ir0, ir1 + 1):\n        for c in range(ic0, ic1 + 1):\n            is_top = (r - ir0) < mh\n            is_left = (c - ic0) < mw\n            if is_top and is_left:\n                grid[r][c] = corners['TL']\n            elif is_top and not is_left:\n                grid[r][c] = corners['TR']\n            elif not is_top and is_left:\n                grid[r][c] = corners['BL']\n            else:\n                grid[r][c] = corners['BR']\n\n    return grid\n",
+      "source": "claude_agent_batch_007_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

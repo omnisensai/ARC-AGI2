@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "aba27056",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find shape color\n    C = 0\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != 0:\n                C = grid[r][c]\n                break\n        if C != 0:\n            break\n\n    # Bounding box of shape\n    rs = [r for r in range(H) for c in range(W) if grid[r][c] == C]\n    cs = [c for r in range(H) for c in range(W) if grid[r][c] == C]\n    r0, r1 = min(rs), max(rs)\n    c0, c1 = min(cs), max(cs)\n\n    # Fill interior of bbox with 4\n    for r in range(r0 + 1, r1):\n        for c in range(c0 + 1, c1):\n            if grid[r][c] != C:\n                grid[r][c] = 4\n\n    # Detect opening - which edge has gaps\n    top_gaps = [c for c in range(c0, c1 + 1) if input_grid[r0][c] != C]\n    bot_gaps = [c for c in range(c0, c1 + 1) if input_grid[r1][c] != C]\n    left_gaps = [r for r in range(r0, r1 + 1) if input_grid[r][c0] != C]\n    right_gaps = [r for r in range(r0, r1 + 1) if input_grid[r][c1] != C]\n\n    candidates = []\n    if top_gaps and r0 > 0:\n        candidates.append(('top', top_gaps))\n    if bot_gaps and r1 < H - 1:\n        candidates.append(('bot', bot_gaps))\n    if left_gaps and c0 > 0:\n        candidates.append(('left', left_gaps))\n    if right_gaps and c1 < W - 1:\n        candidates.append(('right', right_gaps))\n\n    def space(direction):\n        if direction == 'top':\n            return r0\n        if direction == 'bot':\n            return H - 1 - r1\n        if direction == 'left':\n            return c0\n        if direction == 'right':\n            return W - 1 - c1\n\n    candidates.sort(key=lambda x: -space(x[0]))\n    if not candidates:\n        return grid\n    direction, gaps = candidates[0]\n\n    # Fill the opening cells themselves with 4\n    if direction in ('top', 'bot'):\n        edge_row = r0 if direction == 'top' else r1\n        for c in gaps:\n            grid[edge_row][c] = 4\n    else:\n        edge_col = c0 if direction == 'left' else c1\n        for r in gaps:\n            grid[r][edge_col] = 4\n\n    gmin = min(gaps)\n    gmax = max(gaps)\n\n    if direction == 'top':\n        for d in range(1, r0 + 1):\n            r = r0 - d\n            cols_to_set = set()\n            if gmin - d >= 0:\n                cols_to_set.add(gmin - d)\n            if gmax + d < W:\n                cols_to_set.add(gmax + d)\n            for c in gaps:\n                cols_to_set.add(c)\n            for c in cols_to_set:\n                if 0 <= c < W:\n                    grid[r][c] = 4\n    elif direction == 'bot':\n        for d in range(1, H - r1):\n            r = r1 + d\n            cols_to_set = set()\n            if gmin - d >= 0:\n                cols_to_set.add(gmin - d)\n            if gmax + d < W:\n                cols_to_set.add(gmax + d)\n            for c in gaps:\n                cols_to_set.add(c)\n            for c in cols_to_set:\n                if 0 <= c < W:\n                    grid[r][c] = 4\n    elif direction == 'left':\n        for d in range(1, c0 + 1):\n            c = c0 - d\n            rows_to_set = set()\n            if gmin - d >= 0:\n                rows_to_set.add(gmin - d)\n            if gmax + d < H:\n                rows_to_set.add(gmax + d)\n            for r in gaps:\n                rows_to_set.add(r)\n            for r in rows_to_set:\n                if 0 <= r < H:\n                    grid[r][c] = 4\n    elif direction == 'right':\n        for d in range(1, W - c1):\n            c = c1 + d\n            rows_to_set = set()\n            if gmin - d >= 0:\n                rows_to_set.add(gmin - d)\n            if gmax + d < H:\n                rows_to_set.add(gmax + d)\n            for r in gaps:\n                rows_to_set.add(r)\n            for r in rows_to_set:\n                if 0 <= r < H:\n                    grid[r][c] = 4\n\n    return grid\n",
+      "source": "claude_agent_batch_007_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

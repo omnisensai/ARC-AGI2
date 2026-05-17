@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "0d87d2a6",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    out = [row[:] for row in input_grid]\n\n    # Find cross row/col markers on the edges (cells with value 1)\n    cross_rows = set()\n    cross_cols = set()\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 1:\n                if r == 0 or r == H - 1:\n                    cross_cols.add(c)\n                if c == 0 or c == W - 1:\n                    cross_rows.add(r)\n\n    # Find all axis-aligned rectangles of 2s\n    visited = [[False] * W for _ in range(H)]\n    rects = []\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 2 and not visited[r][c]:\n                c2 = c\n                while c2 < W and input_grid[r][c2] == 2 and not visited[r][c2]:\n                    c2 += 1\n                r2 = r\n                while r2 < H and all(\n                    input_grid[r2][cc] == 2 and not visited[r2][cc]\n                    for cc in range(c, c2)\n                ):\n                    r2 += 1\n                for rr in range(r, r2):\n                    for cc in range(c, c2):\n                        visited[rr][cc] = True\n                rects.append((r, r2 - 1, c, c2 - 1))\n\n    # Convert any rectangle that the cross line passes through or is adjacent to\n    for (r1, r2, c1, c2) in rects:\n        hit = False\n        for cr in cross_rows:\n            if r1 - 1 <= cr <= r2 + 1:\n                hit = True\n                break\n        if not hit:\n            for cc in cross_cols:\n                if c1 - 1 <= cc <= c2 + 1:\n                    hit = True\n                    break\n        if hit:\n            for rr in range(r1, r2 + 1):\n                for cc in range(c1, c2 + 1):\n                    out[rr][cc] = 1\n\n    # Draw the cross lines on top\n    for cr in cross_rows:\n        for c in range(W):\n            out[cr][c] = 1\n    for cc in cross_cols:\n        for r in range(H):\n            out[r][cc] = 1\n\n    return out\n",
+      "source": "claude_agent_batch_007_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

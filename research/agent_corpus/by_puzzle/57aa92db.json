@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "57aa92db",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find connected components (4-connectivity) of non-zero cells\n    seen = [[False]*W for _ in range(H)]\n    comps = []\n    for i in range(H):\n        for j in range(W):\n            if grid[i][j] != 0 and not seen[i][j]:\n                stack = [(i,j)]\n                cells = []\n                while stack:\n                    r,c = stack.pop()\n                    if r<0 or r>=H or c<0 or c>=W: continue\n                    if seen[r][c] or grid[r][c]==0: continue\n                    seen[r][c] = True\n                    cells.append((r,c,grid[r][c]))\n                    for dr,dc in [(-1,0),(1,0),(0,-1),(0,1)]:\n                        stack.append((r+dr,c+dc))\n                comps.append(cells)\n\n    # Each component has exactly 2 colors. Identify color counts per component.\n    comp_info = []\n    for cells in comps:\n        colors = Counter(c for _,_,c in cells)\n        comp_info.append((cells, colors))\n\n    # Find anchor color: appears in every component\n    all_colors = [set(info[1].keys()) for info in comp_info]\n    common = set.intersection(*all_colors)\n    # If multiple common, pick the one that has count differing across components\n    # Anchor color: the one shared. Usually only one.\n    anchor_color = None\n    if len(common) == 1:\n        anchor_color = next(iter(common))\n    else:\n        # Pick the one which has count==1 in key (the smallest count overall)\n        # Choose color with smallest total cells across components\n        best = None\n        best_cnt = float('inf')\n        for c in common:\n            t = sum(info[1].get(c,0) for info in comp_info)\n            if t < best_cnt:\n                best_cnt = t\n                best = c\n        anchor_color = best\n\n    # Identify key component: the one where the two colors have unequal cell counts\n    # (or where the non-anchor color count > 1 and anchor count == 1)\n    key_idx = None\n    for idx, (cells, colors) in enumerate(comp_info):\n        non_anchor_colors = [c for c in colors if c != anchor_color]\n        if len(non_anchor_colors) != 1:\n            continue\n        nc = non_anchor_colors[0]\n        if colors[anchor_color] != colors[nc]:\n            key_idx = idx\n            break\n    if key_idx is None:\n        # fallback - largest non-anchor count\n        best = -1\n        for idx,(cells,colors) in enumerate(comp_info):\n            for c,cnt in colors.items():\n                if c != anchor_color and cnt > best:\n                    best = cnt\n                    key_idx = idx\n\n    key_cells, key_colors = comp_info[key_idx]\n    key_secondary = [c for c in key_colors if c != anchor_color][0]\n    # Anchor in key is a single cell; find its position\n    anchor_positions_in_key = [(r,c) for r,c,col in key_cells if col == anchor_color]\n    # Should be 1 cell\n    ar, ac = anchor_positions_in_key[0]\n    # Pattern: positions of secondary color relative to anchor\n    pattern = [(r-ar, c-ac) for r,c,col in key_cells if col == key_secondary]\n\n    # For each non-key component, find anchor block and secondary block\n    for idx, (cells, colors) in enumerate(comp_info):\n        if idx == key_idx:\n            continue\n        non_anchor = [c for c in colors if c != anchor_color][0]\n        anchor_cells = [(r,c) for r,c,col in cells if col == anchor_color]\n        sec_cells = [(r,c) for r,c,col in cells if col == non_anchor]\n        # Compute block size from anchor block bounding box\n        ars = [r for r,c in anchor_cells]\n        acs = [c for r,c in anchor_cells]\n        a_r0, a_r1 = min(ars), max(ars)\n        a_c0, a_c1 = min(acs), max(acs)\n        bh = a_r1 - a_r0 + 1\n        bw = a_c1 - a_c0 + 1\n        # Place blocks of non_anchor color at each pattern offset (scaled by block size)\n        # Skip pattern offsets that correspond to where the existing secondary already sits\n        # (since it's already there)\n        for (dr, dc) in pattern:\n            new_r0 = a_r0 + dr * bh\n            new_c0 = a_c0 + dc * bw\n            for rr in range(new_r0, new_r0 + bh):\n                for cc in range(new_c0, new_c0 + bw):\n                    if 0 <= rr < H and 0 <= cc < W:\n                        grid[rr][cc] = non_anchor\n\n    return grid\n",
+      "source": "claude_agent_batch_007_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

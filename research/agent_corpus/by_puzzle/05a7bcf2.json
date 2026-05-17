@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "05a7bcf2",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    G = [row[:] for row in input_grid]\n\n    # Find 8-line and 2-line: each is either a full row or full column\n    def find_full_line(val):\n        for r in range(H):\n            if all(G[r][c] == val for c in range(W)):\n                return ('row', r)\n        for c in range(W):\n            if all(G[r][c] == val for r in range(H)):\n                return ('col', c)\n        return None\n\n    line8 = find_full_line(8)\n    line2 = find_full_line(2)\n\n    # Both lines are parallel\n    orient8, idx8 = line8\n    orient2, idx2 = line2\n    assert orient8 == orient2\n\n    # Build output starting from input\n    out = [row[:] for row in G]\n\n    if orient8 == 'row':\n        # Lines are horizontal rows. Work column-wise.\n        # Determine which side of 8-line has the 4-shapes\n        # The 2-line is on one side; 4-shapes are on the opposite side\n        # 2-line idx2 vs 8-line idx8\n        if idx2 > idx8:\n            # 2-line is BELOW 8-line. So 4-shapes are ABOVE 8-line.\n            four_side = 'above'  # rows 0 to idx8-1\n            far_edge = H - 1     # bottom row\n        else:\n            four_side = 'below'  # rows idx8+1 to H-1\n            far_edge = 0         # top row\n\n        for c in range(W):\n            # Get 4-cells in this column on the four_side\n            if four_side == 'above':\n                four_rows = [r for r in range(0, idx8) if G[r][c] == 4]\n            else:\n                four_rows = [r for r in range(idx8 + 1, H) if G[r][c] == 4]\n            if not four_rows:\n                continue\n            # Count number of 2-cells in this column between 8-line and 2-line (inclusive of 2-line)\n            if four_side == 'above':\n                # 2-cells in rows (idx8+1) to idx2 inclusive\n                n2 = sum(1 for r in range(idx8 + 1, idx2 + 1) if G[r][c] == 2)\n            else:\n                n2 = sum(1 for r in range(idx2, idx8) if G[r][c] == 2)\n\n            # Now modify column c\n            if four_side == 'above':\n                a, b = min(four_rows), max(four_rows)\n                # Set 4-cells to 3\n                for r in range(a, b + 1):\n                    if G[r][c] == 4:\n                        out[r][c] = 3\n                # Fill from b+1 to idx8-1 with 4\n                for r in range(b + 1, idx8):\n                    out[r][c] = 4\n                # Fill from idx8+1 to (far_edge - n2) with 8\n                for r in range(idx8 + 1, far_edge - n2 + 1):\n                    out[r][c] = 8\n                # Fill last n2 cells with 2\n                for r in range(far_edge - n2 + 1, far_edge + 1):\n                    out[r][c] = 2\n            else:\n                a, b = min(four_rows), max(four_rows)\n                for r in range(a, b + 1):\n                    if G[r][c] == 4:\n                        out[r][c] = 3\n                for r in range(idx8 + 1, a):\n                    out[r][c] = 4\n                # Fill from far_edge+n2 to idx8-1 with 8\n                for r in range(far_edge + n2, idx8):\n                    out[r][c] = 8\n                for r in range(far_edge, far_edge + n2):\n                    out[r][c] = 2\n\n    else:\n        # orient8 == 'col', work row-wise\n        if idx2 > idx8:\n            four_side = 'left'\n            far_edge = W - 1\n        else:\n            four_side = 'right'\n            far_edge = 0\n\n        for r in range(H):\n            if four_side == 'left':\n                four_cols = [c for c in range(0, idx8) if G[r][c] == 4]\n            else:\n                four_cols = [c for c in range(idx8 + 1, W) if G[r][c] == 4]\n            if not four_cols:\n                continue\n            if four_side == 'left':\n                n2 = sum(1 for c in range(idx8 + 1, idx2 + 1) if G[r][c] == 2)\n            else:\n                n2 = sum(1 for c in range(idx2, idx8) if G[r][c] == 2)\n\n            if four_side == 'left':\n                a, b = min(four_cols), max(four_cols)\n                for c in range(a, b + 1):\n                    if G[r][c] == 4:\n                        out[r][c] = 3\n                for c in range(b + 1, idx8):\n                    out[r][c] = 4\n                for c in range(idx8 + 1, far_edge - n2 + 1):\n                    out[r][c] = 8\n                for c in range(far_edge - n2 + 1, far_edge + 1):\n                    out[r][c] = 2\n            else:\n                a, b = min(four_cols), max(four_cols)\n                for c in range(a, b + 1):\n                    if G[r][c] == 4:\n                        out[r][c] = 3\n                for c in range(idx8 + 1, a):\n                    out[r][c] = 4\n                for c in range(far_edge + n2, idx8):\n                    out[r][c] = 8\n                for c in range(far_edge, far_edge + n2):\n                    out[r][c] = 2\n\n    return out\n",
+      "source": "claude_agent_batch_007_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
