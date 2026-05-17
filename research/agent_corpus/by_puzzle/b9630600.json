@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "b9630600",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    H = len(grid)\n    W = len(grid[0])\n\n    # Find all rectangles (closed borders of 3 with 0 interior)\n    visited = [[False] * W for _ in range(H)]\n    rects = []\n\n    def is_rect_at(r, c):\n        if grid[r][c] != 3:\n            return None\n        c2 = c\n        while c2 + 1 < W and grid[r][c2 + 1] == 3:\n            c2 += 1\n        r2 = r\n        while r2 + 1 < H and grid[r2 + 1][c] == 3:\n            r2 += 1\n        if r2 == r or c2 == c:\n            return None\n        for cc in range(c, c2 + 1):\n            if grid[r2][cc] != 3:\n                return None\n        for rr in range(r, r2 + 1):\n            if grid[rr][c2] != 3:\n                return None\n        for rr in range(r + 1, r2):\n            for cc in range(c + 1, c2):\n                if grid[rr][cc] != 0:\n                    return None\n        return (r, c, r2, c2)\n\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 3 and not visited[r][c]:\n                rect = is_rect_at(r, c)\n                if rect:\n                    r1, c1, r2c, c2c = rect\n                    for rr in range(r1, r2c + 1):\n                        for cc in range(c1, c2c + 1):\n                            if rr in (r1, r2c) or cc in (c1, c2c):\n                                visited[rr][cc] = True\n                    rects.append(rect)\n\n    n = len(rects)\n\n    def check_connection_H(a, b, all_rects):\n        # a, b: (r1, c1, r2, c2). H means horizontally separated, rows overlap.\n        r1a, c1a, r2a, c2a = a\n        r1b, c1b, r2b, c2b = b\n        if max(r1a, r1b) > min(r2a, r2b):\n            return None\n        if c2a < c1b:\n            left, right = a, b\n        elif c2b < c1a:\n            left, right = b, a\n        else:\n            return None\n        ha = r2a - r1a + 1\n        hb = r2b - r1b + 1\n        if ha <= hb:\n            small = a\n            big = b\n        else:\n            small = b\n            big = a\n        br1 = small[0] + 1\n        br2 = small[2] - 1\n        if br1 > br2:\n            return None\n        # Must lie strictly within big's interior rows\n        if not (big[0] < br1 < big[2] and big[0] < br2 < big[2]):\n            return None\n        gap = right[1] - left[3] - 1\n        if gap >= max(ha, hb):\n            return None\n        # Check for blockers in the bridge area\n        bridge_rows = [br1, br2] if br1 != br2 else [br1]\n        bridge_cols = list(range(left[3] + 1, right[1]))\n        for r in all_rects:\n            if r is a or r is b:\n                continue\n            for row in bridge_rows:\n                if r[0] <= row <= r[2]:\n                    for col in bridge_cols:\n                        if r[1] <= col <= r[3]:\n                            return None\n        return (left, right, small, big, br1, br2)\n\n    def check_connection_V(a, b, all_rects):\n        r1a, c1a, r2a, c2a = a\n        r1b, c1b, r2b, c2b = b\n        if max(c1a, c1b) > min(c2a, c2b):\n            return None\n        if r2a < r1b:\n            top, bot = a, b\n        elif r2b < r1a:\n            top, bot = b, a\n        else:\n            return None\n        wa = c2a - c1a + 1\n        wb = c2b - c1b + 1\n        if wa <= wb:\n            small = a\n            big = b\n        else:\n            small = b\n            big = a\n        bc1 = small[1] + 1\n        bc2 = small[3] - 1\n        if bc1 > bc2:\n            return None\n        if not (big[1] < bc1 < big[3] and big[1] < bc2 < big[3]):\n            return None\n        gap = bot[0] - top[2] - 1\n        if gap >= max(wa, wb):\n            return None\n        bridge_cols = [bc1, bc2] if bc1 != bc2 else [bc1]\n        bridge_rows = list(range(top[2] + 1, bot[0]))\n        for r in all_rects:\n            if r is a or r is b:\n                continue\n            for col in bridge_cols:\n                if r[1] <= col <= r[3]:\n                    for row in bridge_rows:\n                        if r[0] <= row <= r[2]:\n                            return None\n        return (top, bot, small, big, bc1, bc2)\n\n    # Find connections and draw them\n    for i in range(n):\n        for j in range(i + 1, n):\n            res_h = check_connection_H(rects[i], rects[j], rects)\n            if res_h:\n                left, right, small, big, br1, br2 = res_h\n                # Draw bridge: rows br1 and br2 between left.c2+1 and right.c1-1 set to 3\n                bridge_cols = list(range(left[3] + 1, right[1]))\n                for col in bridge_cols:\n                    grid[br1][col] = 3\n                    if br2 != br1:\n                        grid[br2][col] = 3\n                # Open holes in walls: between br1 and br2 on left.c2 and right.c1\n                if br2 > br1 + 1:\n                    for row in range(br1 + 1, br2):\n                        grid[row][left[3]] = 0\n                        grid[row][right[1]] = 0\n            res_v = check_connection_V(rects[i], rects[j], rects)\n            if res_v:\n                top, bot, small, big, bc1, bc2 = res_v\n                bridge_rows = list(range(top[2] + 1, bot[0]))\n                for row in bridge_rows:\n                    grid[row][bc1] = 3\n                    if bc2 != bc1:\n                        grid[row][bc2] = 3\n                if bc2 > bc1 + 1:\n                    for col in range(bc1 + 1, bc2):\n                        grid[top[2]][col] = 0\n                        grid[bot[0]][col] = 0\n\n    return grid\n",
+      "source": "claude_agent_batch_015_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

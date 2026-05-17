@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "7d7772cc",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import Counter\n\n\ndef solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    g = [row[:] for row in input_grid]\n\n    def candidates_rows():\n        result = []\n        for r in range(H):\n            row = g[r]\n            c_row = Counter(row)\n            bg = c_row.most_common(1)[0][0]\n            markers = [(c, row[c]) for c in range(W) if row[c] != bg]\n            colors_set = set(v for _, v in markers)\n            if len(markers) >= 3 and len(colors_set) >= 2:\n                result.append((r, bg, markers))\n        return result\n\n    def candidates_cols():\n        result = []\n        for c in range(W):\n            col = [g[r][c] for r in range(H)]\n            c_col = Counter(col)\n            bg = c_col.most_common(1)[0][0]\n            markers = [(r, col[r]) for r in range(H) if col[r] != bg]\n            colors_set = set(v for _, v in markers)\n            if len(markers) >= 3 and len(colors_set) >= 2:\n                result.append((c, bg, markers))\n        return result\n\n    rs = candidates_rows()\n    cs = candidates_cols()\n\n    # Choose orientation: prefer direction with exactly 2 candidates\n    if len(rs) == 2 and len(cs) != 2:\n        orientation = 'row'\n        axes = rs\n    elif len(cs) == 2 and len(rs) != 2:\n        orientation = 'col'\n        axes = cs\n    elif len(rs) == 2 and len(cs) == 2:\n        # ambiguous; pick the one with stronger marker counts\n        orientation = 'row'\n        axes = rs\n    else:\n        # fallback: pick whichever has fewer (and >= 2)\n        if len(rs) >= 2 and (len(cs) < 2 or len(rs) <= len(cs)):\n            orientation = 'row'\n            axes = rs[:2]\n        else:\n            orientation = 'col'\n            axes = cs[:2]\n\n    def is_reference(axis):\n        idx, bg, markers = axis\n        if orientation == 'row':\n            end1 = g[idx][0]\n            end2 = g[idx][W - 1]\n        else:\n            end1 = g[0][idx]\n            end2 = g[H - 1][idx]\n        return end1 != bg or end2 != bg\n\n    ref_axis = None\n    tgt_axis = None\n    for a in axes:\n        if is_reference(a):\n            if ref_axis is None:\n                ref_axis = a\n            else:\n                tgt_axis = a\n        else:\n            tgt_axis = a\n    if ref_axis is None or tgt_axis is None:\n        ref_axis = axes[0]\n        tgt_axis = axes[1]\n\n    ref_idx, ref_bg, ref_markers = ref_axis\n    tgt_idx, tgt_bg, tgt_markers = tgt_axis\n\n    def find_separator_and_far(ref_i, tgt_i, length, get_line):\n        step = 1 if tgt_i > ref_i else -1\n        sep = None\n        for i in range(ref_i + step, tgt_i + step, step):\n            line = get_line(i)\n            s = set(line)\n            if len(s) == 1:\n                sep = i\n                break\n        if sep is None:\n            near = ref_i + step\n        else:\n            near = sep + step\n        if step > 0:\n            far = length - 1\n        else:\n            far = 0\n        return sep, near, far\n\n    if orientation == 'row':\n        def get_line(r):\n            return g[r]\n        sep, near, far = find_separator_and_far(ref_idx, tgt_idx, H, get_line)\n    else:\n        def get_line(c):\n            return [g[r][c] for r in range(H)]\n        sep, near, far = find_separator_and_far(ref_idx, tgt_idx, W, get_line)\n\n    ref_dict = dict(ref_markers)\n\n    # Clear target axis\n    if orientation == 'row':\n        for c, _ in tgt_markers:\n            g[tgt_idx][c] = tgt_bg\n    else:\n        for r, _ in tgt_markers:\n            g[r][tgt_idx] = tgt_bg\n\n    # Place markers at near (if match) or far (if no match) edge\n    for pos, val in tgt_markers:\n        if pos in ref_dict and ref_dict[pos] == val:\n            new_pos = near\n        else:\n            new_pos = far\n        if orientation == 'row':\n            g[new_pos][pos] = val\n        else:\n            g[pos][new_pos] = val\n\n    return g\n",
+      "source": "claude_agent_batch_015_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

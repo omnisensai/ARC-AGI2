@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "11852cab",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Collect all non-zero cells\n    nz = [(r, c, grid[r][c]) for r in range(H) for c in range(W) if grid[r][c] != 0]\n    if not nz:\n        return grid\n\n    rows = [r for r, c, v in nz]\n    cols = [c for r, c, v in nz]\n    # The pattern fits in a 5x5 region. Determine top-left.\n    # The min row could be anywhere within the 5x5, but since the pattern has\n    # both A (rows 0,2,4 of region) and B (rows 1,3) cells when full,\n    # but partially filled. We need to find the 5x5 origin.\n\n    # Strategy: try every possible top-left (r0, c0) such that the 5x5 region\n    # fits and contains all non-zero cells. Then check parity classification.\n    candidates = []\n    for r0 in range(H - 4):\n        for c0 in range(W - 4):\n            ok = True\n            for r, c, v in nz:\n                if not (r0 <= r <= r0 + 4 and c0 <= c <= c0 + 4):\n                    ok = False\n                    break\n            if not ok:\n                continue\n            # Classify: cell at (r, c) relative to region: dr=r-r0, dc=c-c0\n            # A-cells: both dr and dc even (i.e., positions (0,0),(0,2),(0,4),(2,0)...)\n            # B-cells: both dr and dc odd\n            # All non-zero cells should fit one of these patterns\n            valid = True\n            for r, c, v in nz:\n                dr = r - r0\n                dc = c - c0\n                if (dr % 2 == 0 and dc % 2 == 0):\n                    pass  # A\n                elif (dr % 2 == 1 and dc % 2 == 1):\n                    pass  # B\n                else:\n                    valid = False\n                    break\n            if valid:\n                candidates.append((r0, c0))\n\n    # Choose the candidate that aligns best. Prefer one where pattern parity\n    # matches: typically center of 5x5 should be a non-zero A cell.\n    # Pick the candidate where the center (r0+2, c0+2) is non-zero, if possible.\n    best = None\n    for r0, c0 in candidates:\n        if grid[r0 + 2][c0 + 2] != 0:\n            best = (r0, c0)\n            break\n    if best is None and candidates:\n        best = candidates[0]\n    if best is None:\n        return grid\n\n    r0, c0 = best\n\n    # Collect A cells and B cells\n    A_cells = {}  # (dr, dc) -> value\n    B_cells = {}\n    for r, c, v in nz:\n        dr = r - r0\n        dc = c - c0\n        if dr % 2 == 0 and dc % 2 == 0:\n            A_cells[(dr, dc)] = v\n        else:\n            B_cells[(dr, dc)] = v\n\n    # A positions: (0,0),(0,2),(0,4),(2,0),(2,2),(2,4),(4,0),(4,2),(4,4)\n    # Classification:\n    #   corners: (0,0),(0,4),(4,0),(4,4)\n    #   edges:   (0,2),(2,0),(2,4),(4,2)\n    #   center:  (2,2)\n    corners = [(0, 0), (0, 4), (4, 0), (4, 4)]\n    edges = [(0, 2), (2, 0), (2, 4), (4, 2)]\n    center = (2, 2)\n\n    corner_val = None\n    for p in corners:\n        if p in A_cells:\n            corner_val = A_cells[p]\n            break\n    edge_val = None\n    for p in edges:\n        if p in A_cells:\n            edge_val = A_cells[p]\n            break\n    center_val = A_cells.get(center)\n\n    # Fill A\n    if corner_val is not None:\n        for dr, dc in corners:\n            grid[r0 + dr][c0 + dc] = corner_val\n    if edge_val is not None:\n        for dr, dc in edges:\n            grid[r0 + dr][c0 + dc] = edge_val\n    if center_val is not None:\n        grid[r0 + center[0]][c0 + center[1]] = center_val\n\n    # B positions: (1,1),(1,3),(3,1),(3,3) all same value\n    B_positions = [(1, 1), (1, 3), (3, 1), (3, 3)]\n    b_val = None\n    for p in B_positions:\n        if p in B_cells:\n            b_val = B_cells[p]\n            break\n    if b_val is not None:\n        for dr, dc in B_positions:\n            grid[r0 + dr][c0 + dc] = b_val\n\n    return grid\n",
+      "source": "claude_agent_batch_015_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
