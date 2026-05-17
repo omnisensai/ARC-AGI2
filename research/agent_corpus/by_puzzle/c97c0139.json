@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "c97c0139",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    out = [row[:] for row in input_grid]\n\n    # Find connected horizontal and vertical lines of 2s.\n    visited = [[False] * W for _ in range(H)]\n    lines = []  # (orientation, cells) where cells is list of (r, c)\n\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 2 and not visited[r][c]:\n                # Check horizontal extent\n                cc = c\n                while cc < W and input_grid[r][cc] == 2:\n                    cc += 1\n                h_len = cc - c\n                # Check vertical extent\n                rr = r\n                while rr < H and input_grid[rr][c] == 2:\n                    rr += 1\n                v_len = rr - r\n\n                if h_len >= v_len and h_len > 1:\n                    cells = [(r, c + i) for i in range(h_len)]\n                    for (rx, cx) in cells:\n                        visited[rx][cx] = True\n                    lines.append(('H', cells))\n                elif v_len > 1:\n                    cells = [(r + i, c) for i in range(v_len)]\n                    for (rx, cx) in cells:\n                        visited[rx][cx] = True\n                    lines.append(('V', cells))\n                else:\n                    visited[r][c] = True\n                    # Single cell - skip\n                    pass\n\n    for orient, cells in lines:\n        L = len(cells)\n        if orient == 'H':\n            r0 = cells[0][0]\n            c_start = cells[0][1]\n            c_end = cells[-1][1]\n            for c in range(c_start, c_end + 1):\n                depth = min(c - c_start, c_end - c)\n                for d in range(1, depth + 1):\n                    for rr in (r0 - d, r0 + d):\n                        if 0 <= rr < H:\n                            if out[rr][c] == 0:\n                                out[rr][c] = 8\n        else:  # V\n            c0 = cells[0][1]\n            r_start = cells[0][0]\n            r_end = cells[-1][0]\n            for r in range(r_start, r_end + 1):\n                depth = min(r - r_start, r_end - r)\n                for d in range(1, depth + 1):\n                    for cc in (c0 - d, c0 + d):\n                        if 0 <= cc < W:\n                            if out[r][cc] == 0:\n                                out[r][cc] = 8\n\n    return out\n",
+      "source": "claude_agent_batch_010_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

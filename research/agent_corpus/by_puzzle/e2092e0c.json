@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "e2092e0c",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    g = [row[:] for row in input_grid]\n    n = len(g)\n    m = len(g[0]) if n else 0\n\n    # Find L-shape of 5s. The L consists of a horizontal arm and a vertical arm of 5s.\n    # We assume length 4 arms (like in the puzzle).\n    # Find corner: a cell of 5 with 3 consecutive 5s in one direction and 3 in a perpendicular direction.\n    arm = 4\n\n    def at(r, c):\n        return 0 <= r < n and 0 <= c < m and g[r][c] == 5\n\n    corner = None\n    orient = None  # 'BR' means arms go up (rows<corner) and left (cols<corner), interior at bottom-right\n    for r in range(n):\n        for c in range(m):\n            if g[r][c] != 5:\n                continue\n            # Check four orientations\n            # BR: arm goes up (r-1..r-3) and left (c-1..c-3); interior toward (r+1, c+1)\n            if all(at(r - k, c) for k in range(arm)) and all(at(r, c - k) for k in range(arm)):\n                corner = (r, c); orient = 'BR'; break\n            # BL: arm goes up and right; interior toward (r+1, c-1)\n            if all(at(r - k, c) for k in range(arm)) and all(at(r, c + k) for k in range(arm)):\n                corner = (r, c); orient = 'BL'; break\n            # TR: arm goes down and left; interior toward (r-1, c+1)\n            if all(at(r + k, c) for k in range(arm)) and all(at(r, c - k) for k in range(arm)):\n                corner = (r, c); orient = 'TR'; break\n            # TL: arm goes down and right; interior toward (r-1, c-1) ... actually interior at bottom-right of cell\n            if all(at(r + k, c) for k in range(arm)) and all(at(r, c + k) for k in range(arm)):\n                corner = (r, c); orient = 'TL'; break\n        if corner:\n            break\n\n    if not corner:\n        return g\n\n    cr, cc = corner\n\n    # Get 3x3 interior pattern adjacent to the corner (inside the L).\n    if orient == 'BR':\n        # interior is rows cr-3..cr-1, cols cc-3..cc-1\n        pr, pc = cr - 3, cc - 3\n    elif orient == 'BL':\n        pr, pc = cr - 3, cc + 1\n    elif orient == 'TR':\n        pr, pc = cr + 1, cc - 3\n    else:  # TL\n        pr, pc = cr + 1, cc + 1\n\n    pattern = [[g[pr + i][pc + j] for j in range(3)] for i in range(3)]\n\n    # Find this 3x3 pattern elsewhere in the grid (excluding the original location).\n    target = None\n    for r in range(n - 2):\n        for c in range(m - 2):\n            if (r, c) == (pr, pc):\n                continue\n            ok = True\n            for i in range(3):\n                for j in range(3):\n                    if g[r + i][c + j] != pattern[i][j]:\n                        ok = False\n                        break\n                if not ok:\n                    break\n            if ok:\n                target = (r, c)\n                break\n        if target:\n            break\n\n    if not target:\n        return g\n\n    tr, tc = target\n    # Draw 5x5 box of 5s surrounding the 3x3 pattern (border).\n    top, left = tr - 1, tc - 1\n    bot, right = tr + 3, tc + 3\n    for c in range(left, right + 1):\n        if 0 <= top < n and 0 <= c < m:\n            g[top][c] = 5\n        if 0 <= bot < n and 0 <= c < m:\n            g[bot][c] = 5\n    for r in range(top, bot + 1):\n        if 0 <= r < n and 0 <= left < m:\n            g[r][left] = 5\n        if 0 <= r < n and 0 <= right < m:\n            g[r][right] = 5\n\n    return g\n",
+      "source": "claude_agent_batch_010_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
