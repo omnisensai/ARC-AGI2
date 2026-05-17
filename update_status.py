@@ -19,19 +19,18 @@ from substrate import is_same_size
 
 
 def collect_status():
-    """Return (per_puzzle_rows, summary_counters)."""
-    # Locked eval set
-    locked = set()
-    locked_path = Path("splits/baseline_10.json")
-    if locked_path.exists():
-        locked = set(json.loads(locked_path.read_text())["puzzle_ids"])
+    """Return (per_puzzle_rows, summary_counters).
 
+    The locked-eval set is arc2_eval — the official ARC-AGI-2 held-out benchmark.
+    No JSON-file-driven lock; the held-out-ness comes from the directory itself
+    being excluded from gen_phase1_data.py and build_sft_jsonl.py default inputs.
+    """
     # All puzzles on disk (with source attribution)
     sources = [
         ("arc1_train", "data/arc1_train"),
         ("arc1_eval", "data/arc1_eval"),
         ("arc2_train", "data/arc2_train"),
-        ("arc2_eval", "data/arc2_eval"),
+        ("arc2_eval", "data/arc2_eval"),  # LOCKED — official ARC-AGI-2 benchmark
     ]
     all_puzzles = {}  # pid -> {source, same_size, h, w}
     for src_name, src_dir in sources:
@@ -78,19 +77,22 @@ def collect_status():
 
         consensus = rec.get("consensus") or {}
 
+        # "Locked" now simply means: this puzzle lives in arc2_eval (the held-out
+        # benchmark, never trained on). Directory placement is the lock.
+        is_locked = meta["source"] == "arc2_eval"
         rows.append({
             "puzzle_id": pid,
             "source": meta["source"],
             "size": f"{meta['h']}x{meta['w']}",
             "same_size": "y" if meta["same_size"] else "n",
-            "locked": "y" if pid in locked else "",
+            "locked": "y" if is_locked else "",
             "n_right": len(right_codes),
             "n_wrong": len(wrong_codes),
             "right_sources": ",".join(f"{s}:{n}" for s, n in sorted(rights_by_source.items())),
             "wrong_sources": ",".join(f"{s}:{n}" for s, n in sorted(wrongs_by_source.items())),
             "consensus_name": consensus.get("name", ""),
             "solver_file": solver_to_puzzle.get(pid, ""),
-            "phase3_pairs": len(right_codes) * len(wrong_codes) if pid not in locked else 0,
+            "phase3_pairs": len(right_codes) * len(wrong_codes) if not is_locked else 0,
         })
 
     # Summary counters
@@ -141,7 +143,7 @@ def write_markdown(rows, summary, path: Path):
             "has_solver": sum(1 for r in src_rows if r["solver_file"]),
         })
 
-    # To-do lists
+    # To-do lists (locked = arc2_eval rows; we never collect right_codes for those)
     needs_wrong = sorted(r["puzzle_id"] for r in rows
                          if r["n_right"] > 0 and r["n_wrong"] == 0 and not r["locked"])
     needs_right = sorted(r["puzzle_id"] for r in rows
