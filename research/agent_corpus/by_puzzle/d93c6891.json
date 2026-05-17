@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "d93c6891",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find 7-blocks\n    visited_7 = [[False] * W for _ in range(H)]\n    blocks = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 7 and not visited_7[r][c]:\n                cells = []\n                stack = [(r, c)]\n                while stack:\n                    rr, cc = stack.pop()\n                    if 0 <= rr < H and 0 <= cc < W and grid[rr][cc] == 7 and not visited_7[rr][cc]:\n                        visited_7[rr][cc] = True\n                        cells.append((rr, cc))\n                        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                            stack.append((rr + dr, cc + dc))\n                r1 = min(x[0] for x in cells)\n                r2 = max(x[0] for x in cells)\n                c1 = min(x[1] for x in cells)\n                c2 = max(x[1] for x in cells)\n                blocks.append((r1, r2, c1, c2))\n\n    # Find 5-components\n    visited_5 = [[False] * W for _ in range(H)]\n    components = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 5 and not visited_5[r][c]:\n                cells = []\n                stack = [(r, c)]\n                while stack:\n                    rr, cc = stack.pop()\n                    if 0 <= rr < H and 0 <= cc < W and grid[rr][cc] == 5 and not visited_5[rr][cc]:\n                        visited_5[rr][cc] = True\n                        cells.append((rr, cc))\n                        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                            stack.append((rr + dr, cc + dc))\n                components.append(cells)\n\n    block_markers = [{'top': 0, 'bottom': 0, 'left': 0, 'right': 0} for _ in range(len(blocks))]\n\n    def try_horizontal(comp, r, cols_set):\n        \"\"\"Try to associate horizontal component with a block. Returns (block_idx, direction) or None.\"\"\"\n        for i, (br1, br2, bc1, bc2) in enumerate(blocks):\n            # Top side\n            if r == br1 or r == br1 - 1:\n                # Check col alignment: at least one cell in cols overlapping or adjacent to block cols\n                if any(bc1 - 1 <= c <= bc2 + 1 for c in cols_set):\n                    return (i, 'top')\n            # Bottom side\n            if r == br2 or r == br2 + 1:\n                if any(bc1 - 1 <= c <= bc2 + 1 for c in cols_set):\n                    return (i, 'bottom')\n        return None\n\n    def try_vertical(comp, c, rows_set):\n        for i, (br1, br2, bc1, bc2) in enumerate(blocks):\n            if c == bc1 or c == bc1 - 1:\n                if any(br1 - 1 <= r <= br2 + 1 for r in rows_set):\n                    return (i, 'left')\n            if c == bc2 or c == bc2 + 1:\n                if any(br1 - 1 <= r <= br2 + 1 for r in rows_set):\n                    return (i, 'right')\n        return None\n\n    # Pass 1: multi-cell components\n    pending_singles = []\n    for comp in components:\n        rows = set(x[0] for x in comp)\n        cols = set(x[1] for x in comp)\n        if len(comp) == 1:\n            pending_singles.append(comp)\n            continue\n        if len(rows) == 1 and len(cols) > 1:\n            r = next(iter(rows))\n            assoc = try_horizontal(comp, r, cols)\n            if assoc:\n                block_markers[assoc[0]][assoc[1]] += len(comp)\n        elif len(cols) == 1 and len(rows) > 1:\n            c = next(iter(cols))\n            assoc = try_vertical(comp, c, rows)\n            if assoc:\n                block_markers[assoc[0]][assoc[1]] += len(comp)\n\n    # Pass 2: single-cell components\n    for comp in pending_singles:\n        r, c = comp[0]\n        # Try horizontal and vertical, pick one that matches existing markers if possible\n        h_assoc = try_horizontal(comp, r, {c})\n        v_assoc = try_vertical(comp, c, {r})\n        chosen = None\n        # Prefer the one where the block already has a marker in same direction\n        if h_assoc and block_markers[h_assoc[0]][h_assoc[1]] > 0:\n            chosen = h_assoc\n        elif v_assoc and block_markers[v_assoc[0]][v_assoc[1]] > 0:\n            chosen = v_assoc\n        elif h_assoc:\n            chosen = h_assoc\n        elif v_assoc:\n            chosen = v_assoc\n        if chosen:\n            block_markers[chosen[0]][chosen[1]] += 1\n\n    # Erase all 5 cells (replace with background 4)\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 5:\n                grid[r][c] = 4\n\n    # Apply conversions\n    for i, (br1, br2, bc1, bc2) in enumerate(blocks):\n        markers = block_markers[i]\n        top = markers['top']\n        bottom = markers['bottom']\n        left = markers['left']\n        right = markers['right']\n\n        block_w = bc2 - bc1 + 1\n        block_h = br2 - br1 + 1\n\n        if top > 0:\n            n_rows = top // block_w\n            for rr in range(br1, br1 + n_rows):\n                for cc in range(bc1, bc2 + 1):\n                    grid[rr][cc] = 5\n        elif bottom > 0:\n            n_rows = bottom // block_w\n            for rr in range(br2 - n_rows + 1, br2 + 1):\n                for cc in range(bc1, bc2 + 1):\n                    grid[rr][cc] = 5\n        elif left > 0:\n            n_cols = left // block_h\n            for rr in range(br1, br2 + 1):\n                for cc in range(bc1, bc1 + n_cols):\n                    grid[rr][cc] = 5\n        elif right > 0:\n            n_cols = right // block_h\n            for rr in range(br1, br2 + 1):\n                for cc in range(bc2 - n_cols + 1, bc2 + 1):\n                    grid[rr][cc] = 5\n\n    return grid\n",
+      "source": "claude_agent_batch_011_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "5af49b42",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Output starts as a copy of the input\n    output = [row[:] for row in input_grid]\n\n    # Identify \"sequence rows\": rows that contain runs of non-zero values\n    # Typically the top row and/or bottom row.\n    sequence_rows = set()\n    for r in (0, H - 1):\n        if any(v != 0 for v in input_grid[r]):\n            sequence_rows.add(r)\n\n    # Extract sequences from those rows: each maximal run of non-zero values\n    # is one sequence, recorded with its starting column.\n    sequences = []  # list of (row, start_col, [values])\n    for r in sequence_rows:\n        row = input_grid[r]\n        c = 0\n        while c < W:\n            if row[c] != 0:\n                start = c\n                vals = []\n                while c < W and row[c] != 0:\n                    vals.append(row[c])\n                    c += 1\n                sequences.append((r, start, vals))\n            else:\n                c += 1\n\n    # For each non-zero cell not in a sequence row, find a sequence that\n    # contains that value and stamp the sequence onto the grid such that\n    # the matching element aligns at the cell's column.\n    for r in range(H):\n        if r in sequence_rows:\n            continue\n        for c in range(W):\n            v = input_grid[r][c]\n            if v == 0:\n                continue\n            # Find a sequence containing this value. Prefer unique matches.\n            matches = []\n            for (sr, sc, vals) in sequences:\n                if v in vals:\n                    matches.append((sr, sc, vals))\n            if not matches:\n                continue\n            # If multiple sequences contain the value, pick the closest one\n            # by column distance to the cell.\n            chosen = min(\n                matches,\n                key=lambda m: abs((m[1] + m[2].index(v)) - c),\n            )\n            _, _, vals = chosen\n            idx = vals.index(v)\n            start_col = c - idx\n            for i, val in enumerate(vals):\n                cc = start_col + i\n                if 0 <= cc < W:\n                    output[r][cc] = val\n\n    return output\n",
+      "source": "claude_agent_batch_011_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

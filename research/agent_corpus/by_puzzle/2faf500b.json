@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "2faf500b",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    out = [[0] * W for _ in range(H)]\n\n    # Find connected components of non-zero cells (4-connectivity).\n    visited = [[False] * W for _ in range(H)]\n    components = []\n    for i in range(H):\n        for j in range(W):\n            if grid[i][j] != 0 and not visited[i][j]:\n                stack = [(i, j)]\n                visited[i][j] = True\n                cells = []\n                while stack:\n                    r, c = stack.pop()\n                    cells.append((r, c))\n                    for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):\n                        nr, nc = r + dr, c + dc\n                        if 0 <= nr < H and 0 <= nc < W and not visited[nr][nc] and grid[nr][nc] != 0:\n                            visited[nr][nc] = True\n                            stack.append((nr, nc))\n                components.append(cells)\n\n    # For each component, find bounding box, then apply the split rule.\n    for cells in components:\n        rs = [r for r, c in cells]\n        cs = [c for r, c in cells]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        bh = r1 - r0 + 1\n        bw = c1 - c0 + 1\n        # Extract box.\n        box = [[grid[r0 + i][c0 + j] for j in range(bw)] for i in range(bh)]\n\n        # Rows with a 6, cols with a 6.\n        rows_with_6 = [i for i in range(bh) if 6 in box[i]]\n        cols_with_6 = [j for j in range(bw) if any(box[i][j] == 6 for i in range(bh))]\n\n        # Determine split axis.\n        # Vertical split if there is at least one clean row above AND below the 6-rows.\n        vertical_ok = False\n        horizontal_ok = False\n        if rows_with_6:\n            top_r = min(rows_with_6)\n            bot_r = max(rows_with_6)\n            if top_r > 0 and bot_r < bh - 1:\n                vertical_ok = True\n        if cols_with_6:\n            top_c = min(cols_with_6)\n            bot_c = max(cols_with_6)\n            if top_c > 0 and bot_c < bw - 1:\n                horizontal_ok = True\n\n        if vertical_ok and not horizontal_ok:\n            axis = 'V'\n        elif horizontal_ok and not vertical_ok:\n            axis = 'H'\n        elif vertical_ok and horizontal_ok:\n            # Prefer the axis whose 6-band is narrower (fewer 6-bearing positions).\n            if len(rows_with_6) <= len(cols_with_6):\n                axis = 'V'\n            else:\n                axis = 'H'\n        else:\n            # Neither has clean borders. Choose by which axis has fewer 6-bearing positions.\n            if rows_with_6 and cols_with_6:\n                if len(rows_with_6) <= len(cols_with_6):\n                    axis = 'V'\n                else:\n                    axis = 'H'\n            elif rows_with_6:\n                axis = 'V'\n            else:\n                axis = 'H'\n\n        if axis == 'V':\n            top_r = min(rows_with_6)\n            bot_r = max(rows_with_6)\n            # top part: rows 0..top_r (inclusive), shift up by 1.\n            # bottom part: rows bot_r..bh-1, shift down by 1.\n            for i in range(0, top_r + 1):\n                for j in range(bw):\n                    v = box[i][j]\n                    if v == 9:\n                        nr = r0 + i - 1\n                        nc = c0 + j\n                        if 0 <= nr < H and 0 <= nc < W:\n                            out[nr][nc] = 9\n                    # 6 cells in mask row: become 0 (skip).\n            for i in range(bot_r, bh):\n                for j in range(bw):\n                    v = box[i][j]\n                    if v == 9:\n                        nr = r0 + i + 1\n                        nc = c0 + j\n                        if 0 <= nr < H and 0 <= nc < W:\n                            out[nr][nc] = 9\n        else:  # 'H'\n            top_c = min(cols_with_6)\n            bot_c = max(cols_with_6)\n            for j in range(0, top_c + 1):\n                for i in range(bh):\n                    v = box[i][j]\n                    if v == 9:\n                        nr = r0 + i\n                        nc = c0 + j - 1\n                        if 0 <= nr < H and 0 <= nc < W:\n                            out[nr][nc] = 9\n            for j in range(bot_c, bw):\n                for i in range(bh):\n                    v = box[i][j]\n                    if v == 9:\n                        nr = r0 + i\n                        nc = c0 + j + 1\n                        if 0 <= nr < H and 0 <= nc < W:\n                            out[nr][nc] = 9\n\n    return out\n",
+      "source": "claude_agent_batch_011_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

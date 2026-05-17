@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "f0100645",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    g = input_grid\n    H = len(g)\n    W = len(g[0])\n    left_color = g[0][0]\n    right_color = g[0][W - 1]\n    bg = 7\n\n    def find_shapes(color, skip_col):\n        seen = [[False] * W for _ in range(H)]\n        shapes = []\n        dirs = [(-1, 0), (1, 0), (0, -1), (0, 1),\n                (-1, -1), (-1, 1), (1, -1), (1, 1)]\n        for i in range(H):\n            for j in range(W):\n                if j == skip_col:\n                    continue\n                if g[i][j] == color and not seen[i][j]:\n                    stack = [(i, j)]\n                    cells = []\n                    while stack:\n                        r, c = stack.pop()\n                        if (r < 0 or r >= H or c < 0 or c >= W\n                                or seen[r][c] or g[r][c] != color\n                                or c == skip_col):\n                            continue\n                        seen[r][c] = True\n                        cells.append((r, c))\n                        for dr, dc in dirs:\n                            stack.append((r + dr, c + dc))\n                    shapes.append(cells)\n        return shapes\n\n    out = [[bg] * W for _ in range(H)]\n    for i in range(H):\n        out[i][0] = left_color\n        out[i][W - 1] = right_color\n\n    left_shapes = find_shapes(left_color, 0)\n    right_shapes = find_shapes(right_color, W - 1)\n\n    def process(shapes, color, direction):\n        singles = [s for s in shapes if len(s) == 1]\n        non_singles = [s for s in shapes if len(s) > 1]\n\n        for shape in non_singles:\n            if direction == 'left':\n                min_col = min(c for _, c in shape)\n                shift = 1 - min_col\n            else:\n                max_col = max(c for _, c in shape)\n                shift = (W - 2) - max_col\n            for r, c in shape:\n                out[r][c + shift] = color\n\n        for shape in singles:\n            r, c = shape[0]\n            same_row = [j for j in range(W)\n                        if g[r][j] == color\n                        and (r, j) != (r, c)\n                        and j not in (0, W - 1)]\n            if same_row:\n                if direction == 'left':\n                    candidates = [j for j in same_row if j < c]\n                    target = max(candidates) if candidates else min(same_row)\n                else:\n                    candidates = [j for j in same_row if j > c]\n                    target = min(candidates) if candidates else max(same_row)\n                out[r][target] = color\n            else:\n                out[r][1 if direction == 'left' else W - 2] = color\n\n    process(left_shapes, left_color, 'left')\n    process(right_shapes, right_color, 'right')\n\n    return out\n",
+      "source": "claude_agent_batch_011_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

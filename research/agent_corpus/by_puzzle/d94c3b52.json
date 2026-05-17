@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "d94c3b52",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Output starts as a copy\n    out = [row[:] for row in input_grid]\n\n    # Block layout: blocks are 3x3 at row 1+4*br, col 1+4*bc, separated by 0-rows/cols.\n    n_block_rows = (H - 1) // 4\n    n_block_cols = (W - 1) // 4\n\n    def get_block(g, br, bc):\n        r0 = 1 + 4 * br\n        c0 = 1 + 4 * bc\n        return tuple(tuple(g[r0 + i][c0 + j] for j in range(3)) for i in range(3))\n\n    def block_shape(b):\n        return tuple(tuple(1 if v else 0 for v in row) for row in b)\n\n    def block_color(b):\n        c = 0\n        for row in b:\n            for v in row:\n                if v > c:\n                    c = v\n        return c\n\n    # Find the 8-colored block in input -> get its shape\n    target_shape = None\n    for br in range(n_block_rows):\n        for bc in range(n_block_cols):\n            b = get_block(input_grid, br, bc)\n            if block_color(b) == 8:\n                target_shape = block_shape(b)\n                break\n        if target_shape is not None:\n            break\n\n    if target_shape is None:\n        return out\n\n    # Find all blocks whose shape matches the 8-shape\n    eight_locs = []\n    for br in range(n_block_rows):\n        for bc in range(n_block_cols):\n            b = get_block(input_grid, br, bc)\n            if block_shape(b) == target_shape:\n                eight_locs.append((br, bc))\n\n    def recolor(br, bc, color):\n        r0 = 1 + 4 * br\n        c0 = 1 + 4 * bc\n        for i in range(3):\n            for j in range(3):\n                if input_grid[r0 + i][c0 + j] != 0:\n                    out[r0 + i][c0 + j] = color\n\n    # Mark all 8-shape blocks as 8\n    eight_set = set(eight_locs)\n    for (br, bc) in eight_locs:\n        recolor(br, bc, 8)\n\n    # For each pair of 8 blocks that are aligned (same row or col),\n    # fill blocks in between with 7\n    seven_set = set()\n    for i in range(len(eight_locs)):\n        for j in range(i + 1, len(eight_locs)):\n            br1, bc1 = eight_locs[i]\n            br2, bc2 = eight_locs[j]\n            if br1 == br2:\n                c_lo, c_hi = sorted([bc1, bc2])\n                for c in range(c_lo + 1, c_hi):\n                    if (br1, c) not in eight_set:\n                        seven_set.add((br1, c))\n            elif bc1 == bc2:\n                r_lo, r_hi = sorted([br1, br2])\n                for r in range(r_lo + 1, r_hi):\n                    if (r, bc1) not in eight_set:\n                        seven_set.add((r, bc1))\n\n    for (br, bc) in seven_set:\n        recolor(br, bc, 7)\n\n    return out\n",
+      "source": "claude_agent_batch_011_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "5b37cb25",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    out = [row[:] for row in input_grid]\n\n    # Border colors (excluding the 4 corner cells)\n    top_color = grid[0][1]\n    bottom_color = grid[H - 1][1]\n    left_color = grid[1][0]\n    right_color = grid[1][W - 1]\n\n    # Interior background color\n    bg = grid[1][1]\n\n    # Find shape color (first non-bg cell in interior)\n    shape_color = None\n    for r in range(1, H - 1):\n        for c in range(1, W - 1):\n            if grid[r][c] != bg:\n                shape_color = grid[r][c]\n                break\n        if shape_color is not None:\n            break\n\n    # Detect notch apex cells in each shape: a V-shape with a single deep\n    # apex bg cell, three bg cells in the adjacent row, surrounded otherwise\n    # by shape cells. The notch opens toward the matching border color.\n    notches = []  # (apex_r, apex_c, direction)\n\n    for r in range(2, H - 2):\n        for c in range(2, W - 2):\n            if grid[r][c] != bg:\n                continue\n            # Up-opening: apex (r,c), wide at (r-1, c-1..c+1) opens upward\n            if (grid[r - 1][c - 1] == bg and grid[r - 1][c] == bg and grid[r - 1][c + 1] == bg\n                    and grid[r][c - 1] == shape_color and grid[r][c + 1] == shape_color\n                    and grid[r + 1][c] == shape_color):\n                notches.append((r, c, 'up'))\n                continue\n            # Down-opening\n            if (grid[r + 1][c - 1] == bg and grid[r + 1][c] == bg and grid[r + 1][c + 1] == bg\n                    and grid[r][c - 1] == shape_color and grid[r][c + 1] == shape_color\n                    and grid[r - 1][c] == shape_color):\n                notches.append((r, c, 'down'))\n                continue\n            # Left-opening\n            if (grid[r - 1][c - 1] == bg and grid[r][c - 1] == bg and grid[r + 1][c - 1] == bg\n                    and grid[r - 1][c] == shape_color and grid[r + 1][c] == shape_color\n                    and grid[r][c + 1] == shape_color):\n                notches.append((r, c, 'left'))\n                continue\n            # Right-opening\n            if (grid[r - 1][c + 1] == bg and grid[r][c + 1] == bg and grid[r + 1][c + 1] == bg\n                    and grid[r - 1][c] == shape_color and grid[r + 1][c] == shape_color\n                    and grid[r][c - 1] == shape_color):\n                notches.append((r, c, 'right'))\n                continue\n\n    color_map = {\n        'up': top_color,\n        'down': bottom_color,\n        'left': left_color,\n        'right': right_color,\n    }\n\n    for (r, c, d) in notches:\n        col = color_map[d]\n        if d == 'up':\n            out[r][c] = col\n            out[r - 1][c - 1] = col\n            out[r - 1][c] = col\n            out[r - 1][c + 1] = col\n            out[r - 2][c] = col\n        elif d == 'down':\n            out[r][c] = col\n            out[r + 1][c - 1] = col\n            out[r + 1][c] = col\n            out[r + 1][c + 1] = col\n            out[r + 2][c] = col\n        elif d == 'left':\n            out[r][c] = col\n            out[r - 1][c - 1] = col\n            out[r][c - 1] = col\n            out[r + 1][c - 1] = col\n            out[r][c - 2] = col\n        elif d == 'right':\n            out[r][c] = col\n            out[r - 1][c + 1] = col\n            out[r][c + 1] = col\n            out[r + 1][c + 1] = col\n            out[r][c + 2] = col\n\n    return out\n",
+      "source": "claude_agent_batch_011_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
