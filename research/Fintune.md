@@ -24,6 +24,28 @@ This challenges the dominant scaling-inference-compute narrative directly. The e
 
 ---
 
+## Task-tag notation
+
+Each fine-tuning record uses a **single-letter task tag** in the system prompt. Letters are opaque task selectors, not abbreviations. The user-message format also disambiguates, but the system tag is the clean control plane at inference (`system="A"` invokes pixel encode, etc.).
+
+| Tag | Task | Status | User-message shape | Output |
+|---|---|---|---|---|
+| `A` | Pixel substrate encode | shipping (Phase 1) | `INPUT:` + `OUTPUT:` grids | substrate (`. = digit`) |
+| `B` | Pixel substrate decode | shipping (Phase 1) | `INPUT:` + `SUBSTRATE:` | output grid |
+| `H` | Hierarchy decomposition | shipping (Phase 1) | `GRID:` (single grid) | hierarchy substrate (`. # S`) |
+| `C` | Substrate → code | reserved (Phase 2) | TBD | Python `solve()` |
+| `D` | Pairs → code | reserved (Phase 2) | TBD | Python `solve()` |
+| `E` | Wrong code + feedback → right code | reserved (Phase 3 corrector) | TBD | corrected Python |
+
+**Substrate alphabets:**
+
+- Pixel substrate (tasks A, B): `.` = bg unchanged, `=` = non-bg preserved, `<digit>` = cell changed to this color. Lossless given `(input, substrate)`. Same-size grids only.
+- Hierarchy substrate (task H): `.` = most common color, `#` = second most common, `S` = all other colors. Frequency-based, purely mechanical (no semantic interpretation). Lossy. Works on any grid regardless of size.
+
+See `research/Phase1_Substrate_Spec.md` for the full Phase 1 spec including pipeline, augmentation strategy, and worked examples.
+
+---
+
 ## Model choice
 
 **Qwen-2.5-7B-Instruct**

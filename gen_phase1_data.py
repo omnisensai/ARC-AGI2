@@ -34,29 +34,19 @@ from substrate import (background_of, encode, decode, is_same_size,
                        hierarchy_substrate, format_grid)
 
 
-PHASE1A_SYSTEM = (
-    "You compute ARC transformation substrates. Given an input grid and an output "
-    "grid (both same size), produce the substrate that describes the per-cell "
-    "transformation. Substrate alphabet: '.' (background cell unchanged), '=' "
-    "(non-background cell preserved), <digit> (cell changed to this color). "
-    "Background = most common color in the input. Substrate has identical dimensions."
-)
-
-PHASE1B_SYSTEM = (
-    "You apply ARC transformation substrates. Given an input grid and a substrate, "
-    "produce the output grid. Substrate alphabet: '.' (output equals background), "
-    "'=' (output equals input cell), <digit> (output is this color). Background = "
-    "most common color in the input. Output has identical dimensions."
-)
-
-HIERARCHY_SYSTEM = (
-    "You decompose ARC grids by color frequency. Produce the hierarchy substrate: "
-    "'.' = the most common color in the grid, '#' = the second most common color, "
-    "'S' = all other colors. The rule is purely mechanical based on frequency, not "
-    "semantic — '.' is whatever color appears most, regardless of whether it looks "
-    "like a background or a structure. Ties broken by lower color value. Grid "
-    "dimensions are preserved."
-)
+# Single-letter task selectors (the entire system prompt). The verbose
+# task descriptions live in research/Phase1_Substrate_Spec.md. During
+# training the model learns: see "A" -> emit pixel substrate, see "B" ->
+# emit output from substrate, see "H" -> emit hierarchy. At inference the
+# caller picks a task by setting system="A" (or "B"/"H").
+#
+# Reserved tags for future phases:
+#   C = substrate -> code           (Phase 2)
+#   D = pairs -> code               (Phase 2)
+#   E = wrong code + feedback -> right code  (Phase 3 corrector)
+PHASE1A_SYSTEM = "A"
+PHASE1B_SYSTEM = "B"
+HIERARCHY_SYSTEM = "H"
 
 
 def rotate90(grid):

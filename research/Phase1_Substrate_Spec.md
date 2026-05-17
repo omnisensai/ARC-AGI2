@@ -137,6 +137,23 @@ def decode(inp, substrate, bg):
 
 ---
 
+## Task-tag notation (system prompt is one letter)
+
+The model is fine-tuned to recognize a single-letter task tag in the system prompt. Conventional verbose system prompts ("You compute ARC transformation substrates...") were dropped — they cost ~85 tokens per record and the user-message format already disambiguates between tasks. The single-letter tag survives as the clean control plane: at inference, set `system="A"` to invoke pixel encode, `system="B"` for decode, `system="H"` for hierarchy.
+
+| Tag | Task | Input format | Output |
+|---|---|---|---|
+| `A` | `phase1a` — pixel substrate encode | `INPUT:\n<grid>\n\nOUTPUT:\n<grid>` | substrate (same size as grids) |
+| `B` | `phase1b` — pixel substrate decode | `INPUT:\n<grid>\n\nSUBSTRATE:\n<sub>` | output grid (same size) |
+| `H` | `phase1a_hierarchy` — frequency decomposition | `GRID:\n<grid>` | hierarchy substrate (same size as grid) |
+| `C` | reserved — substrate → code | TBD (Phase 2) | Python `solve()` function |
+| `D` | reserved — pairs → code | TBD (Phase 2) | Python `solve()` function |
+| `E` | reserved — wrong code + feedback → right code | TBD (Phase 3 corrector) | Python `solve()` function |
+
+Letters are arbitrary tokens, not abbreviations of words. The model learns them as opaque task identifiers. Reserved letters `C`/`D`/`E` are not used in Phase 1 but kept consistent so the namespace doesn't fragment when we add Phase 2/3.
+
+Token savings from short tags vs verbose prompts: ~17M tokens across the 200K-record default dataset (~5–8% of training compute).
+
 ## Three-task curriculum
 
 **Phase 1a:** `(input, output) → pixel substrate`. The model learns to compute `encode()`. Same-size puzzles only.
