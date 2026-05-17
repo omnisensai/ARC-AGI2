@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "60a26a3e",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    H = len(grid)\n    W = len(grid[0])\n\n    # Find diamond centers: a center (r,c) has 0 at center, 2 at (r-1,c),(r+1,c),(r,c-1),(r,c+1)\n    centers = []\n    for r in range(1, H - 1):\n        for c in range(1, W - 1):\n            if (grid[r][c] == 0 and\n                grid[r - 1][c] == 2 and grid[r + 1][c] == 2 and\n                grid[r][c - 1] == 2 and grid[r][c + 1] == 2):\n                centers.append((r, c))\n\n    center_set = set(centers)\n\n    # For each pair sharing row/col, connect only if no other diamond center between\n    for i in range(len(centers)):\n        for j in range(i + 1, len(centers)):\n            r1, c1 = centers[i]\n            r2, c2 = centers[j]\n            if r1 == r2:\n                lo, hi = min(c1, c2), max(c1, c2)\n                # check no other center strictly between\n                blocked = any((r1, cc) in center_set for cc in range(lo + 1, hi))\n                if blocked:\n                    continue\n                for cc in range(lo + 2, hi - 1):\n                    if grid[r1][cc] == 0:\n                        grid[r1][cc] = 1\n            elif c1 == c2:\n                lo, hi = min(r1, r2), max(r1, r2)\n                blocked = any((rr, c1) in center_set for rr in range(lo + 1, hi))\n                if blocked:\n                    continue\n                for rr in range(lo + 2, hi - 1):\n                    if grid[rr][c1] == 0:\n                        grid[rr][c1] = 1\n\n    return grid\n",
+      "source": "claude_agent_batch_013_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

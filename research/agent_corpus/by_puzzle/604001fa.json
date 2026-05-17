@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "604001fa",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import deque\n\n\ndef get_components(grid, value, connectivity=8):\n    H = len(grid)\n    W = len(grid[0])\n    visited = [[False] * W for _ in range(H)]\n    comps = []\n    if connectivity == 8:\n        nbrs = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]\n    else:\n        nbrs = [(-1, 0), (1, 0), (0, -1), (0, 1)]\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == value and not visited[r][c]:\n                q = deque([(r, c)])\n                visited[r][c] = True\n                comp = []\n                while q:\n                    rr, cc = q.popleft()\n                    comp.append((rr, cc))\n                    for dr, dc in nbrs:\n                        nr, nc = rr + dr, cc + dc\n                        if 0 <= nr < H and 0 <= nc < W and not visited[nr][nc] and grid[nr][nc] == value:\n                            visited[nr][nc] = True\n                            q.append((nr, nc))\n                comps.append(comp)\n    return comps\n\n\ndef solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    output = [[0] * W for _ in range(H)]\n\n    sevens = get_components(input_grid, 7, connectivity=8)\n    ones = get_components(input_grid, 1, connectivity=8)\n\n    corner_to_color = {\n        'TL': 3,\n        'TR': 8,\n        'BL': 4,\n        'BR': 6,\n    }\n\n    used = set()\n    for seven in sevens:\n        rs = [r for r, c in seven]\n        cs = [c for r, c in seven]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        all_cells = {(r, c) for r in range(r0, r1 + 1) for c in range(c0, c1 + 1)}\n        present = set(seven)\n        missing = list(all_cells - present)[0]\n        mr, mc = missing\n        if mr == r0 and mc == c0:\n            corner = 'TL'\n        elif mr == r0 and mc == c1:\n            corner = 'TR'\n        elif mr == r1 and mc == c0:\n            corner = 'BL'\n        else:\n            corner = 'BR'\n        color = corner_to_color[corner]\n\n        best = None\n        best_dist = None\n        for i, one_comp in enumerate(ones):\n            if i in used:\n                continue\n            min_d = min(\n                abs(r1_ - r2_) + abs(c1_ - c2_)\n                for r1_, c1_ in seven\n                for r2_, c2_ in one_comp\n            )\n            if best_dist is None or min_d < best_dist:\n                best_dist = min_d\n                best = i\n\n        if best is not None:\n            used.add(best)\n            for r, c in ones[best]:\n                output[r][c] = color\n\n    return output\n",
+      "source": "claude_agent_batch_013_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

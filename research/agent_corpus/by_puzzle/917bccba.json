@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "917bccba",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    g = [row[:] for row in input_grid]\n\n    # Identify non-zero colors\n    colors = {}\n    for r in range(H):\n        for c in range(W):\n            v = g[r][c]\n            if v != 0:\n                colors[v] = colors.get(v, 0) + 1\n\n    # Cross color: appears at both ends of some full row and some full column\n    cross_color = None\n    for r in range(H):\n        if g[r][0] != 0 and g[r][0] == g[r][W - 1]:\n            cross_color = g[r][0]\n            break\n\n    # Box color is the other non-zero color\n    box_color = None\n    for col_val in colors:\n        if col_val != cross_color:\n            box_color = col_val\n            break\n\n    # Bounding box of the box color\n    rs = [r for r in range(H) for c in range(W) if g[r][c] == box_color]\n    cs = [c for r in range(H) for c in range(W) if g[r][c] == box_color]\n    box_top, box_bot = min(rs), max(rs)\n    box_left, box_right = min(cs), max(cs)\n\n    # Build output\n    out = [[0] * W for _ in range(H)]\n\n    # Draw box rectangle\n    for c in range(box_left, box_right + 1):\n        out[box_top][c] = box_color\n        out[box_bot][c] = box_color\n    for r in range(box_top, box_bot + 1):\n        out[r][box_left] = box_color\n        out[r][box_right] = box_color\n\n    # Draw horizontal cross at row = box_top, outside the box\n    for c in range(W):\n        if c < box_left or c > box_right:\n            out[box_top][c] = cross_color\n\n    # Draw vertical cross at col = box_right, outside the box\n    for r in range(H):\n        if r < box_top or r > box_bot:\n            out[r][box_right] = cross_color\n\n    return out\n",
+      "source": "claude_agent_batch_013_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

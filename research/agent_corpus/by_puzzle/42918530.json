@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "42918530",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Copy grid\n    out = [row[:] for row in input_grid]\n\n    # Cells are 5x5 blocks. The grid layout: border 0, then 5-cell, 0, 5-cell, 0, ...\n    # So cells are at row positions 1..5, 7..11, 13..17, 19..23, etc.\n    # Number of cell rows = (H - 1) // 6\n    n_rows = (H - 1) // 6\n    n_cols = (W - 1) // 6\n\n    # Extract each cell's interior pattern\n    # cell (cr, cc): rows 1+6*cr .. 5+6*cr, cols 1+6*cc .. 5+6*cc\n    cells = {}  # (cr,cc) -> (color, inner_pattern (3x3 of bool indicating colored vs zero))\n    for cr in range(n_rows):\n        for cc in range(n_cols):\n            r0 = 1 + 6 * cr\n            c0 = 1 + 6 * cc\n            # color is at the border, e.g., input_grid[r0][c0]\n            color = input_grid[r0][c0]\n            # interior 3x3: rows r0+1..r0+3, cols c0+1..c0+3\n            inner = []\n            for i in range(3):\n                row = []\n                for j in range(3):\n                    row.append(1 if input_grid[r0 + 1 + i][c0 + 1 + j] != 0 else 0)\n                inner.append(row)\n            cells[(cr, cc)] = (color, inner)\n\n    # For each color, find a cell with a non-empty inner pattern\n    # An empty pattern is all zeros\n    patterns_by_color = {}\n    for (cr, cc), (color, inner) in cells.items():\n        if any(any(row) for row in inner):\n            # this cell has a pattern\n            patterns_by_color.setdefault(color, inner)\n\n    # For each empty cell of a color that has a pattern, fill the pattern\n    for (cr, cc), (color, inner) in cells.items():\n        if not any(any(row) for row in inner):\n            if color in patterns_by_color:\n                pat = patterns_by_color[color]\n                r0 = 1 + 6 * cr\n                c0 = 1 + 6 * cc\n                for i in range(3):\n                    for j in range(3):\n                        if pat[i][j]:\n                            out[r0 + 1 + i][c0 + 1 + j] = color\n\n    return out\n",
+      "source": "claude_agent_batch_013_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

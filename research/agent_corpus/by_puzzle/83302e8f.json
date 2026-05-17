@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "83302e8f",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    C = 0\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != 0:\n                C = v\n                break\n        if C:\n            break\n    line_rows = []\n    for r in range(H):\n        cnt = sum(1 for c in range(W) if input_grid[r][c] == C)\n        if cnt > W // 2:\n            line_rows.append(r)\n    line_cols = []\n    for c in range(W):\n        cnt = sum(1 for r in range(H) if input_grid[r][c] == C)\n        if cnt > H // 2:\n            line_cols.append(c)\n    row_bounds = []\n    prev = -1\n    for lr in line_rows:\n        if prev + 1 <= lr - 1:\n            row_bounds.append((prev + 1, lr - 1))\n        prev = lr\n    if prev + 1 <= H - 1:\n        row_bounds.append((prev + 1, H - 1))\n    col_bounds = []\n    prev = -1\n    for lc in line_cols:\n        if prev + 1 <= lc - 1:\n            col_bounds.append((prev + 1, lc - 1))\n        prev = lc\n    if prev + 1 <= W - 1:\n        col_bounds.append((prev + 1, W - 1))\n    nR = len(row_bounds)\n    nC = len(col_bounds)\n    parent = list(range(nR * nC))\n    def find(x):\n        while parent[x] != x:\n            parent[x] = parent[parent[x]]\n            x = parent[x]\n        return x\n    def union(a, b):\n        ra, rb = find(a), find(b)\n        if ra != rb:\n            parent[ra] = rb\n    for i in range(nR):\n        for j in range(nC - 1):\n            wall_col = line_cols[j]\n            r0, r1 = row_bounds[i]\n            connected = False\n            for r in range(r0, r1 + 1):\n                if input_grid[r][wall_col] == 0:\n                    connected = True\n                    break\n            if connected:\n                union(i * nC + j, i * nC + j + 1)\n    for i in range(nR - 1):\n        for j in range(nC):\n            wall_row = line_rows[i]\n            c0, c1 = col_bounds[j]\n            connected = False\n            for c in range(c0, c1 + 1):\n                if input_grid[wall_row][c] == 0:\n                    connected = True\n                    break\n            if connected:\n                union(i * nC + j, (i + 1) * nC + j)\n    comp_size = {}\n    for k in range(nR * nC):\n        root = find(k)\n        comp_size[root] = comp_size.get(root, 0) + 1\n    output = [row[:] for row in input_grid]\n    for i in range(nR):\n        for j in range(nC):\n            root = find(i * nC + j)\n            color = 4 if comp_size[root] > 1 else 3\n            r0, r1 = row_bounds[i]\n            c0, c1 = col_bounds[j]\n            for r in range(r0, r1 + 1):\n                for c in range(c0, c1 + 1):\n                    output[r][c] = color\n    for i in range(nR):\n        for j in range(nC - 1):\n            wall_col = line_cols[j]\n            r0, r1 = row_bounds[i]\n            for r in range(r0, r1 + 1):\n                if input_grid[r][wall_col] == 0:\n                    root = find(i * nC + j)\n                    color = 4 if comp_size[root] > 1 else 3\n                    output[r][wall_col] = color\n    for i in range(nR - 1):\n        for j in range(nC):\n            wall_row = line_rows[i]\n            c0, c1 = col_bounds[j]\n            for c in range(c0, c1 + 1):\n                if input_grid[wall_row][c] == 0:\n                    root = find(i * nC + j)\n                    color = 4 if comp_size[root] > 1 else 3\n                    output[wall_row][c] = color\n    for r in range(H):\n        for c in range(W):\n            if output[r][c] == 0:\n                output[r][c] = 4\n    return output\n",
+      "source": "claude_agent_batch_013_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
