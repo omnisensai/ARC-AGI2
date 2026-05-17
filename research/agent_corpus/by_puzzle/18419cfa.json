@@ -1,0 +1,80 @@
+{
+  "puzzle_id": "18419cfa",
+  "source": "arc2_train",
+  "consensus": {
+    "name": "mirror_markers_across_box_gap",
+    "desc": "For each 8-bordered box, reflect the 2-colored markers across the axis perpendicular to the box's open side(s), filling in the missing symmetric half.",
+    "majority": "5/5",
+    "round": "tiebreaker",
+    "solver_path": "Solvers/mirror_markers_across_box_gap.py"
+  },
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "import numpy as np\nfrom scipy.ndimage import label\n\ndef solve(input_grid):\n    G = np.array(input_grid)\n    out = G.copy()\n\n    eights_mask = (G == 8).astype(int)\n    lbl, n = label(eights_mask, structure=np.ones((3, 3)))\n\n    for i in range(1, n + 1):\n        comp = (lbl == i)\n        ey, ex = np.where(comp)\n        if len(ey) == 0:\n            continue\n        y0, y1 = ey.min(), ey.max()\n        x0, x1 = ex.min(), ex.max()\n\n        ty_list = []\n        tx_list = []\n        for r in range(y0, y1 + 1):\n            for c in range(x0, x1 + 1):\n                if G[r, c] == 2:\n                    ty_list.append(r)\n                    tx_list.append(c)\n\n        if not ty_list:\n            continue\n\n        height = y1 - y0 + 1\n        width = x1 - x0 + 1\n\n        top_count = int(comp[y0, x0:x1 + 1].sum())\n        bot_count = int(comp[y1, x0:x1 + 1].sum())\n        left_count = int(comp[y0:y1 + 1, x0].sum())\n        right_count = int(comp[y0:y1 + 1, x1].sum())\n\n        horizontal_mirror = (left_count < height / 2) and (right_count < height / 2)\n        vertical_mirror = (top_count < width / 2) and (bot_count < width / 2)\n\n        if horizontal_mirror:\n            cx = (x0 + x1) / 2.0\n            for y, x in zip(ty_list, tx_list):\n                nx = int(round(2 * cx - x))\n                if 0 <= nx < G.shape[1]:\n                    out[y, nx] = 2\n        elif vertical_mirror:\n            cy = (y0 + y1) / 2.0\n            for y, x in zip(ty_list, tx_list):\n                ny = int(round(2 * cy - y))\n                if 0 <= ny < G.shape[0]:\n                    out[ny, x] = 2\n\n    return out.tolist()\n",
+      "source": "claude_agent_R1"
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {
+    "votes": [
+      {
+        "name": "mirror_markers_across_box_gap",
+        "desc": "For each 8-bordered box, reflect the 2-colored markers across the axis perpendicular to the box's open side(s), filling in the missing symmetric half."
+      },
+      {
+        "name": "mirror_markers_across_box_axis",
+        "desc": "Within each rectangular 8-bordered box, reflect the 2-marker pattern across the box's axis of symmetry that is perpendicular to the side broken by gap openings."
+      },
+      {
+        "name": "mirror_markers_across_box_gap",
+        "desc": "Within each 8-bordered box, reflect the 2-colored markers across the axis perpendicular to the box's broken (gapped) side so the pattern becomes symmetric about that opening."
+      },
+      {
+        "name": "mirror_markers_across_box_open_axis",
+        "desc": "Within each 8-bordered box, reflect the interior 2-markers across the axis perpendicular to the side that has gap openings, completing the symmetric pattern."
+      },
+      {
+        "name": "mirror_markers_across_open_box_axis",
+        "desc": "Within each 8-bordered box, reflect the interior 2-markers across the axis perpendicular to the box's open (gapped) sides to complete a symmetric pattern."
+      }
+    ],
+    "counts": {
+      "mirror_markers_across_box_gap": 2,
+      "mirror_markers_across_box_axis": 1,
+      "mirror_markers_across_box_open_axis": 1,
+      "mirror_markers_across_open_box_axis": 1
+    }
+  }
+}

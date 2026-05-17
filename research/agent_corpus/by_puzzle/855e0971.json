@@ -1,0 +1,85 @@
+{
+  "puzzle_id": "855e0971",
+  "source": "arc2_train",
+  "consensus": {
+    "name": "extend_zero_markers_across_bands",
+    "desc": "Within each uniform-colored band (rows or columns), extend every zero marker into a full perpendicular line spanning that band's width.",
+    "majority": "3/5",
+    "solver_path": "Solvers/extend_zero_markers_across_bands.py"
+  },
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    def row_uniform_color(r):\n        vals = set(v for v in grid[r] if v != 0)\n        return vals.pop() if len(vals) == 1 else None\n\n    def col_uniform_color(c):\n        vals = set(grid[r][c] for r in range(H) if grid[r][c] != 0)\n        return vals.pop() if len(vals) == 1 else None\n\n    row_colors = [row_uniform_color(r) for r in range(H)]\n    col_colors = [col_uniform_color(c) for c in range(W)]\n\n    rows_uniform = all(rc is not None for rc in row_colors)\n    cols_uniform = all(cc is not None for cc in col_colors)\n\n    horizontal = rows_uniform and not cols_uniform\n    if not horizontal and not (cols_uniform and not rows_uniform):\n        horizontal = len(set(row_colors)) >= len(set(col_colors))\n\n    h_bands = []\n    if rows_uniform:\n        start = 0\n        for r in range(1, H):\n            if row_colors[r] != row_colors[start]:\n                h_bands.append((start, r - 1, row_colors[start]))\n                start = r\n        h_bands.append((start, H - 1, row_colors[start]))\n\n    v_bands = []\n    if cols_uniform:\n        start = 0\n        for c in range(1, W):\n            if col_colors[c] != col_colors[start]:\n                v_bands.append((start, c - 1, col_colors[start]))\n                start = c\n        v_bands.append((start, W - 1, col_colors[start]))\n\n    zeros = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 0]\n\n    out = [row[:] for row in grid]\n\n    if horizontal:\n        for r, c in zeros:\n            for s, e, col in h_bands:\n                if s <= r <= e:\n                    out[r][c] = col\n                    break\n        for r, c in zeros:\n            for s, e, col in h_bands:\n                if s <= r <= e:\n                    for rr in range(s, e + 1):\n                        out[rr][c] = 0\n                    break\n    else:\n        for r, c in zeros:\n            for s, e, col in v_bands:\n                if s <= c <= e:\n                    out[r][c] = col\n                    break\n        for r, c in zeros:\n            for s, e, col in v_bands:\n                if s <= c <= e:\n                    for cc in range(s, e + 1):\n                        out[r][cc] = 0\n                    break\n\n    return out\n",
+      "source": "claude_agent_R1"
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {
+    "votes": [
+      {
+        "name": "extend_zero_markers_across_bands",
+        "desc": "Within each uniform-colored band (rows or columns), extend every zero marker into a full perpendicular line spanning that band's width."
+      },
+      {
+        "name": "extend_zeros_across_bands",
+        "desc": "In a grid divided into uniform color bands, each zero marker is extended into a full perpendicular line spanning its band."
+      },
+      {
+        "name": "extend_zero_markers_across_bands",
+        "desc": "Within each uniform-colored band, extend every zero marker into a full line perpendicular to the band's orientation, spanning the band's width."
+      },
+      {
+        "name": "extend_zero_markers_across_bands",
+        "desc": "Within each uniform-colored band (rows or columns), extend every zero marker into a full perpendicular line spanning that band's width."
+      },
+      {
+        "name": "extend_zeros_across_bands_perpendicular",
+        "desc": "Within each uniform-colored band, replace every zero marker with a full line of zeros spanning the band perpendicular to the band's orientation."
+      }
+    ],
+    "counts": {
+      "extend_zero_markers_across_bands": 3,
+      "extend_zeros_across_bands": 1,
+      "extend_zeros_across_bands_perpendicular": 1
+    }
+  }
+}

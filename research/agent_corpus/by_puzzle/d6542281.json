@@ -1,0 +1,83 @@
+{
+  "puzzle_id": "d6542281",
+  "source": "arc2_train",
+  "consensus": {
+    "name": "complete_partial_shapes_from_templates",
+    "desc": "For each cluster that is a translated subset of a larger complete template cluster, fill in the missing cells using the template's pattern aligned to the partial fragment.",
+    "majority": "5/5",
+    "solver_path": "Solvers/complete_partial_shapes_from_templates.py"
+  },
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import Counter, deque\n\ndef solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    H = len(grid)\n    W = len(grid[0])\n\n    cnt = Counter()\n    for r in range(H):\n        for c in range(W):\n            cnt[grid[r][c]] += 1\n    bg = cnt.most_common(1)[0][0]\n\n    visited = [[False]*W for _ in range(H)]\n    components = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != bg and not visited[r][c]:\n                q = deque([(r,c)])\n                visited[r][c] = True\n                comp = []\n                while q:\n                    y,x = q.popleft()\n                    comp.append((y,x,grid[y][x]))\n                    for dy in (-1,0,1):\n                        for dx in (-1,0,1):\n                            if dy==0 and dx==0: continue\n                            ny,nx = y+dy, x+dx\n                            if 0<=ny<H and 0<=nx<W and not visited[ny][nx] and grid[ny][nx]!=bg:\n                                visited[ny][nx] = True\n                                q.append((ny,nx))\n                components.append(comp)\n\n    def bbox(comp):\n        rs = [c[0] for c in comp]\n        cs = [c[1] for c in comp]\n        return min(rs), min(cs), max(rs), max(cs)\n\n    n = len(components)\n    parent = list(range(n))\n    def find(x):\n        while parent[x] != x:\n            parent[x] = parent[parent[x]]\n            x = parent[x]\n        return x\n    def union(a,b):\n        ra,rb = find(a), find(b)\n        if ra != rb: parent[ra] = rb\n\n    PROX = 2\n    bboxes = [bbox(c) for c in components]\n    for i in range(n):\n        for j in range(i+1, n):\n            r1a,c1a,r2a,c2a = bboxes[i]\n            r1b,c1b,r2b,c2b = bboxes[j]\n            dr = max(0, max(r1a,r1b) - min(r2a,r2b))\n            dc = max(0, max(c1a,c1b) - min(c2a,c2b))\n            if dr <= PROX and dc <= PROX:\n                union(i,j)\n\n    clusters = {}\n    for i in range(n):\n        rr = find(i)\n        clusters.setdefault(rr, []).append(i)\n\n    cluster_info = []\n    for k, idxs in clusters.items():\n        cells = []\n        for i in idxs:\n            cells.extend(components[i])\n        colors = frozenset(c[2] for c in cells)\n        cluster_info.append({'idx': k, 'comps': idxs, 'cells': cells, 'colors': colors})\n\n    def normalize(cells):\n        rs = [c[0] for c in cells]\n        cs = [c[1] for c in cells]\n        mr, mc = min(rs), min(cs)\n        return frozenset((r-mr, c-mc, v) for r,c,v in cells), mr, mc\n\n    norm_patterns = []\n    for ci in cluster_info:\n        pat, mr, mc = normalize(ci['cells'])\n        norm_patterns.append((pat, mr, mc))\n\n    def is_subset_under_translation(small_pat, large_pat):\n        small_list = list(small_pat)\n        if not small_list: return None\n        s0 = small_list[0]\n        for lc in large_pat:\n            if lc[2] != s0[2]: continue\n            off_r = lc[0] - s0[0]\n            off_c = lc[1] - s0[1]\n            shifted = frozenset((r+off_r, c+off_c, v) for r,c,v in small_pat)\n            if shifted <= large_pat:\n                return (off_r, off_c)\n        return None\n\n    is_partial = [False]*len(cluster_info)\n    template_of = [None]*len(cluster_info)\n    offset_of = [None]*len(cluster_info)\n    for i, ci in enumerate(cluster_info):\n        best_size = 0\n        for j, cj in enumerate(cluster_info):\n            if i == j: continue\n            if len(cj['cells']) <= len(ci['cells']): continue\n            if not ci['colors'].issubset(cj['colors']): continue\n            off = is_subset_under_translation(norm_patterns[i][0], norm_patterns[j][0])\n            if off is not None:\n                if len(cj['cells']) > best_size:\n                    best_size = len(cj['cells'])\n                    template_of[i] = j\n                    offset_of[i] = off\n                    is_partial[i] = True\n\n    output = [row[:] for row in grid]\n\n    unique_colors = {color for color, c in cnt.items() if c == 1 and color != bg}\n\n    template_indices = set()\n    for i in range(len(cluster_info)):\n        if is_partial[i]:\n            template_indices.add(template_of[i])\n\n    for partial_idx in range(len(cluster_info)):\n        if not is_partial[partial_idx]:\n            continue\n        template_idx = template_of[partial_idx]\n        off_r, off_c = offset_of[partial_idx]\n        partial_pat, p_mr, p_mc = norm_patterns[partial_idx]\n        template_pat, t_mr, t_mc = norm_patterns[template_idx]\n        for DR, DC, v in template_pat:\n            gr = DR - off_r + p_mr\n            gc = DC - off_c + p_mc\n            if 0 <= gr < H and 0 <= gc < W:\n                output[gr][gc] = v\n\n    for color in unique_colors:\n        for r in range(H):\n            for c in range(W):\n                if grid[r][c] == color:\n                    for ti in template_indices:\n                        cells = cluster_info[ti]['cells']\n                        if any(cr == r and cc == c for cr,cc,_ in cells):\n                            output[r][c] = bg\n                            break\n\n    return output\n",
+      "source": "claude_agent_R1"
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {
+    "votes": [
+      {
+        "name": "complete_partial_shapes_from_templates",
+        "desc": "For each cluster that is a translated subset of a larger complete template cluster, fill in the missing cells using the template's pattern aligned to the partial fragment."
+      },
+      {
+        "name": "complete_partial_shapes_from_templates",
+        "desc": "For each cluster of nearby fragments that matches a sub-pattern of a larger complete template cluster elsewhere in the grid, fill in the missing cells using the template aligned by the shared sub-pattern."
+      },
+      {
+        "name": "complete_partial_shapes_from_templates",
+        "desc": "For each cluster of nearby shapes that is a translational sub-pattern of a larger complete cluster, fill in the missing cells using the matching template so every partial occurrence becomes a full copy of its template."
+      },
+      {
+        "name": "complete_partial_shapes_from_templates",
+        "desc": "For each cluster of nearby non-background cells that is a translated subset of a larger cluster sharing its colors, fill in the missing cells so the partial shape matches the full template."
+      },
+      {
+        "name": "complete_partial_shapes_from_templates",
+        "desc": "For each cluster of nearby non-background cells that is a translated sub-pattern of a larger complete shape elsewhere in the grid, fill in the missing cells using the matching template."
+      }
+    ],
+    "counts": {
+      "complete_partial_shapes_from_templates": 5
+    }
+  }
+}

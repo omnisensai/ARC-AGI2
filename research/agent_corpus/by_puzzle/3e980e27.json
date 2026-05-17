@@ -1,0 +1,219 @@
+{
+  "puzzle_id": "3e980e27",
+  "source": "arc2_train",
+  "consensus": {
+    "name": "stamp_template_on_anchor_singletons",
+    "desc": "For each lone pixel whose color matches an anchor color inside a multi-cell template shape, replicate the rest of that template around the pixel (mirroring horizontally when the anchor color is 2).",
+    "majority": "3/5",
+    "solver_path": "Solvers/stamp_template_on_anchor_singletons.py"
+  },
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(grid):\n    H, W = len(grid), len(grid[0])\n    out = [row[:] for row in grid]\n\n    dirs = [(-1,-1),(-1,0),(-1,1),\n            (0,-1),        (0,1),\n            (1,-1),(1,0),(1,1)]\n\n    seen = [[False] * W for _ in range(H)]\n    comps = []\n\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 0 or seen[r][c]:\n                continue\n\n            stack = [(r, c)]\n            seen[r][c] = True\n            cells = []\n\n            while stack:\n                x, y = stack.pop()\n                cells.append((x, y, grid[x][y]))\n\n                for dx, dy in dirs:\n                    nx, ny = x + dx, y + dy\n                    if 0 <= nx < H and 0 <= ny < W:\n                        if not seen[nx][ny] and grid[nx][ny] != 0:\n                            seen[nx][ny] = True\n                            stack.append((nx, ny))\n\n            comps.append(cells)\n\n    singles = {}\n    templates = {}\n\n    for comp in comps:\n        if len(comp) == 1:\n            r, c, col = comp[0]\n            singles.setdefault(col, []).append((r, c))\n        else:\n            colors = set(v for _, _, v in comp)\n            for col in colors:\n                templates[col] = comp\n\n    for anchor_col, targets in singles.items():\n        if anchor_col not in templates:\n            continue\n\n        comp = templates[anchor_col]\n\n        anchors = [(r, c) for r, c, v in comp if v == anchor_col]\n        if not anchors:\n            continue\n\n        ar, ac = anchors[0]\n\n        pattern = []\n        for r, c, v in comp:\n            if v == anchor_col:\n                continue\n\n            dr, dc = r - ar, c - ac\n\n            if anchor_col == 2:\n                dc = -dc\n\n            pattern.append((dr, dc, v))\n\n        for tr, tc in targets:\n            for dr, dc, v in pattern:\n                nr, nc = tr + dr, tc + dc\n                if 0 <= nr < H and 0 <= nc < W:\n                    out[nr][nc] = v\n\n    return out\n",
+      "source": "gpt_after_claude_failed",
+      "approach": "Connected-components: finds non-singleton template shapes and singleton anchor pixels, matches by shared anchor color, stamps the template around each singleton with the color-conditional transform."
+    },
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "import copy\n\ndef solve(input_grid):\n    # Create a deep copy of the input grid to modify\n    grid = copy.deepcopy(input_grid)\n    rows = len(grid)\n    cols = len(grid[0]) if rows > 0 else 0\n\n    # 1. Identify all anchor positions (2 and 3)\n    anchors = []\n    for r in range(rows):\n        for c in range(cols):\n            if grid[r][c] in (2, 3):\n                anchors.append((r, c, grid[r][c]))\n\n    # 2. Extract all non-zero, non-anchor \"pattern\" pixels\n    pattern_pixels = []\n    for r in range(rows):\n        for c in range(cols):\n            if grid[r][c] != 0 and grid[r][c] not in (2, 3):\n                pattern_pixels.append((r, c, grid[r][c]))\n\n    # 3. Associate each pattern pixel with its nearest anchor (Manhattan distance)\n    anchor_patterns = {idx: [] for idx in range(len(anchors))}\n    for pr, pc, pcolor in pattern_pixels:\n        min_dist = float('inf')\n        closest_anchor_idx = -1\n        for idx, (ar, ac, _) in enumerate(anchors):\n            dist = abs(pr - ar) + abs(pc - ac)\n            if dist < min_dist:\n                min_dist = dist\n                closest_anchor_idx = idx\n        if closest_anchor_idx != -1:\n            anchor_patterns[closest_anchor_idx].append((pr, pc, pcolor))\n\n    # 4. Define the template profiles for anchors 2 and 3\n    template_offsets = {2: [], 3: []}\n    template_color = {2: None, 3: None}\n    template_anchor_pos = {2: None, 3: None}\n\n    for idx, (ar, ac, aval) in enumerate(anchors):\n        pixels = anchor_patterns[idx]\n        if len(pixels) > 0:\n            template_anchor_pos[aval] = (ar, ac)\n            template_color[aval] = pixels[0][2]\n            for pr, pc, _ in pixels:\n                template_offsets[aval].append((pr - ar, pc - ac))\n\n    # 5. Paint the patterns onto the lonely anchors based on transformation rules\n    for ar, ac, aval in anchors:\n        # Skip the original template source anchors\n        if template_anchor_pos[aval] == (ar, ac):\n            continue\n\n        offsets = template_offsets[aval]\n        color = template_color[aval]\n        if color is None:\n            continue\n\n        for dr, dc in offsets:\n            if aval == 3:\n                # Anchor 3: Retain original orientation\n                nr, nc = ar + dr, ac + dc\n            elif aval == 2:\n                # Anchor 2: Horizontal reflection (invert column offset)\n                nr, nc = ar + dr, ac - dc\n\n            # Bounds check before writing to the grid\n            if 0 <= nr < rows and 0 <= nc < cols:\n                grid[nr][nc] = color\n\n    return grid\n",
+      "source": "gemini",
+      "approach": "Manhattan-nearest-anchor association: groups pattern pixels with their closest anchor, then deduces template offsets per anchor color and stamps with the color-conditional transform."
+    }
+  ],
+  "wrong_codes": [
+    {
+      "bucket": "wrong_test",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 12,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import deque\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    seen = [[False]*W for _ in range(H)]\n    components = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != 0 and not seen[r][c]:\n                q = deque([(r,c)])\n                seen[r][c] = True\n                cells = []\n                while q:\n                    cr, cc = q.popleft()\n                    cells.append((cr, cc))\n                    for dr in (-1,0,1):\n                        for dc in (-1,0,1):\n                            if dr == 0 and dc == 0:\n                                continue\n                            nr, nc = cr+dr, cc+dc\n                            if 0 <= nr < H and 0 <= nc < W and not seen[nr][nc] and grid[nr][nc] != 0:\n                                seen[nr][nc] = True\n                                q.append((nr, nc))\n                components.append(cells)\n\n    templates = []\n    markers = []\n    for comp in components:\n        if len(comp) == 1:\n            r, c = comp[0]\n            markers.append((r, c, grid[r][c]))\n        else:\n            color_count = {}\n            for (r, c) in comp:\n                col = grid[r][c]\n                color_count[col] = color_count.get(col, 0) + 1\n            marker_color = None\n            for col, cnt in color_count.items():\n                if cnt == 1:\n                    marker_color = col\n                    break\n            if marker_color is None:\n                continue\n            marker_pos = None\n            body_cells = []\n            for (r, c) in comp:\n                if grid[r][c] == marker_color:\n                    marker_pos = (r, c)\n                else:\n                    body_cells.append((r, c, grid[r][c]))\n            templates.append({\n                'marker_color': marker_color,\n                'marker_pos': marker_pos,\n                'body_cells': body_cells\n            })\n\n    out = [row[:] for row in grid]\n    for (mr, mc, mcol) in markers:\n        for tmpl in templates:\n            if tmpl['marker_color'] == mcol:\n                tr, tc = tmpl['marker_pos']\n                offsets = [(br - tr, bc - tc, bcol) for (br, bc, bcol) in tmpl['body_cells']]\n                flip = any(dr == dc and dr != 0 for (dr, dc, _) in offsets)\n                if flip:\n                    offsets = [(dr, -dc, bcol) for (dr, dc, bcol) in offsets]\n                for (dr, dc, bcol) in offsets:\n                    nr, nc = mr + dr, mc + dc\n                    if 0 <= nr < H and 0 <= nc < W:\n                        out[nr][nc] = bcol\n                break\n\n    return out\n",
+      "source": "claude_agent_R1",
+      "failure_mode": "overfit: passes all 4 training pairs but fails test by 12 cells; used geometric heuristic (flip when diagonal offsets exist) rather than the actual color-based rule (anchor color determines mirror behavior)."
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 21,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 26,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 30,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 20,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "import numpy as np\n\ndef solve_arc_test(input_list):\n    grid = np.array(input_list)\n    output = grid.copy()  # Start with the input grid\n\n    # Marker 3 + frame 8 (same orientation)\n    offsets_3_8 = [(-1, -1), (-1, 0), (-1, 1), (0, 1), (1, 0)]\n    seeds_3 = [(1, 5), (10, 7)]\n    for r, c in seeds_3:\n        for dr, dc in offsets_3_8:\n            nr, nc = r + dr, c + dc\n            if 0 <= nr < 13 and 0 <= nc < 13:\n                output[nr, nc] = 8\n\n    # Marker 2 + frame 1 (mirrored orientation)\n    offsets_2_1_mirrored = [(-1, 0), (0, 1), (1, 1), (1, 0)]\n    seeds_2 = [(1, 9), (9, 3)]\n    for r, c in seeds_2:\n        for dr, dc in offsets_2_1_mirrored:\n            nr, nc = r + dr, c + dc\n            if 0 <= nr < 13 and 0 <= nc < 13:\n                output[nr, nc] = 1\n\n    return output.tolist()\n",
+      "source": "grok",
+      "failure_mode": "hardcoded the test-pair-specific anchor positions (1,5), (10,7), (1,9), (9,3) and the grid dimension 13x13 \u2014 fails all 4 training pairs because their seed positions are different. Bizarrely passes the test pair only, because the test was visible in the prompt. Classic memorization-not-generalization failure: writes code that reproduces ONE specific input/output rather than the underlying rule."
+    }
+  ],
+  "judging": {
+    "votes": [
+      {
+        "name": "stamp_template_on_anchor_singletons",
+        "desc": "For each lone pixel whose color matches an anchor color inside a multi-cell template shape, replicate the rest of that template around the pixel (mirroring horizontally when the anchor color is 2)."
+      },
+      {
+        "name": "stamp_template_on_color_anchors",
+        "desc": "For each isolated single-color pixel, stamp the multi-cell template that contains a matching anchor color, aligning the template's anchor to the pixel (mirroring horizontally when the anchor color is 2)."
+      },
+      {
+        "name": "stamp_template_on_matching_anchors",
+        "desc": "For each isolated single-color pixel, stamp the multi-cell template that contains that same color aligned by the matching anchor cell, mirroring horizontally when the anchor color is 2."
+      },
+      {
+        "name": "stamp_template_on_anchor_singletons",
+        "desc": "For each isolated single-cell marker, stamp the multi-cell template that contains a matching anchor color, aligned by the anchor (mirrored horizontally when the anchor color is 2)."
+      },
+      {
+        "name": "stamp_template_on_anchor_singletons",
+        "desc": "For each isolated singleton pixel, copy the multi-cell template containing the same color onto the grid aligned by that color's anchor, mirroring horizontally when the anchor color is 2."
+      }
+    ],
+    "counts": {
+      "stamp_template_on_anchor_singletons": 3,
+      "stamp_template_on_color_anchors": 1,
+      "stamp_template_on_matching_anchors": 1
+    }
+  }
+}
