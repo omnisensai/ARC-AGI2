@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "4e45f183",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    cell_size = 5\n    cell_rows = [1, 7, 13]\n    cell_cols = [1, 7, 13]\n\n    # Determine background and mark colors among the non-zero values.\n    counts = {}\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != 0:\n                counts[v] = counts.get(v, 0) + 1\n    nonzero_colors = sorted(counts.keys(), key=lambda k: -counts[k])\n    background = nonzero_colors[0]\n    mark = nonzero_colors[1] if len(nonzero_colors) > 1 else background\n\n    def extract_cell(cr, cc):\n        r0 = cell_rows[cr]\n        c0 = cell_cols[cc]\n        return [row[c0:c0 + cell_size] for row in input_grid[r0:r0 + cell_size]]\n\n    # Initialize output as a copy of input, then clear cell interiors to background.\n    output = [row[:] for row in input_grid]\n    for cr in range(3):\n        for cc in range(3):\n            r0 = cell_rows[cr]\n            c0 = cell_cols[cc]\n            for i in range(cell_size):\n                for j in range(cell_size):\n                    output[r0 + i][c0 + j] = background\n\n    # For each input cell, determine target output grid position based on\n    # the bounding-box midpoint of the mark cells inside it.\n    for cr in range(3):\n        for cc in range(3):\n            cell = extract_cell(cr, cc)\n            mark_positions = [\n                (i, j)\n                for i in range(cell_size)\n                for j in range(cell_size)\n                if cell[i][j] == mark\n            ]\n            if not mark_positions:\n                continue\n            min_r = min(p[0] for p in mark_positions)\n            max_r = max(p[0] for p in mark_positions)\n            min_c = min(p[1] for p in mark_positions)\n            max_c = max(p[1] for p in mark_positions)\n            mid_r = (min_r + max_r) / 2.0\n            mid_c = (min_c + max_c) / 2.0\n            if mid_r < 2:\n                out_r = 0\n            elif mid_r > 2:\n                out_r = 2\n            else:\n                out_r = 1\n            if mid_c < 2:\n                out_c = 0\n            elif mid_c > 2:\n                out_c = 2\n            else:\n                out_c = 1\n            r0 = cell_rows[out_r]\n            c0 = cell_cols[out_c]\n            for i in range(cell_size):\n                for j in range(cell_size):\n                    output[r0 + i][c0 + j] = cell[i][j]\n\n    return output\n",
+      "source": "claude_agent_batch_008_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

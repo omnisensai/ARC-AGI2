@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "3345333e",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find all non-zero colors\n    colors = set()\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] != 0:\n                colors.add(input_grid[r][c])\n\n    # Identify rectangle color (the one whose cells form a solid filled bbox)\n    # and shape color (the other)\n    rect_color = None\n    shape_color = None\n    for color in colors:\n        cells = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == color]\n        if not cells:\n            continue\n        rmin = min(r for r, _ in cells)\n        rmax = max(r for r, _ in cells)\n        cmin = min(c for _, c in cells)\n        cmax = max(c for _, c in cells)\n        area = (rmax - rmin + 1) * (cmax - cmin + 1)\n        if len(cells) == area and area > 1:\n            rect_color = color\n        else:\n            shape_color = color\n\n    if rect_color is None or shape_color is None:\n        # Fallback - return copy\n        return [row[:] for row in input_grid]\n\n    shape_cells = set((r, c) for r in range(H) for c in range(W) if input_grid[r][c] == shape_color)\n    rect_cells = set((r, c) for r in range(H) for c in range(W) if input_grid[r][c] == rect_color)\n\n    # Find symmetry axis - try vertical (axis2 = 2*col), then horizontal (axis2 = 2*row)\n    # such that reflecting every shape cell lands either back on a shape cell or on a rect cell.\n    vertical_axis = None\n    for axis2 in range(0, 2 * W):\n        ok = True\n        any_hits_rect = False\n        for (r, c) in shape_cells:\n            c2 = axis2 - c\n            if c2 < 0 or c2 >= W:\n                ok = False\n                break\n            if (r, c2) in shape_cells:\n                continue\n            elif (r, c2) in rect_cells:\n                any_hits_rect = True\n                continue\n            else:\n                ok = False\n                break\n        if ok and any_hits_rect:\n            vertical_axis = axis2\n            break\n\n    horizontal_axis = None\n    if vertical_axis is None:\n        for axis2 in range(0, 2 * H):\n            ok = True\n            any_hits_rect = False\n            for (r, c) in shape_cells:\n                r2 = axis2 - r\n                if r2 < 0 or r2 >= H:\n                    ok = False\n                    break\n                if (r2, c) in shape_cells:\n                    continue\n                elif (r2, c) in rect_cells:\n                    any_hits_rect = True\n                    continue\n                else:\n                    ok = False\n                    break\n            if ok and any_hits_rect:\n                horizontal_axis = axis2\n                break\n\n    # Build output: clear rect cells, then add reflected shape cells\n    out = [row[:] for row in input_grid]\n    for (r, c) in rect_cells:\n        out[r][c] = 0\n\n    if vertical_axis is not None:\n        for (r, c) in shape_cells:\n            c2 = vertical_axis - c\n            if 0 <= c2 < W:\n                if (r, c2) in rect_cells:\n                    out[r][c2] = shape_color\n    elif horizontal_axis is not None:\n        for (r, c) in shape_cells:\n            r2 = horizontal_axis - r\n            if 0 <= r2 < H:\n                if (r2, c) in rect_cells:\n                    out[r2][c] = shape_color\n\n    return out\n",
+      "source": "claude_agent_batch_008_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

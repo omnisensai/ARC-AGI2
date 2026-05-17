@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "025d127b",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    out = [[0] * W for _ in range(H)]\n\n    # Group cells by color\n    by_color = {}\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != 0:\n                by_color.setdefault(v, []).append((r, c))\n\n    for color, cells in by_color.items():\n        rows = sorted(set(r for r, c in cells))\n        top_row = rows[0]\n        bot_row = rows[-1]\n        top_cols = sorted([c for r, c in cells if r == top_row])\n        bot_cols = sorted([c for r, c in cells if r == bot_row])\n        t1, t2 = top_cols[0], top_cols[-1]\n        b1, b2 = bot_cols[0], bot_cols[-1]\n\n        # Top horizontal shifted right by 1\n        new_t1 = t1 + 1\n        new_t2 = t2 + 1\n        for c in range(new_t1, new_t2 + 1):\n            out[top_row][c] = color\n        # Bottom horizontal unchanged\n        for c in range(b1, b2 + 1):\n            out[bot_row][c] = color\n\n        span_rows = bot_row - top_row\n\n        # Left edge: vertical at top + diagonals + vertical at bottom\n        horiz_span_left = b1 - new_t1\n        vert_left = span_rows - horiz_span_left\n        vert_top_l = vert_left // 2\n        vert_bot_l = vert_left - vert_top_l\n        r, c = top_row, new_t1\n        out[r][c] = color\n        for _ in range(vert_top_l):\n            r += 1\n            out[r][c] = color\n        for _ in range(horiz_span_left):\n            r += 1\n            c += 1\n            out[r][c] = color\n        for _ in range(vert_bot_l):\n            r += 1\n            out[r][c] = color\n\n        # Right edge: diagonals at top + verticals at bottom\n        horiz_span_right = b2 - new_t2\n        vert_right = span_rows - horiz_span_right\n        r, c = top_row, new_t2\n        out[r][c] = color\n        for _ in range(horiz_span_right):\n            r += 1\n            c += 1\n            out[r][c] = color\n        for _ in range(vert_right):\n            r += 1\n            out[r][c] = color\n\n    return out\n",
+      "source": "claude_agent_batch_008_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

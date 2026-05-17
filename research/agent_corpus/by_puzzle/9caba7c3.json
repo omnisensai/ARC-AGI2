@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "9caba7c3",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find all 2s\n    twos = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 2]\n\n    # Group 2s using union-find: two 2s are in the same group if they\n    # could both fit in some 3x3 window (i.e. row/col diff each <= 2).\n    parent = list(range(len(twos)))\n\n    def find(x):\n        while parent[x] != x:\n            parent[x] = parent[parent[x]]\n            x = parent[x]\n        return x\n\n    def union(a, b):\n        ra, rb = find(a), find(b)\n        if ra != rb:\n            parent[ra] = rb\n\n    for i in range(len(twos)):\n        for j in range(i + 1, len(twos)):\n            r1, c1 = twos[i]\n            r2, c2 = twos[j]\n            if abs(r1 - r2) <= 2 and abs(c1 - c2) <= 2:\n                union(i, j)\n\n    groups = {}\n    for i, pt in enumerate(twos):\n        root = find(i)\n        groups.setdefault(root, []).append(pt)\n\n    clusters = list(groups.values())\n\n    # For each cluster, find a 3x3 window that:\n    #  - contains every 2 of the cluster\n    #  - contains no 0 cells\n    #  - has center cell that is not a 2 (so it can host the 4)\n    # Among candidates, prefer ones whose 2-cells are exactly the cluster.\n    for comp in clusters:\n        rs = [r for r, c in comp]\n        cs = [c for r, c in comp]\n        minr, maxr = min(rs), max(rs)\n        minc, maxc = min(cs), max(cs)\n\n        candidates = []\n        for tr in range(maxr - 2, minr + 1):\n            for tc in range(maxc - 2, minc + 1):\n                if tr < 0 or tc < 0 or tr + 3 > H or tc + 3 > W:\n                    continue\n                ok = True\n                for i in range(3):\n                    for j in range(3):\n                        if grid[tr + i][tc + j] == 0:\n                            ok = False\n                            break\n                    if not ok:\n                        break\n                if not ok:\n                    continue\n                if grid[tr + 1][tc + 1] == 2:\n                    continue\n                candidates.append((tr, tc))\n\n        if len(candidates) > 1:\n            comp_set = set(comp)\n            filtered = []\n            for tr, tc in candidates:\n                extra = False\n                for i in range(3):\n                    for j in range(3):\n                        if grid[tr + i][tc + j] == 2 and (tr + i, tc + j) not in comp_set:\n                            extra = True\n                if not extra:\n                    filtered.append((tr, tc))\n            if filtered:\n                candidates = filtered\n\n        if not candidates:\n            continue\n\n        tr, tc = candidates[0]\n        for i in range(3):\n            for j in range(3):\n                if grid[tr + i][tc + j] == 5:\n                    grid[tr + i][tc + j] = 7\n        grid[tr + 1][tc + 1] = 4\n\n    return grid\n",
+      "source": "claude_agent_batch_008_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
