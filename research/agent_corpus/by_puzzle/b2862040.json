@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "b2862040",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import deque\n\n\ndef solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    def components(val):\n        seen = [[False] * W for _ in range(H)]\n        comps = []\n        for r in range(H):\n            for c in range(W):\n                if grid[r][c] == val and not seen[r][c]:\n                    q = deque([(r, c)])\n                    seen[r][c] = True\n                    cells = []\n                    while q:\n                        y, x = q.popleft()\n                        cells.append((y, x))\n                        for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                            ny, nx = y + dy, x + dx\n                            if 0 <= ny < H and 0 <= nx < W and grid[ny][nx] == val and not seen[ny][nx]:\n                                seen[ny][nx] = True\n                                q.append((ny, nx))\n                    comps.append(cells)\n        return comps\n\n    # BFS from border through all non-1 cells\n    reached = [[False] * W for _ in range(H)]\n    q = deque()\n    for r in range(H):\n        for c in range(W):\n            if (r == 0 or r == H - 1 or c == 0 or c == W - 1) and grid[r][c] != 1:\n                if not reached[r][c]:\n                    reached[r][c] = True\n                    q.append((r, c))\n    while q:\n        y, x = q.popleft()\n        for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n            ny, nx = y + dy, x + dx\n            if 0 <= ny < H and 0 <= nx < W and not reached[ny][nx] and grid[ny][nx] != 1:\n                reached[ny][nx] = True\n                q.append((ny, nx))\n\n    out = [row[:] for row in input_grid]\n    for cells in components(1):\n        rs = [c[0] for c in cells]\n        cs = [c[1] for c in cells]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        has_hole = False\n        for r in range(r0, r1 + 1):\n            for c in range(c0, c1 + 1):\n                if grid[r][c] != 1 and not reached[r][c]:\n                    has_hole = True\n                    break\n            if has_hole:\n                break\n        if has_hole:\n            for r, c in cells:\n                out[r][c] = 8\n    return out\n",
+      "source": "claude_agent_batch_012_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

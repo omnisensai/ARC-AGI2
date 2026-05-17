@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "e734a0e8",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find separator rows and columns (all zeros)\n    sep_rows = [r for r in range(H) if all(input_grid[r][c] == 0 for c in range(W))]\n    sep_cols = [c for c in range(W) if all(input_grid[r][c] == 0 for r in range(H))]\n\n    # Build cell row ranges\n    row_ranges = []\n    prev = 0\n    for sr in sep_rows:\n        row_ranges.append((prev, sr))\n        prev = sr + 1\n    row_ranges.append((prev, H))\n\n    col_ranges = []\n    prev = 0\n    for sc in sep_cols:\n        col_ranges.append((prev, sc))\n        prev = sc + 1\n    col_ranges.append((prev, W))\n\n    n_rows = len(row_ranges)\n    n_cols = len(col_ranges)\n\n    # Find template cell: the one containing a non-7, non-0 color (or the cell with the richest pattern)\n    template_cell = None\n    template_color = None\n    template_pattern = None\n\n    for i in range(n_rows):\n        for j in range(n_cols):\n            r0, r1 = row_ranges[i]\n            c0, c1 = col_ranges[j]\n            colors = set()\n            for r in range(r0, r1):\n                for c in range(c0, c1):\n                    v = input_grid[r][c]\n                    if v != 7 and v != 0:\n                        colors.add(v)\n            if colors:\n                template_cell = (i, j)\n                template_color = list(colors)[0]\n                template_pattern = [row[c0:c1] for row in input_grid[r0:r1]]\n                break\n        if template_cell:\n            break\n\n    # Find marker cells: cells that contain a single 0 inside them (and no template colors)\n    marker_cells = []\n    for i in range(n_rows):\n        for j in range(n_cols):\n            if (i, j) == template_cell:\n                continue\n            r0, r1 = row_ranges[i]\n            c0, c1 = col_ranges[j]\n            has_zero = False\n            for r in range(r0, r1):\n                for c in range(c0, c1):\n                    if input_grid[r][c] == 0:\n                        has_zero = True\n                        break\n                if has_zero:\n                    break\n            if has_zero:\n                marker_cells.append((i, j))\n\n    # Build output\n    output = [row[:] for row in input_grid]\n\n    for (i, j) in marker_cells:\n        r0, r1 = row_ranges[i]\n        c0, c1 = col_ranges[j]\n        for rr in range(r1 - r0):\n            for cc in range(c1 - c0):\n                output[r0 + rr][c0 + cc] = template_pattern[rr][cc]\n\n    return output\n",
+      "source": "claude_agent_batch_012_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

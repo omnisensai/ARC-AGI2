@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "e4888269",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import Counter\n\n\ndef solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    flat = [x for row in grid for x in row]\n    bg = Counter(flat).most_common(1)[0][0]\n\n    visited = [[False] * cols for _ in range(rows)]\n    key_block = None\n    for r in range(rows):\n        for c in range(cols):\n            if grid[r][c] != bg and not visited[r][c]:\n                stack = [(r, c)]\n                cells = []\n                while stack:\n                    cr, cc = stack.pop()\n                    if cr < 0 or cr >= rows or cc < 0 or cc >= cols:\n                        continue\n                    if visited[cr][cc] or grid[cr][cc] == bg:\n                        continue\n                    visited[cr][cc] = True\n                    cells.append((cr, cc))\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        stack.append((cr + dr, cc + dc))\n                if cells:\n                    rs = [x[0] for x in cells]\n                    cs = [x[1] for x in cells]\n                    r0, r1 = min(rs), max(rs)\n                    c0, c1 = min(cs), max(cs)\n                    h = r1 - r0 + 1\n                    w = c1 - c0 + 1\n                    if len(cells) == h * w:\n                        if w == 2 and h >= 2:\n                            if all(grid[r0 + i][c0] != grid[r0 + i][c0 + 1] for i in range(h)):\n                                pairs = [(grid[r0 + i][c0], grid[r0 + i][c0 + 1]) for i in range(h)]\n                                key_block = ('V', r0, c0, h, w, pairs)\n                        elif h == 2 and w >= 2:\n                            if all(grid[r0][c0 + j] != grid[r0 + 1][c0 + j] for j in range(w)):\n                                pairs = [(grid[r0][c0 + j], grid[r0 + 1][c0 + j]) for j in range(w)]\n                                key_block = ('H', r0, c0, h, w, pairs)\n\n    if key_block is None:\n        return grid\n\n    orient, r0, c0, h, w, pairs = key_block\n\n    def chain(v, start_idx):\n        for i in range(start_idx + 1, len(pairs)):\n            if pairs[i][0] == v:\n                return chain(pairs[i][1], i)\n        return v\n\n    mapping = {}\n    for i, (a, b) in enumerate(pairs):\n        if a not in mapping:\n            mapping[a] = chain(b, i)\n\n    key_cells = {(r0 + i, c0 + j) for i in range(h) for j in range(w)}\n\n    for r in range(rows):\n        for c in range(cols):\n            if (r, c) in key_cells:\n                continue\n            v = grid[r][c]\n            if v in mapping:\n                grid[r][c] = mapping[v]\n\n    return grid\n",
+      "source": "claude_agent_batch_012_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
