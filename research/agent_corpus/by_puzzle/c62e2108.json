@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "c62e2108",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find all 4x4 hollow box rectangles (color != 0 and != 1)\n    boxes = []  # list of (top, left, color)\n    seen = set()\n    for r in range(H - 3):\n        for c in range(W - 3):\n            col = grid[r][c]\n            if col == 0 or col == 1:\n                continue\n            # Check 4x4 hollow box\n            ok = True\n            for k in range(4):\n                if grid[r][c + k] != col or grid[r + 3][c + k] != col:\n                    ok = False\n                    break\n                if grid[r + k][c] != col or grid[r + k][c + 3] != col:\n                    ok = False\n                    break\n            if not ok:\n                continue\n            # Interior must be 0\n            for rr in range(r + 1, r + 3):\n                for cc in range(c + 1, c + 3):\n                    if grid[rr][cc] != 0:\n                        ok = False\n            if not ok:\n                continue\n            if (r, c) not in seen:\n                boxes.append((r, c, col))\n                seen.add((r, c))\n\n    # Find all markers (4 consecutive 1s in a row or column, on grid boundary)\n    markers = []  # list of (orientation, position, start) where orientation in 'top','bottom','left','right'\n    # Top edge: row 0 has 4 consecutive 1s in cols\n    for c in range(W - 3):\n        if all(grid[0][c + k] == 1 for k in range(4)):\n            markers.append(('top', 0, c))\n    # Bottom edge\n    for c in range(W - 3):\n        if all(grid[H - 1][c + k] == 1 for k in range(4)):\n            markers.append(('bottom', H - 1, c))\n    # Left edge\n    for r in range(H - 3):\n        if all(grid[r + k][0] == 1 for k in range(4)):\n            markers.append(('left', 0, r))\n    # Right edge\n    for r in range(H - 3):\n        if all(grid[r + k][W - 1] == 1 for k in range(4)):\n            markers.append(('right', W - 1, r))\n\n    # Clear original output grid: remove all 1s and copy boxes/zeros\n    out = [[0] * W for _ in range(H)]\n    # Copy non-1 cells\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != 1:\n                out[r][c] = grid[r][c]\n\n    # Box tile is 4x4. Get pattern: border=col, interior=0\n    def stamp(out, r0, c0, color):\n        for dr in range(4):\n            for dc in range(4):\n                rr, cc = r0 + dr, c0 + dc\n                if 0 <= rr < H and 0 <= cc < W:\n                    if dr == 0 or dr == 3 or dc == 0 or dc == 3:\n                        out[rr][cc] = color\n                    else:\n                        # interior - leave as 0 (don't overwrite if already painted by adjacent tile)\n                        # Actually we should leave 0; but if previous tile painted border here, we shouldn't overwrite\n                        # Since tiles are butted (no overlap), interior cells of this tile won't be border of another\n                        # in the same line direction. But tiles in perpendicular directions could overlap.\n                        # Safest: only set to 0 if not already set\n                        if out[rr][cc] == 0:\n                            out[rr][cc] = 0  # no-op\n\n    # For each marker, find aligned box and tile toward marker\n    for orient, pos, start in markers:\n        # Find aligned box\n        target_box = None\n        if orient in ('top', 'bottom'):\n            # vertical tiling; box should have same column range (cols start..start+3)\n            for (br, bc, bcol) in boxes:\n                if bc == start:\n                    target_box = (br, bc, bcol)\n                    break\n        else:\n            # horizontal tiling; box should have same row range (rows start..start+3)\n            for (br, bc, bcol) in boxes:\n                if br == start:\n                    target_box = (br, bc, bcol)\n                    break\n\n        if target_box is None:\n            continue\n\n        br, bc, bcol = target_box\n\n        # Tile from box toward marker, adjacent (no overlap), until reaching/past marker\n        if orient == 'top':\n            # tile upward; next tile at row br - 4\n            cur_r = br - 4\n            while cur_r + 3 >= 0:  # tile still has visible part\n                stamp(out, cur_r, bc, bcol)\n                cur_r -= 4\n        elif orient == 'bottom':\n            cur_r = br + 4\n            while cur_r < H:\n                stamp(out, cur_r, bc, bcol)\n                cur_r += 4\n        elif orient == 'left':\n            cur_c = bc - 4\n            while cur_c + 3 >= 0:\n                stamp(out, br, cur_c, bcol)\n                cur_c -= 4\n        elif orient == 'right':\n            cur_c = bc + 4\n            while cur_c < W:\n                stamp(out, br, cur_c, bcol)\n                cur_c += 4\n\n    return out\n",
+      "source": "claude_agent_batch_006_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
