@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "0607ce86",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import Counter\nfrom itertools import combinations\n\ndef solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    g = [row[:] for row in input_grid]\n\n    rnz = [sum(1 for v in row if v != 0) for row in g]\n    cnz = [sum(1 for r in range(H) if g[r][c] != 0) for c in range(W)]\n\n    def top_tuples(nz, length, num, top_k=10):\n        n = len(nz)\n        if n < length:\n            return []\n        wsum = []\n        for i in range(n - length + 1):\n            wsum.append((sum(nz[i:i + length]), i))\n        wsum.sort(reverse=True)\n        candidates = sorted(set(x[1] for x in wsum[:25]))\n        results = []\n        for combo in combinations(candidates, num):\n            ok = True\n            for i in range(len(combo) - 1):\n                if combo[i] + length > combo[i + 1]:\n                    ok = False\n                    break\n            if not ok:\n                continue\n            s = sum(sum(nz[c:c + length]) for c in combo)\n            results.append((s, combo))\n        results.sort(reverse=True)\n        return [r[1] for r in results[:top_k]]\n\n    best = None\n    best_score = -1\n\n    for nrows in (2, 3):\n        for ncols in (2, 3):\n            for h in range(3, 9):\n                if h * nrows > H:\n                    continue\n                rtuples = top_tuples(rnz, h, nrows, top_k=8)\n                if not rtuples:\n                    continue\n                for w in range(3, 9):\n                    if w * ncols > W:\n                        continue\n                    ctuples = top_tuples(cnz, w, ncols, top_k=8)\n                    if not ctuples:\n                        continue\n                    for rs in rtuples:\n                        for cs in ctuples:\n                            num_inst = len(rs) * len(cs)\n                            template = [[0] * w for _ in range(h)]\n                            score = 0\n                            for i in range(h):\n                                for j in range(w):\n                                    vals = [g[rr + i][cc + j] for rr in rs for cc in cs]\n                                    mc_val, mc_count = Counter(vals).most_common(1)[0]\n                                    template[i][j] = mc_val\n                                    score += mc_count\n                            consistency = score / (num_inst * h * w)\n                            if consistency < 0.55:\n                                continue\n                            nonzero_count = sum(1 for row in template for v in row if v != 0)\n                            if nonzero_count == 0:\n                                continue\n\n                            border_zero = 0\n                            for rr in rs:\n                                for cc in cs:\n                                    if cc - 1 >= 0:\n                                        for i in range(h):\n                                            if g[rr + i][cc - 1] == 0:\n                                                border_zero += 1\n                                    if cc + w < W:\n                                        for i in range(h):\n                                            if g[rr + i][cc + w] == 0:\n                                                border_zero += 1\n                                    if rr - 1 >= 0:\n                                        for j in range(w):\n                                            if g[rr - 1][cc + j] == 0:\n                                                border_zero += 1\n                                    if rr + h < H:\n                                        for j in range(w):\n                                            if g[rr + h][cc + j] == 0:\n                                                border_zero += 1\n\n                            metric = score + border_zero\n                            if metric > best_score:\n                                best_score = metric\n                                best = (rs, cs, h, w, template)\n\n    if best is None:\n        return [row[:] for row in input_grid]\n\n    rs, cs, h, w, template = best\n    out = [[0] * W for _ in range(H)]\n    for rr in rs:\n        for cc in cs:\n            for i in range(h):\n                for j in range(w):\n                    out[rr + i][cc + j] = template[i][j]\n    return out\n",
+      "source": "claude_agent_batch_002_v2_full_puzzle",
+      "approach": "Agent v2 full-puzzle prompt; code transcribed from chat, validated by execution against all training+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
