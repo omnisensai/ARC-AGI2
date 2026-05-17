@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "508bd3b6",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    eights = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 8]\n    twos = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 2]\n\n    if not twos or not eights:\n        return grid\n\n    wall_cr = sum(r for r, c in twos) / len(twos)\n    wall_cc = sum(c for r, c in twos) / len(twos)\n\n    eights_sorted = sorted(\n        eights,\n        key=lambda rc: (rc[0] - wall_cr) ** 2 + (rc[1] - wall_cc) ** 2,\n    )\n    head = eights_sorted[0]\n    tail = eights_sorted[-1]\n    dr = head[0] - tail[0]\n    dc = head[1] - tail[1]\n    steps = max(abs(dr), abs(dc))\n    if steps > 0:\n        dr //= steps\n        dc //= steps\n\n    r, c = head\n    cur_dr, cur_dc = dr, dc\n    while True:\n        nr, nc = r + cur_dr, c + cur_dc\n        if nr < 0 or nr >= H or nc < 0 or nc >= W:\n            break\n        if grid[nr][nc] == 2:\n            vert_wall = 0 <= nr < H and grid[nr][c] == 2\n            horiz_wall = 0 <= nc < W and grid[r][nc] == 2\n            if vert_wall and not horiz_wall:\n                cur_dr = -cur_dr\n            elif horiz_wall and not vert_wall:\n                cur_dc = -cur_dc\n            else:\n                cur_dr = -cur_dr\n                cur_dc = -cur_dc\n            nr, nc = r + cur_dr, c + cur_dc\n            if nr < 0 or nr >= H or nc < 0 or nc >= W:\n                break\n            if grid[nr][nc] == 2:\n                break\n        if grid[nr][nc] == 0:\n            grid[nr][nc] = 3\n        r, c = nr, nc\n\n    return grid\n",
+      "source": "claude_agent_batch_005_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
