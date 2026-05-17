@@ -1,0 +1,714 @@
+{
+  "description": "Agent-generated solver codes for 10 ARC-AGI-2 training puzzles (excluded from baseline_10). Each puzzle has its R1 agent-produced code, validation result, judge votes (5 LLM judges per correct code), and consensus rule name + description if >=3 judges agreed.",
+  "timestamp": "2026-05-17T13:55:50.513493",
+  "method": "claude_agent_R1_then_5_judges",
+  "prompt_version": "v1_seed_only_no_test_answer",
+  "records": [
+    {
+      "puzzle_id": "18419cfa",
+      "source": "arc2_train",
+      "r1": {
+        "bucket": "correct",
+        "exec_error": null,
+        "pairs": [
+          {
+            "type": "train",
+            "idx": 0,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 1,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 2,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "test",
+            "idx": 3,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          }
+        ],
+        "code": "import numpy as np\nfrom scipy.ndimage import label\n\ndef solve(input_grid):\n    G = np.array(input_grid)\n    out = G.copy()\n\n    eights_mask = (G == 8).astype(int)\n    lbl, n = label(eights_mask, structure=np.ones((3, 3)))\n\n    for i in range(1, n + 1):\n        comp = (lbl == i)\n        ey, ex = np.where(comp)\n        if len(ey) == 0:\n            continue\n        y0, y1 = ey.min(), ey.max()\n        x0, x1 = ex.min(), ex.max()\n\n        ty_list = []\n        tx_list = []\n        for r in range(y0, y1 + 1):\n            for c in range(x0, x1 + 1):\n                if G[r, c] == 2:\n                    ty_list.append(r)\n                    tx_list.append(c)\n\n        if not ty_list:\n            continue\n\n        height = y1 - y0 + 1\n        width = x1 - x0 + 1\n\n        top_count = int(comp[y0, x0:x1 + 1].sum())\n        bot_count = int(comp[y1, x0:x1 + 1].sum())\n        left_count = int(comp[y0:y1 + 1, x0].sum())\n        right_count = int(comp[y0:y1 + 1, x1].sum())\n\n        horizontal_mirror = (left_count < height / 2) and (right_count < height / 2)\n        vertical_mirror = (top_count < width / 2) and (bot_count < width / 2)\n\n        if horizontal_mirror:\n            cx = (x0 + x1) / 2.0\n            for y, x in zip(ty_list, tx_list):\n                nx = int(round(2 * cx - x))\n                if 0 <= nx < G.shape[1]:\n                    out[y, nx] = 2\n        elif vertical_mirror:\n            cy = (y0 + y1) / 2.0\n            for y, x in zip(ty_list, tx_list):\n                ny = int(round(2 * cy - y))\n                if 0 <= ny < G.shape[0]:\n                    out[ny, x] = 2\n\n    return out.tolist()\n"
+      },
+      "judging": {
+        "votes": [
+          {
+            "name": "mirror_markers_across_box_gap",
+            "desc": "For each 8-bordered box, reflect the 2-colored markers across the axis perpendicular to the box's open side(s), filling in the missing symmetric half."
+          },
+          {
+            "name": "mirror_markers_across_box_axis",
+            "desc": "Within each rectangular 8-bordered box, reflect the 2-marker pattern across the box's axis of symmetry that is perpendicular to the side broken by gap openings."
+          },
+          {
+            "name": "mirror_markers_across_box_gap",
+            "desc": "Within each 8-bordered box, reflect the 2-colored markers across the axis perpendicular to the box's broken (gapped) side so the pattern becomes symmetric about that opening."
+          },
+          {
+            "name": "mirror_markers_across_box_open_axis",
+            "desc": "Within each 8-bordered box, reflect the interior 2-markers across the axis perpendicular to the side that has gap openings, completing the symmetric pattern."
+          },
+          {
+            "name": "mirror_markers_across_open_box_axis",
+            "desc": "Within each 8-bordered box, reflect the interior 2-markers across the axis perpendicular to the box's open (gapped) sides to complete a symmetric pattern."
+          }
+        ],
+        "counts": {
+          "mirror_markers_across_box_gap": 2,
+          "mirror_markers_across_box_axis": 1,
+          "mirror_markers_across_box_open_axis": 1,
+          "mirror_markers_across_open_box_axis": 1
+        }
+      },
+      "consensus": null
+    },
+    {
+      "puzzle_id": "1f876c06",
+      "source": "arc2_train",
+      "r1": {
+        "bucket": "correct",
+        "exec_error": null,
+        "pairs": [
+          {
+            "type": "train",
+            "idx": 0,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 1,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 2,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "test",
+            "idx": 3,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          }
+        ],
+        "code": "def solve(input_grid):\n    h = len(input_grid)\n    w = len(input_grid[0])\n    out = [[0]*w for _ in range(h)]\n    pos = {}\n    for r in range(h):\n        for c in range(w):\n            v = input_grid[r][c]\n            if v != 0:\n                pos.setdefault(v, []).append((r, c))\n    for color, points in pos.items():\n        if len(points) == 2:\n            (r1, c1), (r2, c2) = points\n            dr = r2 - r1\n            dc = c2 - c1\n            steps = max(abs(dr), abs(dc))\n            sr = 0 if dr == 0 else (1 if dr > 0 else -1)\n            sc = 0 if dc == 0 else (1 if dc > 0 else -1)\n            for i in range(steps + 1):\n                out[r1 + i * sr][c1 + i * sc] = color\n        else:\n            for (r, c) in points:\n                out[r][c] = color\n    return out\n"
+      },
+      "judging": {
+        "votes": [
+          {
+            "name": "connect_color_pairs_with_diagonal_line",
+            "desc": "For each color appearing exactly twice, draw a straight line (horizontal, vertical, or diagonal) of that color between the two endpoints, filling every cell along the path."
+          },
+          {
+            "name": "connect_color_pairs_with_diagonals",
+            "desc": "For each color appearing exactly twice, draw a straight line of that color between the two points using unit steps in each axis direction."
+          },
+          {
+            "name": "connect_color_pairs_with_diagonal_line",
+            "desc": "For each color appearing exactly twice, draw a straight line of that color between the two cells using equal row and column steps (king-move stepping)."
+          },
+          {
+            "name": "connect_color_pairs_with_diagonals",
+            "desc": "For each color appearing exactly twice, draw a straight line of that color between its two cells along the axis-aligned or diagonal step direction connecting them."
+          },
+          {
+            "name": "connect_same_color_pairs_with_line",
+            "desc": "For each color appearing exactly twice, draw a straight line of that color between the two cells along the direction defined by their relative offset (using equal horizontal and vertical steps)."
+          }
+        ],
+        "counts": {
+          "connect_color_pairs_with_diagonal_line": 2,
+          "connect_color_pairs_with_diagonals": 2,
+          "connect_same_color_pairs_with_line": 1
+        }
+      },
+      "consensus": null
+    },
+    {
+      "puzzle_id": "2601afb7",
+      "source": "arc2_train",
+      "r1": {
+        "bucket": "correct",
+        "exec_error": null,
+        "pairs": [
+          {
+            "type": "train",
+            "idx": 0,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 1,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 2,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "test",
+            "idx": 3,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          }
+        ],
+        "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    bg = 7\n    bars = []\n    for c in range(W):\n        col_vals = [input_grid[r][c] for r in range(H)]\n        non_bg = [v for v in col_vals if v != bg]\n        if non_bg:\n            color = non_bg[0]\n            length = len(non_bg)\n            bars.append((c, color, length))\n    bars.sort()\n    cols = [b[0] for b in bars]\n    colors = [b[1] for b in bars]\n    lengths = [b[2] for b in bars]\n    n = len(bars)\n    new_colors = [colors[(i - 1) % n] for i in range(n)]\n    new_lengths = [lengths[(i + 1) % n] for i in range(n)]\n    out = [[bg] * W for _ in range(H)]\n    for i, c in enumerate(cols):\n        color = new_colors[i]\n        length = new_lengths[i]\n        for k in range(length):\n            out[H - 1 - k][c] = color\n    return out\n"
+      },
+      "judging": {
+        "votes": [
+          {
+            "name": "rotate_bar_colors_and_lengths",
+            "desc": "For bottom-anchored vertical bars (sorted left to right), each bar takes the color of the previous bar and the length of the next bar, cycling around."
+          },
+          {
+            "name": "rotate_bar_colors_and_lengths",
+            "desc": "For vertical bars (sorted left-to-right) anchored at the grid bottom, assign each bar the color of its left neighbor and the length of its right neighbor (both cyclically)."
+          },
+          {
+            "name": "rotate_bar_colors_and_lengths",
+            "desc": "Bottom-anchored vertical bars keep their columns but each bar takes the color of the previous bar (left neighbor, cyclic) and the length of the next bar (right neighbor, cyclic)."
+          },
+          {
+            "name": "rotate_bar_colors_and_lengths",
+            "desc": "For vertical bars sorted left-to-right and anchored to the bottom, each bar takes the previous bar's color and the next bar's length (cyclically)."
+          },
+          {
+            "name": "rotate_bar_colors_and_lengths",
+            "desc": "For vertical bars sorted left-to-right and anchored at the bottom, shift each bar's color to the next column on the right (cyclically) while shifting each bar's length to the next column on the left (cyclically)."
+          }
+        ],
+        "counts": {
+          "rotate_bar_colors_and_lengths": 5
+        }
+      },
+      "consensus": {
+        "name": "rotate_bar_colors_and_lengths",
+        "desc": "For bottom-anchored vertical bars (sorted left to right), each bar takes the color of the previous bar and the length of the next bar, cycling around.",
+        "majority": "5/5",
+        "solver_path": "Solvers/rotate_bar_colors_and_lengths.py"
+      }
+    },
+    {
+      "puzzle_id": "3e980e27",
+      "source": "arc2_train",
+      "r1": {
+        "bucket": "wrong_test",
+        "exec_error": null,
+        "pairs": [
+          {
+            "type": "train",
+            "idx": 0,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 1,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 2,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 3,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "test",
+            "idx": 4,
+            "passed": false,
+            "cell_diff": 12,
+            "error": null
+          }
+        ],
+        "code": "def solve(input_grid):\n    from collections import deque\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    seen = [[False]*W for _ in range(H)]\n    components = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != 0 and not seen[r][c]:\n                q = deque([(r,c)])\n                seen[r][c] = True\n                cells = []\n                while q:\n                    cr, cc = q.popleft()\n                    cells.append((cr, cc))\n                    for dr in (-1,0,1):\n                        for dc in (-1,0,1):\n                            if dr == 0 and dc == 0:\n                                continue\n                            nr, nc = cr+dr, cc+dc\n                            if 0 <= nr < H and 0 <= nc < W and not seen[nr][nc] and grid[nr][nc] != 0:\n                                seen[nr][nc] = True\n                                q.append((nr, nc))\n                components.append(cells)\n\n    templates = []\n    markers = []\n    for comp in components:\n        if len(comp) == 1:\n            r, c = comp[0]\n            markers.append((r, c, grid[r][c]))\n        else:\n            color_count = {}\n            for (r, c) in comp:\n                col = grid[r][c]\n                color_count[col] = color_count.get(col, 0) + 1\n            marker_color = None\n            for col, cnt in color_count.items():\n                if cnt == 1:\n                    marker_color = col\n                    break\n            if marker_color is None:\n                continue\n            marker_pos = None\n            body_cells = []\n            for (r, c) in comp:\n                if grid[r][c] == marker_color:\n                    marker_pos = (r, c)\n                else:\n                    body_cells.append((r, c, grid[r][c]))\n            templates.append({\n                'marker_color': marker_color,\n                'marker_pos': marker_pos,\n                'body_cells': body_cells\n            })\n\n    out = [row[:] for row in grid]\n    for (mr, mc, mcol) in markers:\n        for tmpl in templates:\n            if tmpl['marker_color'] == mcol:\n                tr, tc = tmpl['marker_pos']\n                offsets = [(br - tr, bc - tc, bcol) for (br, bc, bcol) in tmpl['body_cells']]\n                flip = any(dr == dc and dr != 0 for (dr, dc, _) in offsets)\n                if flip:\n                    offsets = [(dr, -dc, bcol) for (dr, dc, bcol) in offsets]\n                for (dr, dc, bcol) in offsets:\n                    nr, nc = mr + dr, mc + dc\n                    if 0 <= nr < H and 0 <= nc < W:\n                        out[nr][nc] = bcol\n                break\n\n    return out\n"
+      },
+      "judging": null,
+      "consensus": null
+    },
+    {
+      "puzzle_id": "855e0971",
+      "source": "arc2_train",
+      "r1": {
+        "bucket": "correct",
+        "exec_error": null,
+        "pairs": [
+          {
+            "type": "train",
+            "idx": 0,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 1,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 2,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 3,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "test",
+            "idx": 4,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          }
+        ],
+        "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    def row_uniform_color(r):\n        vals = set(v for v in grid[r] if v != 0)\n        return vals.pop() if len(vals) == 1 else None\n\n    def col_uniform_color(c):\n        vals = set(grid[r][c] for r in range(H) if grid[r][c] != 0)\n        return vals.pop() if len(vals) == 1 else None\n\n    row_colors = [row_uniform_color(r) for r in range(H)]\n    col_colors = [col_uniform_color(c) for c in range(W)]\n\n    rows_uniform = all(rc is not None for rc in row_colors)\n    cols_uniform = all(cc is not None for cc in col_colors)\n\n    horizontal = rows_uniform and not cols_uniform\n    if not horizontal and not (cols_uniform and not rows_uniform):\n        horizontal = len(set(row_colors)) >= len(set(col_colors))\n\n    h_bands = []\n    if rows_uniform:\n        start = 0\n        for r in range(1, H):\n            if row_colors[r] != row_colors[start]:\n                h_bands.append((start, r - 1, row_colors[start]))\n                start = r\n        h_bands.append((start, H - 1, row_colors[start]))\n\n    v_bands = []\n    if cols_uniform:\n        start = 0\n        for c in range(1, W):\n            if col_colors[c] != col_colors[start]:\n                v_bands.append((start, c - 1, col_colors[start]))\n                start = c\n        v_bands.append((start, W - 1, col_colors[start]))\n\n    zeros = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 0]\n\n    out = [row[:] for row in grid]\n\n    if horizontal:\n        for r, c in zeros:\n            for s, e, col in h_bands:\n                if s <= r <= e:\n                    out[r][c] = col\n                    break\n        for r, c in zeros:\n            for s, e, col in h_bands:\n                if s <= r <= e:\n                    for rr in range(s, e + 1):\n                        out[rr][c] = 0\n                    break\n    else:\n        for r, c in zeros:\n            for s, e, col in v_bands:\n                if s <= c <= e:\n                    out[r][c] = col\n                    break\n        for r, c in zeros:\n            for s, e, col in v_bands:\n                if s <= c <= e:\n                    for cc in range(s, e + 1):\n                        out[r][cc] = 0\n                    break\n\n    return out\n"
+      },
+      "judging": {
+        "votes": [
+          {
+            "name": "extend_zero_markers_across_bands",
+            "desc": "Within each uniform-colored band (rows or columns), extend every zero marker into a full perpendicular line spanning that band's width."
+          },
+          {
+            "name": "extend_zeros_across_bands",
+            "desc": "In a grid divided into uniform color bands, each zero marker is extended into a full perpendicular line spanning its band."
+          },
+          {
+            "name": "extend_zero_markers_across_bands",
+            "desc": "Within each uniform-colored band, extend every zero marker into a full line perpendicular to the band's orientation, spanning the band's width."
+          },
+          {
+            "name": "extend_zero_markers_across_bands",
+            "desc": "Within each uniform-colored band (rows or columns), extend every zero marker into a full perpendicular line spanning that band's width."
+          },
+          {
+            "name": "extend_zeros_across_bands_perpendicular",
+            "desc": "Within each uniform-colored band, replace every zero marker with a full line of zeros spanning the band perpendicular to the band's orientation."
+          }
+        ],
+        "counts": {
+          "extend_zero_markers_across_bands": 3,
+          "extend_zeros_across_bands": 1,
+          "extend_zeros_across_bands_perpendicular": 1
+        }
+      },
+      "consensus": {
+        "name": "extend_zero_markers_across_bands",
+        "desc": "Within each uniform-colored band (rows or columns), extend every zero marker into a full perpendicular line spanning that band's width.",
+        "majority": "3/5",
+        "solver_path": "Solvers/extend_zero_markers_across_bands.py"
+      }
+    },
+    {
+      "puzzle_id": "95990924",
+      "source": "arc2_train",
+      "r1": {
+        "bucket": "correct",
+        "exec_error": null,
+        "pairs": [
+          {
+            "type": "train",
+            "idx": 0,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 1,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 2,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "test",
+            "idx": 3,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          }
+        ],
+        "code": "def solve(input_grid):\n    h = len(input_grid)\n    w = len(input_grid[0])\n    out = [row[:] for row in input_grid]\n    seen = set()\n    for r in range(h - 1):\n        for c in range(w - 1):\n            if (r, c) in seen:\n                continue\n            if (input_grid[r][c] == 5 and input_grid[r][c+1] == 5\n                    and input_grid[r+1][c] == 5 and input_grid[r+1][c+1] == 5):\n                seen.add((r, c))\n                for (rr, cc, v) in [(r-1, c-1, 1), (r-1, c+2, 2), (r+2, c-1, 3), (r+2, c+2, 4)]:\n                    if 0 <= rr < h and 0 <= cc < w and out[rr][cc] == 0:\n                        out[rr][cc] = v\n    return out\n"
+      },
+      "judging": {
+        "votes": [
+          {
+            "name": "mark_2x2_block_diagonal_corners",
+            "desc": "For each 2x2 block of 5s, place 1, 2, 3, 4 at the four diagonally adjacent cells just outside its top-left, top-right, bottom-left, and bottom-right corners."
+          },
+          {
+            "name": "mark_2x2_block_diagonal_corners",
+            "desc": "For each 2x2 block of 5s, place the markers 1, 2, 3, 4 at the four diagonally adjacent cells (top-left, top-right, bottom-left, bottom-right) just outside the block, leaving any cells outside the grid or already non-zero unchanged."
+          },
+          {
+            "name": "mark_2x2_block_diagonal_corners",
+            "desc": "For each 2x2 block of 5s, place 1, 2, 3, 4 at the four diagonal-corner cells just outside the block (top-left, top-right, bottom-left, bottom-right) wherever those cells are within bounds and currently empty."
+          },
+          {
+            "name": "mark_2x2_block_diagonal_corners",
+            "desc": "For each 2x2 block of 5s, place 1, 2, 3, 4 at the four diagonally-adjacent outer corner cells (top-left, top-right, bottom-left, bottom-right) when those cells are empty and in-bounds."
+          },
+          {
+            "name": "mark_2x2_block_diagonal_corners",
+            "desc": "For each 2x2 block of 5s, place the markers 1, 2, 3, 4 at the four diagonally-adjacent outer corners (top-left, top-right, bottom-left, bottom-right) when those cells are empty."
+          }
+        ],
+        "counts": {
+          "mark_2x2_block_diagonal_corners": 5
+        }
+      },
+      "consensus": {
+        "name": "mark_2x2_block_diagonal_corners",
+        "desc": "For each 2x2 block of 5s, place 1, 2, 3, 4 at the four diagonally adjacent cells just outside its top-left, top-right, bottom-left, and bottom-right corners.",
+        "majority": "5/5",
+        "solver_path": "Solvers/mark_2x2_block_diagonal_corners.py"
+      }
+    },
+    {
+      "puzzle_id": "9caf5b84",
+      "source": "arc2_train",
+      "r1": {
+        "bucket": "correct",
+        "exec_error": null,
+        "pairs": [
+          {
+            "type": "train",
+            "idx": 0,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 1,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 2,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 3,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "test",
+            "idx": 4,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          }
+        ],
+        "code": "from collections import Counter\n\ndef solve(input_grid):\n    cnt = Counter()\n    for row in input_grid:\n        for v in row:\n            cnt[v] += 1\n    top2 = set(v for v, _ in cnt.most_common(2))\n    return [[v if v in top2 else 7 for v in row] for row in input_grid]\n"
+      },
+      "judging": {
+        "votes": [
+          {
+            "name": "replace_minority_colors_with_seven",
+            "desc": "Keep the two most frequent colors in the grid unchanged and replace every other cell with 7."
+          },
+          {
+            "name": "replace_non_top2_colors_with_seven",
+            "desc": "Keep the two most frequent colors in the grid unchanged and replace every other cell with 7."
+          },
+          {
+            "name": "replace_non_top2_colors_with_seven",
+            "desc": "Keep the two most frequent colors in the grid unchanged and replace every other cell with 7."
+          },
+          {
+            "name": "replace_non_top2_colors_with_seven",
+            "desc": "Keep the two most frequent colors in the grid unchanged and replace every other cell with 7."
+          },
+          {
+            "name": "replace_minority_colors_with_seven",
+            "desc": "Keep the two most frequent colors in the grid and replace every other cell with 7."
+          }
+        ],
+        "counts": {
+          "replace_minority_colors_with_seven": 2,
+          "replace_non_top2_colors_with_seven": 3
+        }
+      },
+      "consensus": {
+        "name": "replace_non_top2_colors_with_seven",
+        "desc": "Keep the two most frequent colors in the grid unchanged and replace every other cell with 7.",
+        "majority": "3/5",
+        "solver_path": "Solvers/replace_non_top2_colors_with_seven.py"
+      }
+    },
+    {
+      "puzzle_id": "d6542281",
+      "source": "arc2_train",
+      "r1": {
+        "bucket": "correct",
+        "exec_error": null,
+        "pairs": [
+          {
+            "type": "train",
+            "idx": 0,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 1,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 2,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "test",
+            "idx": 3,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "test",
+            "idx": 4,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          }
+        ],
+        "code": "from collections import Counter, deque\n\ndef solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    H = len(grid)\n    W = len(grid[0])\n\n    cnt = Counter()\n    for r in range(H):\n        for c in range(W):\n            cnt[grid[r][c]] += 1\n    bg = cnt.most_common(1)[0][0]\n\n    visited = [[False]*W for _ in range(H)]\n    components = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != bg and not visited[r][c]:\n                q = deque([(r,c)])\n                visited[r][c] = True\n                comp = []\n                while q:\n                    y,x = q.popleft()\n                    comp.append((y,x,grid[y][x]))\n                    for dy in (-1,0,1):\n                        for dx in (-1,0,1):\n                            if dy==0 and dx==0: continue\n                            ny,nx = y+dy, x+dx\n                            if 0<=ny<H and 0<=nx<W and not visited[ny][nx] and grid[ny][nx]!=bg:\n                                visited[ny][nx] = True\n                                q.append((ny,nx))\n                components.append(comp)\n\n    def bbox(comp):\n        rs = [c[0] for c in comp]\n        cs = [c[1] for c in comp]\n        return min(rs), min(cs), max(rs), max(cs)\n\n    n = len(components)\n    parent = list(range(n))\n    def find(x):\n        while parent[x] != x:\n            parent[x] = parent[parent[x]]\n            x = parent[x]\n        return x\n    def union(a,b):\n        ra,rb = find(a), find(b)\n        if ra != rb: parent[ra] = rb\n\n    PROX = 2\n    bboxes = [bbox(c) for c in components]\n    for i in range(n):\n        for j in range(i+1, n):\n            r1a,c1a,r2a,c2a = bboxes[i]\n            r1b,c1b,r2b,c2b = bboxes[j]\n            dr = max(0, max(r1a,r1b) - min(r2a,r2b))\n            dc = max(0, max(c1a,c1b) - min(c2a,c2b))\n            if dr <= PROX and dc <= PROX:\n                union(i,j)\n\n    clusters = {}\n    for i in range(n):\n        rr = find(i)\n        clusters.setdefault(rr, []).append(i)\n\n    cluster_info = []\n    for k, idxs in clusters.items():\n        cells = []\n        for i in idxs:\n            cells.extend(components[i])\n        colors = frozenset(c[2] for c in cells)\n        cluster_info.append({'idx': k, 'comps': idxs, 'cells': cells, 'colors': colors})\n\n    def normalize(cells):\n        rs = [c[0] for c in cells]\n        cs = [c[1] for c in cells]\n        mr, mc = min(rs), min(cs)\n        return frozenset((r-mr, c-mc, v) for r,c,v in cells), mr, mc\n\n    norm_patterns = []\n    for ci in cluster_info:\n        pat, mr, mc = normalize(ci['cells'])\n        norm_patterns.append((pat, mr, mc))\n\n    def is_subset_under_translation(small_pat, large_pat):\n        small_list = list(small_pat)\n        if not small_list: return None\n        s0 = small_list[0]\n        for lc in large_pat:\n            if lc[2] != s0[2]: continue\n            off_r = lc[0] - s0[0]\n            off_c = lc[1] - s0[1]\n            shifted = frozenset((r+off_r, c+off_c, v) for r,c,v in small_pat)\n            if shifted <= large_pat:\n                return (off_r, off_c)\n        return None\n\n    is_partial = [False]*len(cluster_info)\n    template_of = [None]*len(cluster_info)\n    offset_of = [None]*len(cluster_info)\n    for i, ci in enumerate(cluster_info):\n        best_size = 0\n        for j, cj in enumerate(cluster_info):\n            if i == j: continue\n            if len(cj['cells']) <= len(ci['cells']): continue\n            if not ci['colors'].issubset(cj['colors']): continue\n            off = is_subset_under_translation(norm_patterns[i][0], norm_patterns[j][0])\n            if off is not None:\n                if len(cj['cells']) > best_size:\n                    best_size = len(cj['cells'])\n                    template_of[i] = j\n                    offset_of[i] = off\n                    is_partial[i] = True\n\n    output = [row[:] for row in grid]\n\n    unique_colors = {color for color, c in cnt.items() if c == 1 and color != bg}\n\n    template_indices = set()\n    for i in range(len(cluster_info)):\n        if is_partial[i]:\n            template_indices.add(template_of[i])\n\n    for partial_idx in range(len(cluster_info)):\n        if not is_partial[partial_idx]:\n            continue\n        template_idx = template_of[partial_idx]\n        off_r, off_c = offset_of[partial_idx]\n        partial_pat, p_mr, p_mc = norm_patterns[partial_idx]\n        template_pat, t_mr, t_mc = norm_patterns[template_idx]\n        for DR, DC, v in template_pat:\n            gr = DR - off_r + p_mr\n            gc = DC - off_c + p_mc\n            if 0 <= gr < H and 0 <= gc < W:\n                output[gr][gc] = v\n\n    for color in unique_colors:\n        for r in range(H):\n            for c in range(W):\n                if grid[r][c] == color:\n                    for ti in template_indices:\n                        cells = cluster_info[ti]['cells']\n                        if any(cr == r and cc == c for cr,cc,_ in cells):\n                            output[r][c] = bg\n                            break\n\n    return output\n"
+      },
+      "judging": {
+        "votes": [
+          {
+            "name": "complete_partial_shapes_from_templates",
+            "desc": "For each cluster that is a translated subset of a larger complete template cluster, fill in the missing cells using the template's pattern aligned to the partial fragment."
+          },
+          {
+            "name": "complete_partial_shapes_from_templates",
+            "desc": "For each cluster of nearby fragments that matches a sub-pattern of a larger complete template cluster elsewhere in the grid, fill in the missing cells using the template aligned by the shared sub-pattern."
+          },
+          {
+            "name": "complete_partial_shapes_from_templates",
+            "desc": "For each cluster of nearby shapes that is a translational sub-pattern of a larger complete cluster, fill in the missing cells using the matching template so every partial occurrence becomes a full copy of its template."
+          },
+          {
+            "name": "complete_partial_shapes_from_templates",
+            "desc": "For each cluster of nearby non-background cells that is a translated subset of a larger cluster sharing its colors, fill in the missing cells so the partial shape matches the full template."
+          },
+          {
+            "name": "complete_partial_shapes_from_templates",
+            "desc": "For each cluster of nearby non-background cells that is a translated sub-pattern of a larger complete shape elsewhere in the grid, fill in the missing cells using the matching template."
+          }
+        ],
+        "counts": {
+          "complete_partial_shapes_from_templates": 5
+        }
+      },
+      "consensus": {
+        "name": "complete_partial_shapes_from_templates",
+        "desc": "For each cluster that is a translated subset of a larger complete template cluster, fill in the missing cells using the template's pattern aligned to the partial fragment.",
+        "majority": "5/5",
+        "solver_path": "Solvers/complete_partial_shapes_from_templates.py"
+      }
+    },
+    {
+      "puzzle_id": "e509e548",
+      "source": "arc2_train",
+      "r1": {
+        "bucket": "correct",
+        "exec_error": null,
+        "pairs": [
+          {
+            "type": "train",
+            "idx": 0,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 1,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 2,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "test",
+            "idx": 3,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          }
+        ],
+        "code": "def solve(input_grid):\n    from collections import deque\n    H = len(input_grid)\n    W = len(input_grid[0])\n    visited = [[False]*W for _ in range(H)]\n    out = [[0]*W for _ in range(H)]\n\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 3 and not visited[r][c]:\n                comp = []\n                q = deque([(r, c)])\n                visited[r][c] = True\n                while q:\n                    cr, cc = q.popleft()\n                    comp.append((cr, cc))\n                    for dr in (-1, 0, 1):\n                        for dc in (-1, 0, 1):\n                            if dr == 0 and dc == 0:\n                                continue\n                            nr, nc = cr + dr, cc + dc\n                            if 0 <= nr < H and 0 <= nc < W and not visited[nr][nc] and input_grid[nr][nc] == 3:\n                                visited[nr][nc] = True\n                                q.append((nr, nc))\n\n                cells = set(comp)\n                endpoints = 0\n                corners = 0\n                tjunc = 0\n                for cr, cc in cells:\n                    nbrs = []\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        if (cr + dr, cc + dc) in cells:\n                            nbrs.append((dr, dc))\n                    if len(nbrs) == 1:\n                        endpoints += 1\n                    elif len(nbrs) == 2:\n                        (a, b), (c2, d) = nbrs\n                        if a * c2 + b * d == 0:\n                            corners += 1\n                    elif len(nbrs) >= 3:\n                        tjunc += 1\n\n                if tjunc >= 1 or endpoints >= 3:\n                    color = 2\n                elif corners >= 2:\n                    color = 6\n                else:\n                    color = 1\n\n                for cr, cc in cells:\n                    out[cr][cc] = color\n\n    return out\n"
+      },
+      "judging": {
+        "votes": [
+          {
+            "name": "recolor_shapes_by_junction_topology",
+            "desc": "Each connected component of 3s is recolored based on its skeleton topology: components with T-junctions or three-plus endpoints become 2, those with two-plus right-angle corners become 6, and the rest become 1."
+          },
+          {
+            "name": "recolor_shapes_by_junction_type",
+            "desc": "Recolor each connected component of 3s based on its skeleton structure\u20142 if it has any T-junction or three or more endpoints, 6 if it has at least two right-angle corners, otherwise 1."
+          },
+          {
+            "name": "recolor_shapes_by_junction_type",
+            "desc": "Each connected component of 3s is recolored based on its topology: 2 if it has a T-junction or 3+ endpoints, 6 if it has 2+ right-angle corners, otherwise 1."
+          },
+          {
+            "name": "recolor_shapes_by_junction_topology",
+            "desc": "Recolor each connected component of 3s based on its skeleton topology: components with T-junctions or three or more endpoints become 2, those with two or more right-angle corners become 6, and simple straight lines become 1."
+          },
+          {
+            "name": "recolor_shapes_by_topology",
+            "desc": "Recolor each connected component of 3s based on its shape topology: components with T-junctions or 3+ endpoints become 2, components with 2+ right-angle corners become 6, and simpler shapes become 1."
+          }
+        ],
+        "counts": {
+          "recolor_shapes_by_junction_topology": 2,
+          "recolor_shapes_by_junction_type": 2,
+          "recolor_shapes_by_topology": 1
+        }
+      },
+      "consensus": null
+    },
+    {
+      "puzzle_id": "fe9372f3",
+      "source": "arc2_train",
+      "r1": {
+        "bucket": "correct",
+        "exec_error": null,
+        "pairs": [
+          {
+            "type": "train",
+            "idx": 0,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "train",
+            "idx": 1,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          },
+          {
+            "type": "test",
+            "idx": 2,
+            "passed": true,
+            "cell_diff": 0,
+            "error": null
+          }
+        ],
+        "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    out = [row[:] for row in input_grid]\n    cr = cc = -1\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 2:\n                if (r-1 >= 0 and input_grid[r-1][c] == 2 and\n                    r+1 < H and input_grid[r+1][c] == 2 and\n                    c-1 >= 0 and input_grid[r][c-1] == 2 and\n                    c+1 < W and input_grid[r][c+1] == 2):\n                    cr, cc = r, c\n    for c in range(W):\n        if out[cr][c] != 0:\n            continue\n        d = abs(c - cc) - 1\n        if d <= 0:\n            continue\n        out[cr][c] = 4 if d % 3 == 0 else 8\n    for r in range(H):\n        if out[r][cc] != 0:\n            continue\n        d = abs(r - cr) - 1\n        if d <= 0:\n            continue\n        out[r][cc] = 4 if d % 3 == 0 else 8\n    for dr, dc in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:\n        r, c = cr + dr, cc + dc\n        while 0 <= r < H and 0 <= c < W:\n            if out[r][c] == 0:\n                out[r][c] = 1\n            r += dr\n            c += dc\n    return out\n"
+      },
+      "judging": {
+        "votes": [
+          {
+            "name": "extend_plus_axes_and_diagonals",
+            "desc": "From the plus-shaped 2-cross, extend its horizontal and vertical axes to the grid edges marking every third cell as 4 and the rest as 8, and draw 1s along both diagonals through the cross center."
+          },
+          {
+            "name": "project_plus_axes_and_diagonals_from_center",
+            "desc": "From the plus-shaped 2-cell, extend the two axis lines across the grid with a repeating 8,8,4 pattern and draw 1s along all four diagonals from the center."
+          },
+          {
+            "name": "extend_plus_axes_and_diagonals",
+            "desc": "From the plus-shaped 2 marker, extend its horizontal and vertical axes across the grid with alternating 8/4 (4 every third cell from center) and draw 1-colored diagonals outward from the center."
+          },
+          {
+            "name": "extend_plus_axes_and_diagonals",
+            "desc": "From the plus-shaped 2-cross center, extend the horizontal and vertical axes outward with a repeating 8,8,4 pattern and draw 1s along all four diagonals."
+          },
+          {
+            "name": "project_plus_axes_and_diagonals_from_center",
+            "desc": "From the plus-shaped 2-marker, extend its horizontal and vertical axes across the grid with a repeating 8,8,4 pattern and draw 1-colored diagonals outward from the center in all four directions."
+          }
+        ],
+        "counts": {
+          "extend_plus_axes_and_diagonals": 3,
+          "project_plus_axes_and_diagonals_from_center": 2
+        }
+      },
+      "consensus": {
+        "name": "extend_plus_axes_and_diagonals",
+        "desc": "From the plus-shaped 2-cross, extend its horizontal and vertical axes to the grid edges marking every third cell as 4 and the rest as 8, and draw 1s along both diagonals through the cross center.",
+        "majority": "3/5",
+        "solver_path": "Solvers/extend_plus_axes_and_diagonals.py"
+      }
+    }
+  ]
+}
