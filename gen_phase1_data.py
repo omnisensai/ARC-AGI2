@@ -30,7 +30,8 @@ import random
 from itertools import product
 from pathlib import Path
 
-from substrate import background_of, encode, decode, is_same_size, format_grid
+from substrate import (background_of, encode, decode, is_same_size,
+                       hierarchy_substrate, format_grid)
 
 
 PHASE1A_SYSTEM = (
@@ -46,6 +47,13 @@ PHASE1B_SYSTEM = (
     "produce the output grid. Substrate alphabet: '.' (output equals background), "
     "'=' (output equals input cell), <digit> (output is this color). Background = "
     "most common color in the input. Output has identical dimensions."
+)
+
+HIERARCHY_SYSTEM = (
+    "You decompose ARC grids into structural layers by color frequency. Produce "
+    "the hierarchy substrate: '.' = most common color (background), '#' = second "
+    "most common (structure), 'S' = all other colors (content signal). Ties on "
+    "frequency broken by lower color value. Grid dimensions are preserved."
 )
 
 
@@ -106,34 +114,79 @@ def make_record_1b(inp, out, bg, puzzle_id, aug_tag):
     }
 
 
-def gen_pair_records(inp, out, puzzle_id, n_color_perms, no_augment, rng):
-    """Yield records for one (input, output) pair, across augmentations."""
+def make_record_hierarchy(grid, puzzle_id, aug_tag, side):
+    """Task A2: grid -> hierarchy substrate. Works on any single grid.
+
+    `side` is 'input' or 'output' to disambiguate within a pair.
+    Returns None if the grid has fewer than 2 unique colors or is too small.
+    """
+    if len(grid) < 3 or len(grid[0]) < 3:
+        return None
+    sub = hierarchy_substrate(grid)
+    if sub is None:
+        return None
+    return {
+        "task": "phase1a_hierarchy",
+        "puzzle_id": puzzle_id,
+        "aug": aug_tag,
+        "side": side,
+        "messages": [
+            {"role": "system", "content": HIERARCHY_SYSTEM},
+            {"role": "user", "content": f"GRID:\n{format_grid(grid)}"},
+            {"role": "assistant", "content": format_grid(sub)},
+        ],
+    }
+
+
+def gen_pair_records(inp, out, puzzle_id, n_color_perms, no_augment, rng, same_size):
+    """Yield records for one (input, output) pair, across augmentations.
+
+    Phase 1a + Phase 1b records emitted only when same_size is True (per-cell
+    substrate requires matching dimensions).
+    Task A2 (hierarchy) records emitted regardless — one per grid (input + output).
+    """
     if no_augment:
-        d4_inputs, d4_outputs = [inp], [out]
+        d4_inputs = [inp]
+        d4_outputs = [out]
         d4_tags = ["d4_0"]
     else:
         d4_inputs = d4_variants(inp)
         d4_outputs = d4_variants(out)
         d4_tags = [f"d4_{i}" for i in range(8)]
 
-    for d4_idx, (i_d4, o_d4, tag) in enumerate(zip(d4_inputs, d4_outputs, d4_tags)):
-        bg = background_of(i_d4)
-        yield make_record_1a(i_d4, o_d4, bg, puzzle_id, tag)
-        yield make_record_1b(i_d4, o_d4, bg, puzzle_id, tag)
+    for i_d4, o_d4, tag in zip(d4_inputs, d4_outputs, d4_tags):
+        # Phase 1a + 1b: same-size only
+        if same_size:
+            bg = background_of(i_d4)
+            yield make_record_1a(i_d4, o_d4, bg, puzzle_id, tag)
+            yield make_record_1b(i_d4, o_d4, bg, puzzle_id, tag)
+            for k in range(n_color_perms):
+                perm = list(range(10))
+                rng.shuffle(perm)
+                i_perm = apply_color_perm(i_d4, perm)
+                o_perm = apply_color_perm(o_d4, perm)
+                bg_perm = background_of(i_perm)
+                aug_tag = f"{tag}_cp{k}"
+                yield make_record_1a(i_perm, o_perm, bg_perm, puzzle_id, aug_tag)
+                yield make_record_1b(i_perm, o_perm, bg_perm, puzzle_id, aug_tag)
 
-        for k in range(n_color_perms):
-            perm = list(range(10))
-            rng.shuffle(perm)
-            i_perm = apply_color_perm(i_d4, perm)
-            o_perm = apply_color_perm(o_d4, perm)
-            bg_perm = background_of(i_perm)
-            aug_tag = f"{tag}_cp{k}"
-            yield make_record_1a(i_perm, o_perm, bg_perm, puzzle_id, aug_tag)
-            yield make_record_1b(i_perm, o_perm, bg_perm, puzzle_id, aug_tag)
+        # Task A2 (hierarchy): one record per grid, regardless of same-size.
+        # Color permutations don't apply: hierarchy is frequency-based and
+        # invariant under color relabeling.
+        rec_in = make_record_hierarchy(i_d4, puzzle_id, tag, "input")
+        if rec_in is not None:
+            yield rec_in
+        rec_out = make_record_hierarchy(o_d4, puzzle_id, tag, "output")
+        if rec_out is not None:
+            yield rec_out
 
 
 def collect_universe(repo_root: Path, locked_eval: set):
-    """Return [(puzzle_id, source, path), ...] for all same-size puzzles, excluding locked.
+    """Return [(puzzle_id, source, path, same_size), ...] for ALL non-locked puzzles.
+
+    Phase 1a/1b records are emitted only for same_size puzzles (per-cell substrate
+    requires matching dims). Task A2 hierarchy records are emitted for all puzzles
+    regardless of size.
 
     Shared puzzle IDs across arc1/arc2 have DIFFERENT content (ARC-AGI-2 revised
     many ARC-AGI-1 puzzles). We include both as separate examples — same task ID,
@@ -151,8 +204,7 @@ def collect_universe(repo_root: Path, locked_eval: set):
             if pid in locked_eval:
                 continue
             puzzle = json.loads(path.read_text())
-            if is_same_size(puzzle):
-                universe.append((pid, src_name, path))
+            universe.append((pid, src_name, path, is_same_size(puzzle)))
     return universe
 
 
@@ -176,9 +228,13 @@ def main():
     locked_eval = set(json.loads((splits_dir / "baseline_10.json").read_text())["puzzle_ids"])
 
     universe = collect_universe(repo_root, locked_eval)
-    unique_ids = sorted({pid for pid, _, _ in universe})
-    print(f"Universe: {len(universe)} same-size puzzle examples "
-          f"({len(unique_ids)} unique IDs across arc1_train + arc1_eval + arc2_train)")
+    unique_ids = sorted({pid for pid, _, _, _ in universe})
+    same_size_examples = sum(1 for _, _, _, ss in universe if ss)
+    diff_size_examples = sum(1 for _, _, _, ss in universe if not ss)
+    print(f"Universe: {len(universe)} puzzle examples "
+          f"({len(unique_ids)} unique IDs)")
+    print(f"  same-size: {same_size_examples} examples (Phase 1a + 1b)")
+    print(f"  diff-size: {diff_size_examples} examples (Task A2 hierarchy only)")
 
     # Deterministic train/dev split BY puzzle_id (all source variants of an ID
     # go to the same side, preventing arc1/arc2 cross-variant leakage)
@@ -187,20 +243,24 @@ def main():
     rng.shuffle(shuffled)
     dev_ids = set(shuffled[:args.dev_size])
     train_ids = set(shuffled[args.dev_size:])
-    train_examples = sum(1 for pid, _, _ in universe if pid in train_ids)
-    dev_examples = sum(1 for pid, _, _ in universe if pid in dev_ids)
+    train_examples = sum(1 for pid, _, _, _ in universe if pid in train_ids)
+    dev_examples = sum(1 for pid, _, _, _ in universe if pid in dev_ids)
     print(f"  train: {len(train_ids)} unique IDs ({train_examples} examples)")
     print(f"  dev:   {len(dev_ids)} unique IDs ({dev_examples} examples)")
 
     # Save the universe + split manifest (so it's reproducible)
     (splits_dir / "training_universe.json").write_text(json.dumps({
-        "description": "Phase 1 training universe: all same-size puzzles from "
-                       "ARC-AGI-1 train + eval + ARC-AGI-2 train, minus the 10 "
-                       "locked baseline_10 puzzles. Train/dev split by unique "
-                       "puzzle_id (variants across sources stay together), seed=42.",
+        "description": "Phase 1 training universe: ALL puzzles from ARC-AGI-1 "
+                       "train + eval + ARC-AGI-2 train, minus the 10 locked "
+                       "baseline_10 puzzles. Phase 1a/1b uses the same-size "
+                       "subset only; Task A2 (hierarchy) uses all puzzles. "
+                       "Train/dev split by unique puzzle_id (variants across "
+                       "sources stay together), seed=42.",
         "seed": args.seed,
         "unique_ids_total": len(unique_ids),
         "examples_total": len(universe),
+        "same_size_examples": same_size_examples,
+        "diff_size_examples": diff_size_examples,
         "train_unique_ids": len(train_ids),
         "dev_unique_ids": len(dev_ids),
         "train_examples": train_examples,
@@ -214,17 +274,20 @@ def main():
 
     rec_rng = random.Random(args.seed + 1)
 
+    counts = {"phase1a": 0, "phase1b": 0, "phase1a_hierarchy": 0}
     n_train = 0
     n_dev = 0
     with open(train_path, "w") as ft, open(dev_path, "w") as fd:
-        for pid, src, path in universe:
+        for pid, src, path, same_size in universe:
             puzzle = json.loads(path.read_text())
             sink = ft if pid in train_ids else fd
-            for pair_idx, pair in enumerate(puzzle["train"] + puzzle["test"]):
+            for pair in puzzle["train"] + puzzle["test"]:
                 inp, out = pair["input"], pair["output"]
                 for rec in gen_pair_records(inp, out, pid,
-                                            args.color_perms, args.no_augment, rec_rng):
+                                            args.color_perms, args.no_augment,
+                                            rec_rng, same_size):
                     sink.write(json.dumps(rec) + "\n")
+                    counts[rec["task"]] += 1
                     if pid in train_ids:
                         n_train += 1
                     else:
@@ -233,6 +296,9 @@ def main():
     print(f"\nWrote:")
     print(f"  {train_path}  {n_train:>7,} records")
     print(f"  {dev_path}    {n_dev:>7,} records")
+    print(f"  by task type:")
+    for task, c in counts.items():
+        print(f"    {task:<22} {c:>7,}")
     print(f"  {splits_dir / 'training_universe.json'}")
 
 

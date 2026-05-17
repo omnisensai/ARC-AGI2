@@ -137,14 +137,57 @@ def decode(inp, substrate, bg):
 
 ---
 
-## Two-task curriculum
+## Three-task curriculum
 
-**Phase 1a:** `(input, output) → substrate`. The model learns to compute `encode()`.
-**Phase 1b:** `(input, substrate) → output`. The model learns to compute `decode()`.
+**Phase 1a:** `(input, output) → pixel substrate`. The model learns to compute `encode()`. Same-size puzzles only.
+**Phase 1b:** `(input, pixel substrate) → output`. The model learns to compute `decode()`. Same-size puzzles only.
+**Task A2:** `grid → hierarchy substrate`. The model learns to decompose any single grid by color frequency. All puzzles regardless of size.
 
-Both are *deterministic functions* — there's a single correct answer for every input. Loss converges fast because the model isn't learning a fuzzy hypothesis, it's learning a per-cell rule.
+All three are *deterministic functions* — there's a single correct answer for every input. Loss converges fast because the model isn't learning a fuzzy hypothesis, it's learning a per-cell rule.
 
-Mixed-batch training (50/50). No sequential phases.
+Mixed-batch training. No sequential phases.
+
+### Task A2 — hierarchy substrate (covers different-size puzzles)
+
+The pixel substrate (Phase 1a/1b) requires `input.shape == output.shape` because it's a per-cell comparison. That excludes ~33% of ARC puzzles (588 of 1,781 examples). Task A2 closes that gap.
+
+**Alphabet:**
+
+| Symbol | Meaning |
+|---|---|
+| `.` | most common color in the grid (background by frequency) |
+| `#` | second most common color (structure by frequency) |
+| `S` | all other colors (content / signal) |
+
+**Computation:** count color frequencies in a single grid; sort by count descending (ties broken by lower color value); map the top color → `.`, the next → `#`, everything else → `S`. Lossy by design — `S` doesn't say *which* content color, so the substrate can't be decoded back. That's intentional: hierarchy teaches perception (separate signal from filler), not reconstruction. No Task B2.
+
+**Skip rules:** grids with fewer than 2 unique colors (no hierarchy possible) and grids smaller than 3×3 (insufficient structure).
+
+**Augmentation:** D4 only (8 rotations/flips). Color permutation does not apply — the hierarchy is frequency-based and invariant under color relabeling, so permuting colors produces an identical substrate.
+
+**Worked example** (same grid as user's original spec, but following the mechanical rule):
+
+```
+GRID (color 1: 24 cells, color 6: 19 cells, color 4: 6 cells):
+1 1 1 1 1 1 1
+1 6 6 6 6 6 1
+1 6 4 6 4 6 1
+1 6 4 4 4 6 1
+1 6 6 4 6 6 1
+1 6 6 6 6 6 1
+1 1 1 1 1 1 1
+
+HIERARCHY SUBSTRATE (1 -> ., 6 -> #, 4 -> S):
+. . . . . . .
+. # # # # # .
+. # S # S # .
+. # S S S # .
+. # # S # # .
+. # # # # # .
+. . . . . . .
+```
+
+**Important note on the rule:** the mechanical "most common color" rule may not match the human-intuitive notion of "background." In the example above, the outer 1-border has more cells than the inner 6-layer, so 1 wins the `.` tier even though a human might call the border "the structure." That's fine — the model learns a *consistent deterministic function*, not a semantic heuristic. Whether this decomposition transfers usefully to Phase 2 is empirical.
 
 ---
 
@@ -160,15 +203,23 @@ Mixed-batch training (50/50). No sequential phases.
 ### Numbers
 
 - ARC-AGI-1 train (400) ∪ ARC-AGI-1 eval (400) ∪ ARC-AGI-2 train (1,000) = **1,800 puzzle files** but only **1,033 unique IDs** (ARC-AGI-2 includes ~767 revised versions of ARC-AGI-1 puzzles with the same IDs but different content; treated as separate examples).
-- Same-size filter retains **1,193 examples / 696 unique IDs**.
-- Train/dev split (by unique puzzle_id, prevents arc1/arc2 cross-variant leakage): **596 train IDs (1,015 examples) / 100 dev IDs (178 examples)**.
-- 10 locked baseline puzzle IDs (`splits/baseline_10.json`) excluded across all sources.
+- Locked baseline (10 puzzle IDs, all in arc2_train; also appearing in arc1_train/eval where applicable) excluded across all sources.
+- Universe after locked exclusion: **1,781 puzzle examples / 1,023 unique IDs**.
+  - Same-size subset: **1,193 examples** (used for Phase 1a + 1b)
+  - Different-size subset: **588 examples** (used only for Task A2 hierarchy)
+- Train/dev split (by unique puzzle_id, prevents arc1/arc2 cross-variant leakage): **923 train IDs (1,606 examples) / 100 dev IDs (175 examples)**.
 
-### Default output (D4 augmentation only)
+### Default output (D4 augmentation only, no color permutations)
 
-- `phase1_train.jsonl`: **67,536 records** (~33,768 Phase 1a + 33,768 Phase 1b)
-- `phase1_dev.jsonl`: **12,064 records**
-- Generation time: ~30s on a laptop.
+| Task | Records |
+|---|---|
+| `phase1a` (pixel encode, same-size) | 39,800 |
+| `phase1b` (pixel decode, same-size) | 39,800 |
+| `phase1a_hierarchy` (any grid) | 119,072 |
+| **Train total** | **180,736** |
+| Dev total | 17,936 |
+
+Generation time: ~30s on a laptop.
 
 ### With color permutations
 
@@ -215,11 +266,13 @@ Mixed-batch training (50/50). No sequential phases.
 
 ## Resolved decisions (do not revisit)
 
-- **Substrate alphabet:** `.`, `=`, `0`–`9` only. Three tiers (invariant / preserved / variant). No `+`, `-`, `~`. Decided after testing 14b8e18c (single-variant) and 15663ba9 (multi-variant).
-- **Same-size only:** locked precondition for Phase 1. Different-size puzzles need a separate representation, deferred to a later phase.
-- **Train/dev split:** by unique puzzle_id, seed=42. Cross-variant leakage between arc1/arc2 versions of the same ID is prevented.
+- **Pixel substrate alphabet:** `.`, `=`, `0`–`9` only. Three tiers (invariant / preserved / variant). No `+`, `-`, `~`. Decided after testing 14b8e18c (single-variant) and 15663ba9 (multi-variant).
+- **Pixel substrate is same-size only:** locked precondition for Phase 1a/1b.
+- **Hierarchy substrate covers all sizes:** Task A2 uses `.`, `#`, `S` decomposition by color frequency. Applies to every grid regardless of input/output dimensions. Mechanical rule, no semantic heuristic.
+- **Train/dev split:** by unique puzzle_id, seed=42, applied to the full universe (all sizes). Cross-variant leakage between arc1/arc2 versions of the same ID is prevented.
 - **Locked eval:** `splits/baseline_10.json` (10 puzzle IDs) is never used in training, even via the arc1 variants of the same IDs.
 - **Data generation:** pure Python, no API, fully reproducible. Library at `substrate.py`, generator at `gen_phase1_data.py`.
+- **Tagged for ablation:** every record has a `task` field (`phase1a` / `phase1b` / `phase1a_hierarchy`) so the trainer can include/exclude task types via filtering. Enables clean ablation between "Phase 1 alone" and "Phase 1 + A2."
 
 ---
 

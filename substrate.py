@@ -70,6 +70,33 @@ def is_same_size(puzzle: dict) -> bool:
     return True
 
 
+def hierarchy_substrate(grid: Grid):
+    """Decompose a single grid into 3 frequency tiers.
+
+    '.' = most common color (background by frequency)
+    '#' = second most common color (structure by frequency)
+    'S' = all other colors (content/signal)
+
+    Ties broken by lower color value (deterministic). Returns None if the grid
+    has fewer than 2 unique colors (no hierarchy to decompose).
+
+    The hierarchy is lossy: 'S' doesn't specify WHICH content color, so this
+    substrate cannot be decoded back to the original grid. That's intentional;
+    the hierarchy substrate teaches perception (separate signal from filler),
+    not reconstruction.
+    """
+    counts = Counter(c for row in grid for c in row)
+    if len(counts) < 2:
+        return None
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    bg = ranked[0][0]
+    struct = ranked[1][0]
+    return [
+        ['.' if v == bg else '#' if v == struct else 'S' for v in row]
+        for row in grid
+    ]
+
+
 def format_grid(grid) -> str:
     """Render a grid (of ints or substrate symbols) as space-separated rows."""
     return "\n".join(" ".join(str(c) for c in row) for row in grid)
