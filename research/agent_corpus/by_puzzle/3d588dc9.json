@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "3d588dc9",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import deque\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    def components(color):\n        seen = [[False] * W for _ in range(H)]\n        comps = []\n        for r in range(H):\n            for c in range(W):\n                if grid[r][c] == color and not seen[r][c]:\n                    q = deque([(r, c)])\n                    seen[r][c] = True\n                    cells = []\n                    while q:\n                        y, x = q.popleft()\n                        cells.append((y, x))\n                        for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                            ny, nx = y + dy, x + dx\n                            if 0 <= ny < H and 0 <= nx < W and not seen[ny][nx] and grid[ny][nx] == color:\n                                seen[ny][nx] = True\n                                q.append((ny, nx))\n                    comps.append(cells)\n        return comps\n\n    # Find 5-triangle\n    five_comps = components(5)\n    if not five_comps:\n        return grid\n    five_cells = max(five_comps, key=len)\n    # Center of 5-triangle\n    fr = sum(c[0] for c in five_cells) / len(five_cells)\n    fc = sum(c[1] for c in five_cells) / len(five_cells)\n\n    # Find 0 components\n    zero_comps = components(0)\n    # Arrows: components with exactly 14 cells (3x4 or 4x3 body + 2-stem)\n    arrows = [comp for comp in zero_comps if len(comp) == 14]\n\n    if not arrows:\n        return grid\n\n    # Bounding box of triangle\n    tri_r_min = min(c[0] for c in five_cells)\n    tri_r_max = max(c[0] for c in five_cells)\n    tri_c_min = min(c[1] for c in five_cells)\n    tri_c_max = max(c[1] for c in five_cells)\n\n    def overlap_score(comp):\n        ar_min = min(c[0] for c in comp)\n        ar_max = max(c[0] for c in comp)\n        ac_min = min(c[1] for c in comp)\n        ac_max = max(c[1] for c in comp)\n        row_overlap = max(0, min(ar_max, tri_r_max) - max(ar_min, tri_r_min) + 1)\n        col_overlap = max(0, min(ac_max, tri_c_max) - max(ac_min, tri_c_min) + 1)\n        return row_overlap + col_overlap\n\n    # Pick arrow with maximum row+col overlap with triangle\n    target = max(arrows, key=overlap_score)\n\n    # Identify body and stem in target arrow\n    # Body is the 3x4 or 4x3 rectangle (12 cells)\n    rows_set = sorted(set(c[0] for c in target))\n    cols_set = sorted(set(c[1] for c in target))\n    # Find rectangle: the rows/cols that are fully filled form the body\n\n    # For each cell, count cells in same row and col in this comp\n    cells_set = set(target)\n    row_counts = {}\n    col_counts = {}\n    for (r, c) in target:\n        row_counts[r] = row_counts.get(r, 0) + 1\n        col_counts[c] = col_counts.get(c, 0) + 1\n\n    # The body row count and body col count\n    # If body is 3 rows \u00d7 4 cols: 3 rows each with 4 cells (one row has 6 due to stem)\n    # If body is 4 rows \u00d7 3 cols: 4 rows each with 3 cells (one col has 5 due to stem)\n\n    # Try to find body bounding box: it's the contiguous full rectangle\n    # Simple approach: try each rectangle within bounding box of size 3x4 or 4x3\n    r_min, r_max = min(c[0] for c in target), max(c[0] for c in target)\n    c_min, c_max = min(c[1] for c in target), max(c[1] for c in target)\n\n    body = None\n    # Try 3x4 body (3 rows, 4 cols)\n    for br in range(r_min, r_max - 1):\n        for bc in range(c_min, c_max - 2):\n            if br + 3 <= H and bc + 4 <= W:\n                full = all((br + i, bc + j) in cells_set for i in range(3) for j in range(4))\n                if full:\n                    body_cells = {(br + i, bc + j) for i in range(3) for j in range(4)}\n                    stem = cells_set - body_cells\n                    if len(stem) == 2:\n                        body = ('h', br, bc, 3, 4, stem)\n                        break\n        if body:\n            break\n\n    if body is None:\n        # Try 4x3 body (4 rows, 3 cols)\n        for br in range(r_min, r_max - 2):\n            for bc in range(c_min, c_max):\n                if br + 4 <= H and bc + 3 <= W:\n                    full = all((br + i, bc + j) in cells_set for i in range(4) for j in range(3))\n                    if full:\n                        body_cells = {(br + i, bc + j) for i in range(4) for j in range(3)}\n                        stem = cells_set - body_cells\n                        if len(stem) == 2:\n                            body = ('v', br, bc, 4, 3, stem)\n                            break\n            if body:\n                break\n\n    if body is None:\n        return grid\n\n    orient, br, bc, bh, bw, stem = body\n\n    # Remove stem\n    for (sr, sc) in stem:\n        grid[sr][sc] = 7\n\n    # Determine direction to triangle\n    body_cr = br + bh / 2 - 0.5\n    body_cc = bc + bw / 2 - 0.5\n    dr = fr - body_cr\n    dc = fc - body_cc\n\n    # The 6 edge: which side of body faces triangle\n    if abs(dc) > abs(dr):\n        # Horizontal: triangle is left or right\n        if dc > 0:\n            # Triangle to right, mark right edge\n            edge_col = bc + bw - 1\n            for i in range(bh):\n                grid[br + i][edge_col] = 6\n        else:\n            edge_col = bc\n            for i in range(bh):\n                grid[br + i][edge_col] = 6\n    else:\n        if dr > 0:\n            edge_row = br + bh - 1\n            for j in range(bw):\n                grid[edge_row][bc + j] = 6\n        else:\n            edge_row = br\n            for j in range(bw):\n                grid[edge_row][bc + j] = 6\n\n    return grid\n",
+      "source": "claude_agent_batch_016_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

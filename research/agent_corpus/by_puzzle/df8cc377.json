@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "df8cc377",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find all distinct non-zero colors\n    color_positions = {}\n    for r in range(H):\n        for c in range(W):\n            v = grid[r][c]\n            if v != 0:\n                color_positions.setdefault(v, []).append((r, c))\n\n    # Identify \"box\" colors: colors that form a hollow rectangle frame\n    boxes = []  # list of (color, top, left, bottom, right)\n    box_colors = set()\n    for color, positions in color_positions.items():\n        rs = [p[0] for p in positions]\n        cs = [p[1] for p in positions]\n        top, bottom = min(rs), max(rs)\n        left, right = min(cs), max(cs)\n        # Check if positions form a hollow rectangle perimeter\n        expected = set()\n        for c in range(left, right + 1):\n            expected.add((top, c))\n            expected.add((bottom, c))\n        for r in range(top, bottom + 1):\n            expected.add((r, left))\n            expected.add((r, right))\n        if set(positions) == expected and (bottom - top) >= 2 and (right - left) >= 2:\n            boxes.append((color, top, left, bottom, right))\n            box_colors.add(color)\n\n    # Noise colors are the rest\n    noise_counts = {}\n    for color, positions in color_positions.items():\n        if color not in box_colors:\n            noise_counts[color] = len(positions)\n\n    # Sort boxes by inner area ascending\n    def inner_area(b):\n        _, t, l, bo, r = b\n        return (bo - t - 1) * (r - l - 1)\n\n    sorted_boxes = sorted(boxes, key=inner_area)\n    # Sort noise colors by count ascending\n    sorted_noise = sorted(noise_counts.items(), key=lambda x: x[1])\n\n    # Map each box to a noise color (by matching sort order)\n    box_to_color = {}\n    for i, b in enumerate(sorted_boxes):\n        box_to_color[b[0]] = sorted_noise[i][0]\n\n    # Build output: start with zeros, then place box frames and filled checker patterns\n    out = [[0] * W for _ in range(H)]\n    for b in boxes:\n        color, top, left, bottom, right = b\n        fill_color = box_to_color[color]\n        # Draw frame\n        for c in range(left, right + 1):\n            out[top][c] = color\n            out[bottom][c] = color\n        for r in range(top, bottom + 1):\n            out[r][left] = color\n            out[r][right] = color\n        # Fill inner with checker; corner (top+1, left+1) must be filled\n        parity = (top + 1 + left + 1) % 2\n        for r in range(top + 1, bottom):\n            for c in range(left + 1, right):\n                if (r + c) % 2 == parity:\n                    out[r][c] = fill_color\n\n    return out\n",
+      "source": "claude_agent_batch_016_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

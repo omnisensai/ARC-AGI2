@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "78e78cff",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    counts = Counter()\n    for row in input_grid:\n        for v in row:\n            counts[v] += 1\n\n    bg = counts.most_common(1)[0][0]\n\n    other_colors = [c for c in counts if c != bg]\n    marker = None\n    wall = None\n    for c in other_colors:\n        if counts[c] == 1:\n            marker = c\n        else:\n            wall = c\n    if marker is None:\n        marker = min(other_colors, key=lambda c: counts[c])\n        wall = max(other_colors, key=lambda c: counts[c])\n\n    walls = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == wall]\n    if not walls:\n        return [row[:] for row in input_grid]\n\n    wall_rows = [r for r, c in walls]\n    wall_cols = [c for r, c in walls]\n    top = min(wall_rows)\n    bot = max(wall_rows)\n    left = min(wall_cols)\n    right = max(wall_cols)\n    center_r = (top + bot) / 2\n    center_c = (left + right) / 2\n\n    out = [row[:] for row in input_grid]\n\n    for r in range(H):\n        for c in range(W):\n            if out[r][c] == marker:\n                out[r][c] = bg\n\n    def fill(r, c):\n        if out[r][c] != wall:\n            out[r][c] = marker\n\n    for r in range(top, bot + 1):\n        walls_here = [c for c in range(W) if input_grid[r][c] == wall]\n        if not walls_here:\n            for c in range(W):\n                fill(r, c)\n        else:\n            lm = min(walls_here)\n            rm = max(walls_here)\n            has_left = lm <= center_c\n            has_right = rm >= center_c\n            if has_left and has_right:\n                for c in range(lm + 1, rm):\n                    fill(r, c)\n            elif has_left:\n                for c in range(lm + 1, W):\n                    fill(r, c)\n            elif has_right:\n                for c in range(0, rm):\n                    fill(r, c)\n\n    for c in range(left, right + 1):\n        walls_here = [r for r in range(H) if input_grid[r][c] == wall]\n        if not walls_here:\n            for r in range(H):\n                fill(r, c)\n        else:\n            tm = min(walls_here)\n            bm = max(walls_here)\n            has_top = tm <= center_r\n            has_bot = bm >= center_r\n            if has_top and has_bot:\n                for r in range(tm + 1, bm):\n                    fill(r, c)\n            elif has_top:\n                for r in range(tm + 1, H):\n                    fill(r, c)\n            elif has_bot:\n                for r in range(0, bm):\n                    fill(r, c)\n\n    return out\n",
+      "source": "claude_agent_batch_016_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
