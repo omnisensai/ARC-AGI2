@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "5b692c0f",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import deque\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    seen = [[False] * W for _ in range(H)]\n    components = []\n    for i in range(H):\n        for j in range(W):\n            if grid[i][j] != 0 and not seen[i][j]:\n                comp = []\n                q = deque([(i, j)])\n                seen[i][j] = True\n                while q:\n                    y, x = q.popleft()\n                    comp.append((y, x))\n                    for dy in (-1, 0, 1):\n                        for dx in (-1, 0, 1):\n                            if dy == 0 and dx == 0:\n                                continue\n                            ny, nx = y + dy, x + dx\n                            if 0 <= ny < H and 0 <= nx < W and not seen[ny][nx] and grid[ny][nx] != 0:\n                                seen[ny][nx] = True\n                                q.append((ny, nx))\n                components.append(comp)\n\n    out = [row[:] for row in input_grid]\n\n    for comp in components:\n        rows_4 = {}\n        cols_4 = {}\n        for y, x in comp:\n            if grid[y][x] == 4:\n                rows_4[y] = rows_4.get(y, 0) + 1\n                cols_4[x] = cols_4.get(x, 0) + 1\n\n        best_row_count = max(rows_4.values()) if rows_4 else 0\n        best_col_count = max(cols_4.values()) if cols_4 else 0\n\n        if best_row_count == 0 and best_col_count == 0:\n            continue\n\n        if best_row_count >= best_col_count:\n            axis_type = 'row'\n            axis_pos = max(rows_4, key=lambda r: rows_4[r])\n        else:\n            axis_type = 'col'\n            axis_pos = max(cols_4, key=lambda c: cols_4[c])\n\n        cell_vals = {(y, x): grid[y][x] for y, x in comp}\n\n        if axis_type == 'row':\n            side_a = [(y, x, v) for (y, x), v in cell_vals.items() if y < axis_pos]\n            side_b = [(y, x, v) for (y, x), v in cell_vals.items() if y > axis_pos]\n        else:\n            side_a = [(y, x, v) for (y, x), v in cell_vals.items() if x < axis_pos]\n            side_b = [(y, x, v) for (y, x), v in cell_vals.items() if x > axis_pos]\n\n        if len(side_a) >= len(side_b):\n            template = side_a\n            target_sign = +1\n        else:\n            template = side_b\n            target_sign = -1\n\n        for y, x in comp:\n            if axis_type == 'row':\n                if (target_sign == 1 and y > axis_pos) or (target_sign == -1 and y < axis_pos):\n                    out[y][x] = 0\n            else:\n                if (target_sign == 1 and x > axis_pos) or (target_sign == -1 and x < axis_pos):\n                    out[y][x] = 0\n\n        for y, x, v in template:\n            if axis_type == 'row':\n                ry = 2 * axis_pos - y\n                rx = x\n            else:\n                ry = y\n                rx = 2 * axis_pos - x\n            if 0 <= ry < H and 0 <= rx < W:\n                out[ry][rx] = v\n\n    return out\n",
+      "source": "claude_agent_batch_004_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

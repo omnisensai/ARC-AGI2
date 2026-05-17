@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "f1bcbc2c",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    nine_pos = None\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 9:\n                nine_pos = (r, c)\n\n    def find_seed():\n        if nine_pos:\n            return nine_pos\n        for r in range(H):\n            for c in range(W):\n                if grid[r][c] == 0:\n                    n7 = (r > 0 and grid[r-1][c] == 7)\n                    s7 = (r < H-1 and grid[r+1][c] == 7)\n                    e7 = (c < W-1 and grid[r][c+1] == 7)\n                    w7 = (c > 0 and grid[r][c-1] == 7)\n                    if (n7 and s7) or (e7 and w7):\n                        return (r, c)\n        return None\n\n    seed = find_seed()\n    if seed is None:\n        return grid\n\n    corridor = set()\n    stack = [seed]\n    while stack:\n        r, c = stack.pop()\n        if (r, c) in corridor:\n            continue\n        if not (0 <= r < H and 0 <= c < W):\n            continue\n        if grid[r][c] == 7:\n            continue\n        corridor.add((r, c))\n        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n            stack.append((r+dr, c+dc))\n\n    if nine_pos is None:\n        for (r, c) in corridor:\n            grid[r][c] = 8\n        return grid\n\n    nr, nc = nine_pos\n    ns = (nr > 0 and grid[nr-1][nc] == 7) and (nr < H-1 and grid[nr+1][nc] == 7)\n    ew = (nc > 0 and grid[nr][nc-1] == 7) and (nc < W-1 and grid[nr][nc+1] == 7)\n    straight = ns or ew\n\n    if straight:\n        for (r, c) in corridor:\n            grid[r][c] = 8\n        return grid\n    else:\n        dirs = [(-1, 0), (0, 1), (1, 0), (0, -1)]\n        start = None\n        for dr, dc in dirs:\n            r2, c2 = nr+dr, nc+dc\n            if (r2, c2) in corridor and (r2, c2) != nine_pos:\n                start = (r2, c2)\n                break\n        if start is None:\n            return grid\n        visited = set()\n        st = [start]\n        while st:\n            r, c = st.pop()\n            if (r, c) in visited:\n                continue\n            if (r, c) == nine_pos:\n                continue\n            if (r, c) not in corridor:\n                continue\n            visited.add((r, c))\n            grid[r][c] = 8\n            for dr, dc in dirs:\n                st.append((r+dr, c+dc))\n        return grid\n",
+      "source": "claude_agent_batch_004_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

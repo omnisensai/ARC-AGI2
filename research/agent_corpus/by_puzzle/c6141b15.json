@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "c6141b15",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    h = len(input_grid)\n    w = len(input_grid[0])\n    bg = 7\n\n    # Group non-bg cells by color\n    color_cells = {}\n    for r in range(h):\n        for c in range(w):\n            v = input_grid[r][c]\n            if v != bg:\n                color_cells.setdefault(v, []).append((r, c))\n\n    # 8-connected components\n    def components(cells):\n        cellset = set(cells)\n        seen = set()\n        comps = []\n        for cell in cells:\n            if cell in seen:\n                continue\n            stack = [cell]\n            comp = []\n            while stack:\n                r, c = stack.pop()\n                if (r, c) in seen or (r, c) not in cellset:\n                    continue\n                seen.add((r, c))\n                comp.append((r, c))\n                for dr in (-1, 0, 1):\n                    for dc in (-1, 0, 1):\n                        if dr or dc:\n                            stack.append((r + dr, c + dc))\n            comps.append(comp)\n        return comps\n\n    line_color = None\n    line_cells = None\n    template_color = None\n    template_comps = None\n\n    for color, cells in color_cells.items():\n        comps = components(cells)\n        if len(comps) == 1:\n            line_color = color\n            line_cells = comps[0]\n        else:\n            template_color = color\n            template_comps = comps\n\n    # Endpoints of the line: cells with exactly one 8-neighbor in the line\n    line_set = set(line_cells)\n    endpoints = []\n    for (r, c) in line_cells:\n        n = 0\n        for dr in (-1, 0, 1):\n            for dc in (-1, 0, 1):\n                if (dr or dc) and (r + dr, c + dc) in line_set:\n                    n += 1\n        if n == 1:\n            endpoints.append((r, c))\n    if len(line_cells) == 1:\n        endpoints = [line_cells[0], line_cells[0]]\n\n    # Template shape relative to its bbox center\n    sample = template_comps[0]\n    rs = [r for r, _ in sample]\n    cs = [c for _, c in sample]\n    cr = (min(rs) + max(rs)) // 2\n    cc = (min(cs) + max(cs)) // 2\n    rel = [(r - cr, c - cc) for r, c in sample]\n\n    # Template centers\n    template_centers = []\n    for comp in template_comps:\n        rs = [r for r, _ in comp]\n        cs = [c for _, c in comp]\n        tcr = (min(rs) + max(rs)) // 2\n        tcc = (min(cs) + max(cs)) // 2\n        template_centers.append((tcr, tcc))\n\n    # Build output\n    out = [[bg] * w for _ in range(h)]\n\n    # Place templates at line endpoints\n    for (er, ec) in endpoints:\n        for (dr, dc) in rel:\n            nr, nc = er + dr, ec + dc\n            if 0 <= nr < h and 0 <= nc < w:\n                out[nr][nc] = template_color\n\n    # Draw line color between every pair of template centers (horizontal, vertical, or 45-deg diagonal)\n    def draw_line(p1, p2):\n        r1, c1 = p1\n        r2, c2 = p2\n        dr = r2 - r1\n        dc = c2 - c1\n        steps = max(abs(dr), abs(dc))\n        if steps == 0:\n            if 0 <= r1 < h and 0 <= c1 < w:\n                out[r1][c1] = line_color\n            return\n        sr = 0 if dr == 0 else (1 if dr > 0 else -1)\n        sc = 0 if dc == 0 else (1 if dc > 0 else -1)\n        for i in range(steps + 1):\n            if abs(dr) == abs(dc):\n                r = r1 + sr * i\n                c = c1 + sc * i\n            elif dr == 0:\n                r = r1\n                c = c1 + sc * i\n            elif dc == 0:\n                r = r1 + sr * i\n                c = c1\n            else:\n                # Fallback: Bresenham-like\n                r = r1 + round(dr * i / steps)\n                c = c1 + round(dc * i / steps)\n            if 0 <= r < h and 0 <= c < w:\n                out[r][c] = line_color\n\n    n = len(template_centers)\n    for i in range(n):\n        for j in range(i + 1, n):\n            draw_line(template_centers[i], template_centers[j])\n\n    return out\n",
+      "source": "claude_agent_batch_004_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

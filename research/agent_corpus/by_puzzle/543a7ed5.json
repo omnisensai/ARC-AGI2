@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "543a7ed5",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find connected components of 6s (8-connectivity to handle hollow frames as one shape)\n    visited = [[False] * W for _ in range(H)]\n    shapes = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 6 and not visited[r][c]:\n                stack = [(r, c)]\n                cells = []\n                visited[r][c] = True\n                while stack:\n                    y, x = stack.pop()\n                    cells.append((y, x))\n                    for dy in (-1, 0, 1):\n                        for dx in (-1, 0, 1):\n                            if dy == 0 and dx == 0:\n                                continue\n                            ny, nx = y + dy, x + dx\n                            if 0 <= ny < H and 0 <= nx < W and not visited[ny][nx] and grid[ny][nx] == 6:\n                                visited[ny][nx] = True\n                                stack.append((ny, nx))\n                shapes.append(cells)\n\n    for cells in shapes:\n        rs = [c[0] for c in cells]\n        cs = [c[1] for c in cells]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        # Fill interior holes (non-6 cells inside bbox) with 4\n        for r in range(r0, r1 + 1):\n            for c in range(c0, c1 + 1):\n                if grid[r][c] != 6:\n                    grid[r][c] = 4\n        # Draw 3-frame around bbox\n        for r in range(r0 - 1, r1 + 2):\n            for c in range(c0 - 1, c1 + 2):\n                if 0 <= r < H and 0 <= c < W:\n                    if r == r0 - 1 or r == r1 + 1 or c == c0 - 1 or c == c1 + 1:\n                        grid[r][c] = 3\n\n    return grid\n",
+      "source": "claude_agent_batch_004_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
