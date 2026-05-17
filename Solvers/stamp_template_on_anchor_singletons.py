@@ -3,7 +3,9 @@ Puzzle: 3e980e27
 Rule name: stamp_template_on_anchor_singletons
 
 Transformation rule:
-For each lone pixel whose color matches an anchor color inside a multi-cell template shape, replicate the rest of that template around the pixel (mirroring horizontally when the anchor color is 2).
+For each lone pixel whose color matches an anchor color inside a multi-cell
+template shape, replicate the rest of that template around the pixel,
+mirroring horizontally when the anchor color is 2.
 
 Source: GPT-generated code (after Claude R1 produced a wrong_test overfit on
 the same puzzle — see research/agent_corpus/batch_001_judged.json). GPT
