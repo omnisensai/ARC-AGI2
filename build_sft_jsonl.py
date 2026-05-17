@@ -146,10 +146,22 @@ def main():
     ap.add_argument("--puzzle-dirs", nargs="+",
                     default=["data/arc1_train", "data/arc1_eval", "data/arc2_train"])
     ap.add_argument("--out-dir", default=".")
+    ap.add_argument("--locked-eval", default="splits/baseline_10.json",
+                    help="JSON file whose puzzle_ids list defines the locked eval set "
+                         "(excluded from all training JSONLs — comp-clean invariant)")
     args = ap.parse_args()
 
     corpus_dir = Path(args.corpus_dir)
     out_dir = Path(args.out_dir)
+
+    # Locked eval set: these puzzle_ids must NEVER appear in any training JSONL,
+    # regardless of how many right/wrong codes we collected for them. They exist
+    # in the master corpus for diagnostic purposes only.
+    locked_eval = set()
+    locked_path = Path(args.locked_eval)
+    if locked_path.exists():
+        locked_eval = set(json.loads(locked_path.read_text())["puzzle_ids"])
+    print(f"Locked eval: {sorted(locked_eval)}")
 
     # Build a puzzle_id -> full puzzle JSON map (across all source dirs)
     puzzle_map = {}
@@ -160,11 +172,16 @@ def main():
     phase2_lines = []
     phase3_lines = []
     dpo_lines = []
-    stats = {"puzzles": 0, "rights": 0, "wrongs": 0, "phase2": 0, "phase3": 0, "dpo": 0}
+    stats = {"puzzles": 0, "rights": 0, "wrongs": 0,
+             "phase2": 0, "phase3": 0, "dpo": 0,
+             "skipped_locked": 0, "skipped_no_rights": 0}
 
     for cf in sorted(corpus_dir.glob("*.json")):
         rec = json.loads(cf.read_text())
         pid = rec["puzzle_id"]
+        if pid in locked_eval:
+            stats["skipped_locked"] += 1
+            continue
         puzzle = puzzle_map.get(pid)
         if puzzle is None:
             print(f"  skip {pid}: no puzzle JSON found in {args.puzzle_dirs}")
@@ -172,6 +189,7 @@ def main():
         rights = rec.get("right_codes", [])
         wrongs = rec.get("wrong_codes", [])
         if not rights:
+            stats["skipped_no_rights"] += 1
             continue
         stats["puzzles"] += 1
         stats["rights"] += len(rights)
