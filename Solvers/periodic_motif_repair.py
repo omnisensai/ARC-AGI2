@@ -1,5 +1,5 @@
 """
-periodic_motif_repair
+periodic_motif_repair puzzle 135a2760
 
 Operation menu entry derived from GPT's iter-4 solve of ARC puzzle 135a2760.
 Independently named "Periodic Motif Repair" by both GPT and Gemini.
