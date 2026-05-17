@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "72322fa7",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    cells = [(r, c, grid[r][c]) for r in range(H) for c in range(W) if grid[r][c] != 0]\n\n    n = len(cells)\n    parent = list(range(n))\n\n    def find(x):\n        while parent[x] != x:\n            parent[x] = parent[parent[x]]\n            x = parent[x]\n        return x\n\n    def union(a, b):\n        ra, rb = find(a), find(b)\n        if ra != rb:\n            parent[ra] = rb\n\n    for i in range(n):\n        for j in range(i + 1, n):\n            r1, c1, _ = cells[i]\n            r2, c2, _ = cells[j]\n            if max(abs(r1 - r2), abs(c1 - c2)) <= 2:\n                union(i, j)\n\n    comps = {}\n    for i in range(n):\n        root = find(i)\n        comps.setdefault(root, []).append(cells[i])\n\n    components = list(comps.values())\n\n    templates = []\n    others = []\n\n    for comp in components:\n        if len(comp) == 1:\n            others.append(('singleton', comp))\n            continue\n        colors = set(c for _, _, c in comp)\n        if len(colors) >= 2:\n            color_counts = {}\n            for _, _, c in comp:\n                color_counts[c] = color_counts.get(c, 0) + 1\n            unique_colors = [c for c, cnt in color_counts.items() if cnt == 1]\n            center = None\n            surround = []\n            for cc in unique_colors:\n                cand_center = [p for p in comp if p[2] == cc][0]\n                cand_surround = [p for p in comp if p[2] != cc]\n                s_colors = set(p[2] for p in cand_surround)\n                if len(s_colors) == 1:\n                    center = cand_center\n                    surround = cand_surround\n                    break\n            if center is not None:\n                cr, cc_, ccol = center\n                scol = surround[0][2]\n                offsets = frozenset((r - cr, c - cc_) for r, c, _ in surround)\n                templates.append((ccol, scol, offsets, center))\n                continue\n        others.append(('partial', comp))\n\n    for kind, comp in others:\n        if kind == 'singleton':\n            r, c, col = comp[0]\n            for ccol, scol, offsets, _ in templates:\n                if ccol == col:\n                    for dr, dc in offsets:\n                        nr, nc = r + dr, c + dc\n                        if 0 <= nr < H and 0 <= nc < W:\n                            grid[nr][nc] = scol\n                    break\n        else:\n            scol = comp[0][2]\n            comp_set = set((r, c) for r, c, _ in comp)\n            found_outer = False\n            for ccol, tscol, offsets, _ in templates:\n                if tscol != scol:\n                    continue\n                found = False\n                for pr, pc, _ in comp:\n                    for (dor, doc) in offsets:\n                        candidate = (pr - dor, pc - doc)\n                        ok = True\n                        for cpr, cpc in comp_set:\n                            if (cpr - candidate[0], cpc - candidate[1]) not in offsets:\n                                ok = False\n                                break\n                        if ok:\n                            cr, cc_ = candidate\n                            if 0 <= cr < H and 0 <= cc_ < W and grid[cr][cc_] == 0:\n                                grid[cr][cc_] = ccol\n                            for (dor2, doc2) in offsets:\n                                nr, nc = cr + dor2, cc_ + doc2\n                                if 0 <= nr < H and 0 <= nc < W and grid[nr][nc] == 0:\n                                    grid[nr][nc] = scol\n                            found = True\n                            break\n                    if found:\n                        break\n                if found:\n                    found_outer = True\n                    break\n\n    return grid\n",
+      "source": "claude_agent_batch_002_v2_direct_write",
+      "approach": "Agent v2 prompt; code written directly to disk by the agent (no chat-extract step). Validated against all train+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

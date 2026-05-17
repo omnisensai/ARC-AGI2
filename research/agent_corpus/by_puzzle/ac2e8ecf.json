@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "ac2e8ecf",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find connected components (by color, 4-connectivity)\n    visited = [[False] * W for _ in range(H)]\n    shapes = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != 0 and not visited[r][c]:\n                color = grid[r][c]\n                stack = [(r, c)]\n                cells = []\n                while stack:\n                    y, x = stack.pop()\n                    if y < 0 or y >= H or x < 0 or x >= W:\n                        continue\n                    if visited[y][x] or grid[y][x] != color:\n                        continue\n                    visited[y][x] = True\n                    cells.append((y, x))\n                    stack.extend([(y+1, x), (y-1, x), (y, x+1), (y, x-1)])\n                shapes.append((color, cells))\n\n    # Classify each shape: closed (rectangle outline) vs plus (cross)\n    def is_closed(cells):\n        rs = [c[0] for c in cells]\n        cs = [c[1] for c in cells]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        # A closed rectangle has cells exactly on the border\n        cellset = set(cells)\n        # Need width and height >= 3\n        if r1 - r0 < 2 or c1 - c0 < 2:\n            return False\n        expected = set()\n        for r in range(r0, r1+1):\n            expected.add((r, c0))\n            expected.add((r, c1))\n        for c in range(c0, c1+1):\n            expected.add((r0, c))\n            expected.add((r1, c))\n        return cellset == expected\n\n    closed_shapes = []\n    plus_shapes = []\n    for color, cells in shapes:\n        rs = [c[0] for c in cells]\n        cs = [c[1] for c in cells]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        if is_closed(cells):\n            closed_shapes.append((color, cells, r0, r1, c0, c1))\n        else:\n            plus_shapes.append((color, cells, r0, r1, c0, c1))\n\n    # Build output grid (all zeros)\n    out = [[0] * W for _ in range(H)]\n\n    # Place closed shapes at top, in order of original top (closest to top first)\n    # For each shape, find smallest top offset such that it doesn't overlap previously placed\n    closed_shapes.sort(key=lambda s: s[2])  # sort by original top row ascending\n\n    placed_closed = []  # list of (r0,r1,c0,c1) on output\n    for color, cells, r0, r1, c0, c1 in closed_shapes:\n        h = r1 - r0 + 1\n        w = c1 - c0 + 1\n        # Try placing top of shape at row = 0, 1, 2, ...\n        for new_r0 in range(H - h + 1):\n            new_r1 = new_r0 + h - 1\n            conflict = False\n            for (pr0, pr1, pc0, pc1) in placed_closed:\n                if not (new_r1 < pr0 or new_r0 > pr1 or c1 < pc0 or c0 > pc1):\n                    conflict = True\n                    break\n            if not conflict:\n                # place\n                dr = new_r0 - r0\n                for (y, x) in cells:\n                    out[y + dr][x] = color\n                placed_closed.append((new_r0, new_r1, c0, c1))\n                break\n\n    # Place plus shapes at bottom, in order of original bottom (closest to bottom first)\n    plus_shapes.sort(key=lambda s: -s[3])  # sort by original bottom row descending\n\n    placed_plus = []\n    for color, cells, r0, r1, c0, c1 in plus_shapes:\n        h = r1 - r0 + 1\n        w = c1 - c0 + 1\n        # Try placing bottom of shape at row = H-1, H-2, ...\n        for new_r1 in range(H - 1, h - 2, -1):\n            new_r0 = new_r1 - h + 1\n            conflict = False\n            for (pr0, pr1, pc0, pc1) in placed_plus:\n                if not (new_r1 < pr0 or new_r0 > pr1 or c1 < pc0 or c0 > pc1):\n                    conflict = True\n                    break\n            if not conflict:\n                dr = new_r1 - r1\n                for (y, x) in cells:\n                    out[y + dr][x] = color\n                placed_plus.append((new_r0, new_r1, c0, c1))\n                break\n\n    return out\n",
+      "source": "claude_agent_batch_002_v2_direct_write",
+      "approach": "Agent v2 prompt; code written directly to disk by the agent (no chat-extract step). Validated against all train+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

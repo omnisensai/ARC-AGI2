@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "52fd389e",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    out = [row[:] for row in input_grid]\n\n    # Find connected rectangles of 4s\n    seen = [[False] * W for _ in range(H)]\n    rectangles = []\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 4 and not seen[r][c]:\n                # BFS/DFS to find all connected non-zero cells (the rectangle interior)\n                stack = [(r, c)]\n                cells = []\n                while stack:\n                    y, x = stack.pop()\n                    if y < 0 or y >= H or x < 0 or x >= W:\n                        continue\n                    if seen[y][x]:\n                        continue\n                    if input_grid[y][x] == 0:\n                        continue\n                    seen[y][x] = True\n                    cells.append((y, x))\n                    for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        stack.append((y + dy, x + dx))\n                if cells:\n                    rmin = min(y for y, x in cells)\n                    rmax = max(y for y, x in cells)\n                    cmin = min(x for y, x in cells)\n                    cmax = max(x for y, x in cells)\n                    # find the non-4 color and count\n                    dot_color = None\n                    dot_count = 0\n                    for y, x in cells:\n                        v = input_grid[y][x]\n                        if v != 4:\n                            dot_color = v\n                            dot_count += 1\n                    rectangles.append((rmin, rmax, cmin, cmax, dot_color, dot_count))\n\n    for rmin, rmax, cmin, cmax, color, n in rectangles:\n        r0 = rmin - n\n        r1 = rmax + n\n        c0 = cmin - n\n        c1 = cmax + n\n        for y in range(r0, r1 + 1):\n            for x in range(c0, c1 + 1):\n                if 0 <= y < H and 0 <= x < W:\n                    if y < rmin or y > rmax or x < cmin or x > cmax:\n                        out[y][x] = color\n    return out\n",
+      "source": "claude_agent_batch_002_v2_direct_write",
+      "approach": "Agent v2 prompt; code written directly to disk by the agent (no chat-extract step). Validated against all train+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

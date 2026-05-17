@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "58e15b12",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find non-zero cells, group by color\n    cells_by_color = {}\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != 0:\n                cells_by_color.setdefault(v, []).append((r, c))\n\n    # For each color, identify the two vertical bars\n    shapes = []  # list of dicts: color, left_col, right_col, top_row, bottom_row, L\n    for color, cells in cells_by_color.items():\n        cols = sorted(set(c for r, c in cells))\n        left_col = cols[0]\n        right_col = cols[-1]\n        rows = sorted(set(r for r, c in cells))\n        top = rows[0]\n        bot = rows[-1]\n        L = bot - top + 1\n        shapes.append({\n            'color': color,\n            'left': left_col,\n            'right': right_col,\n            'top': top,\n            'bot': bot,\n            'L': L,\n        })\n\n    # Compute trajectory cells per color: dict color -> set of (r,c)\n    # Each shape extends in both vertical directions (up/down) infinitely until off grid.\n    # In each block of L rows (block index k), left bar at left_col - k, right bar at right_col + k.\n    # Block 0 = original rows top..bot.\n    # Going up: block -k uses rows top - k*L .. top - k*L + L - 1\n    # Going down: block +k uses rows top + k*L .. top + k*L + L - 1\n    # Actually let's parameterize: block index k (integer, can be negative), rows = top + k*L .. top + k*L + L - 1.\n    # Columns: left = left_col - k (when k>0 going down, also k<0 going up: shift by |k|).\n    # Wait \u2014 both directions shift outward. So columns shift by |k|.\n\n    color_cells = {}  # color -> set of (r,c)\n    for shape in shapes:\n        cset = set()\n        L = shape['L']\n        lc = shape['left']\n        rc = shape['right']\n        top = shape['top']\n        # Find range of k to cover grid\n        # k can be from -large to +large\n        # Stop when entire block is off grid AND both bars are off grid horizontally\n        # For simplicity, iterate k over a wide range\n        k_min = -(H // L + 5)\n        k_max = (H // L + 5)\n        for k in range(k_min, k_max + 1):\n            shift = abs(k)\n            new_left = lc - shift\n            new_right = rc + shift\n            row_start = top + k * L\n            for dr in range(L):\n                r = row_start + dr\n                if 0 <= r < H:\n                    if 0 <= new_left < W:\n                        cset.add((r, new_left))\n                    if 0 <= new_right < W:\n                        cset.add((r, new_right))\n        color_cells[shape['color']] = cset\n\n    # Build output grid\n    output = [[0] * W for _ in range(H)]\n    # Place each color's cells, but if a cell belongs to multiple colors, mark as 6\n    all_cells = {}  # (r,c) -> list of colors\n    for color, cset in color_cells.items():\n        for (r, c) in cset:\n            all_cells.setdefault((r, c), []).append(color)\n    for (r, c), colors in all_cells.items():\n        if len(colors) > 1:\n            output[r][c] = 6\n        else:\n            output[r][c] = colors[0]\n    return output\n",
+      "source": "claude_agent_batch_002_v2_direct_write",
+      "approach": "Agent v2 prompt; code written directly to disk by the agent (no chat-extract step). Validated against all train+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

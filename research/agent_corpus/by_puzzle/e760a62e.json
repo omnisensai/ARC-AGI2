@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "e760a62e",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Identify divider rows and cols (rows/cols filled with 8s)\n    divider_rows = [r for r in range(H) if all(grid[r][c] == 8 for c in range(W))]\n    divider_cols = [c for c in range(W) if all(grid[r][c] == 8 for r in range(H))]\n\n    # Define cell boundaries\n    row_bounds = []\n    prev = 0\n    for dr in divider_rows:\n        if dr > prev:\n            row_bounds.append((prev, dr - 1))\n        prev = dr + 1\n    if prev <= H - 1:\n        row_bounds.append((prev, H - 1))\n\n    col_bounds = []\n    prev = 0\n    for dc in divider_cols:\n        if dc > prev:\n            col_bounds.append((prev, dc - 1))\n        prev = dc + 1\n    if prev <= W - 1:\n        col_bounds.append((prev, W - 1))\n\n    nR = len(row_bounds)\n    nC = len(col_bounds)\n\n    # For each cell, get the non-zero, non-8 marker color (if any)\n    markers = {}  # color -> list of (cr, cc)\n    for cr in range(nR):\n        for cc in range(nC):\n            r0, r1 = row_bounds[cr]\n            c0, c1 = col_bounds[cc]\n            for r in range(r0, r1 + 1):\n                for c in range(c0, c1 + 1):\n                    v = grid[r][c]\n                    if v != 0 and v != 8:\n                        markers.setdefault(v, []).append((cr, cc))\n                        break\n                else:\n                    continue\n                break\n\n    # For each color, find all pairs sharing row or column; fill cells between\n    # line_cells: set of (cr, cc) -> set of colors\n    cell_colors = {}  # (cr,cc) -> set of colors\n\n    for color, positions in markers.items():\n        # deduplicate\n        positions = list(set(positions))\n        n = len(positions)\n        for i in range(n):\n            for j in range(i + 1, n):\n                a, b = positions[i], positions[j]\n                if a[0] == b[0]:\n                    # same row\n                    r = a[0]\n                    cs = sorted([a[1], b[1]])\n                    for cc in range(cs[0], cs[1] + 1):\n                        cell_colors.setdefault((r, cc), set()).add(color)\n                elif a[1] == b[1]:\n                    c = a[1]\n                    rs = sorted([a[0], b[0]])\n                    for cr in range(rs[0], rs[1] + 1):\n                        cell_colors.setdefault((cr, c), set()).add(color)\n\n    # Build output\n    out = [row[:] for row in input_grid]\n    # First, clear original markers within their cells (keep 0 in cells)\n    for cr in range(nR):\n        for cc in range(nC):\n            r0, r1 = row_bounds[cr]\n            c0, c1 = col_bounds[cc]\n            colors = cell_colors.get((cr, cc), set())\n            if not colors:\n                # clear any marker -> set to 0\n                for r in range(r0, r1 + 1):\n                    for c in range(c0, c1 + 1):\n                        if out[r][c] != 8:\n                            out[r][c] = 0\n            else:\n                if len(colors) >= 2:\n                    fill = 6\n                else:\n                    fill = next(iter(colors))\n                for r in range(r0, r1 + 1):\n                    for c in range(c0, c1 + 1):\n                        if out[r][c] != 8:\n                            out[r][c] = fill\n\n    return out\n",
+      "source": "claude_agent_batch_002_v2_direct_write",
+      "approach": "Agent v2 prompt; code written directly to disk by the agent (no chat-extract step). Validated against all train+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "f8a8fe49",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    out = [[0] * W for _ in range(H)]\n\n    twos = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 2]\n    fives = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 5]\n\n    rows_of_2 = sorted(set(r for r, c in twos))\n    cols_of_2 = sorted(set(c for r, c in twos))\n\n    # Determine orientation: do the two walls run horizontally (top/bottom) or vertically (left/right)?\n    # Count rows that have many 2s (long horizontal runs).\n    row_counts = {}\n    for r, c in twos:\n        row_counts[r] = row_counts.get(r, 0) + 1\n    col_counts = {}\n    for r, c in twos:\n        col_counts[c] = col_counts.get(c, 0) + 1\n\n    max_row_count = max(row_counts.values())\n    max_col_count = max(col_counts.values())\n\n    if max_row_count >= max_col_count:\n        # Horizontal walls: find top and bottom wall rows.\n        # The walls are the outermost rows containing 2s that form the main horizontal lines.\n        wall_rows = sorted(set(r for r, c in twos))\n        top_wall = min(wall_rows)\n        bottom_wall = max(wall_rows)\n        mid = (top_wall + bottom_wall) / 2\n        # Copy walls (2s) to output.\n        for r, c in twos:\n            out[r][c] = 2\n        # Reflect each 5 across nearest wall.\n        for r, c in fives:\n            if r < mid:\n                nr = 2 * top_wall - r\n            else:\n                nr = 2 * bottom_wall - r\n            if 0 <= nr < H and 0 <= c < W:\n                out[nr][c] = 5\n    else:\n        # Vertical walls.\n        wall_cols = sorted(set(c for r, c in twos))\n        left_wall = min(wall_cols)\n        right_wall = max(wall_cols)\n        mid = (left_wall + right_wall) / 2\n        for r, c in twos:\n            out[r][c] = 2\n        for r, c in fives:\n            if c < mid:\n                nc = 2 * left_wall - c\n            else:\n                nc = 2 * right_wall - c\n            if 0 <= r < H and 0 <= nc < W:\n                out[r][nc] = 5\n\n    return out\n",
+      "source": "claude_agent_batch_002_v2_direct_write",
+      "approach": "Agent v2 prompt; code written directly to disk by the agent (no chat-extract step). Validated against all train+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

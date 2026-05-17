@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "a8d7556c",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    out = [row[:] for row in input_grid]\n\n    # Find connected components of 0s (4-connectivity)\n    visited = [[False] * W for _ in range(H)]\n    ccs = []\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 0 and not visited[r][c]:\n                stack = [(r, c)]\n                cells = []\n                while stack:\n                    rr, cc = stack.pop()\n                    if rr < 0 or rr >= H or cc < 0 or cc >= W:\n                        continue\n                    if visited[rr][cc]:\n                        continue\n                    if input_grid[rr][cc] != 0:\n                        continue\n                    visited[rr][cc] = True\n                    cells.append((rr, cc))\n                    stack.extend([(rr + 1, cc), (rr - 1, cc), (rr, cc + 1), (rr, cc - 1)])\n                ccs.append(cells)\n\n    # For each connected component, find all rectangles of size >= 2x2 entirely\n    # filled with 0s within that CC, then keep those with the maximum area.\n    for cells in ccs:\n        cellset = set(cells)\n        rs = sorted(set(r for r, c in cells))\n        cs = sorted(set(c for r, c in cells))\n        rects = []\n        for r1 in rs:\n            for r2 in rs:\n                if r2 < r1:\n                    continue\n                for c1 in cs:\n                    for c2 in cs:\n                        if c2 < c1:\n                            continue\n                        if (r2 - r1 + 1) < 2 or (c2 - c1 + 1) < 2:\n                            continue\n                        ok = True\n                        for r in range(r1, r2 + 1):\n                            if not ok:\n                                break\n                            for c in range(c1, c2 + 1):\n                                if (r, c) not in cellset:\n                                    ok = False\n                                    break\n                        if ok:\n                            rects.append((r1, c1, r2, c2, (r2 - r1 + 1) * (c2 - c1 + 1)))\n        if not rects:\n            continue\n        max_area = max(rec[4] for rec in rects)\n        for r1, c1, r2, c2, area in rects:\n            if area == max_area:\n                for r in range(r1, r2 + 1):\n                    for c in range(c1, c2 + 1):\n                        out[r][c] = 2\n    return out\n",
+      "source": "claude_agent_batch_002_v2_direct_write",
+      "approach": "Agent v2 prompt; code written directly to disk by the agent (no chat-extract step). Validated against all train+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

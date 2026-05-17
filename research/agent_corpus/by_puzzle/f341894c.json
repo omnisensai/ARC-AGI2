@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "f341894c",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Identify cells that are 1 or 6\n    cells = [(r, c) for r in range(H) for c in range(W) if grid[r][c] in (1, 6)]\n\n    # For each cell, determine pair direction\n    # Build pairs (set of frozensets {(r1,c1),(r2,c2)} with direction info)\n    pairs = []\n    paired = {}\n\n    def has_7_in_row(r):\n        return any(grid[r][c] == 7 for c in range(W))\n\n    def has_7_in_col(c):\n        return any(grid[r][c] == 7 for r in range(H))\n\n    def opposite(v):\n        return 6 if v == 1 else 1\n\n    for (r, c) in cells:\n        if (r, c) in paired:\n            continue\n        v = grid[r][c]\n        # find horizontal partner\n        h_partner = None\n        for dc in (-1, 1):\n            nc = c + dc\n            if 0 <= nc < W and grid[r][nc] == opposite(v):\n                if (r, nc) not in paired:\n                    h_partner = (r, nc)\n                    break\n        # find vertical partner\n        v_partner = None\n        for dr in (-1, 1):\n            nr = r + dr\n            if 0 <= nr < H and grid[nr][c] == opposite(v):\n                if (nr, c) not in paired:\n                    v_partner = (nr, c)\n                    break\n\n        # Prefer direction based on which has 7 aligned\n        h_ok = h_partner is not None and has_7_in_row(r)\n        v_ok = v_partner is not None and has_7_in_col(c)\n\n        partner = None\n        direction = None\n        if h_ok and not v_ok:\n            partner = h_partner\n            direction = 'h'\n        elif v_ok and not h_ok:\n            partner = v_partner\n            direction = 'v'\n        elif h_ok and v_ok:\n            # ambiguous \u2014 prefer horizontal\n            partner = h_partner\n            direction = 'h'\n        else:\n            # neither aligned with 7 - fall back to any partner\n            if h_partner is not None:\n                partner = h_partner\n                direction = 'h'\n            elif v_partner is not None:\n                partner = v_partner\n                direction = 'v'\n\n        if partner is None:\n            continue\n\n        pairs.append(((r, c), partner, direction))\n        paired[(r, c)] = True\n        paired[partner] = True\n\n    # Now orient each pair so 6 is closer to nearest 7 in same row/col\n    out = [row[:] for row in grid]\n    for (a, b, direction) in pairs:\n        if direction == 'h':\n            r = a[0]\n            c1, c2 = sorted([a[1], b[1]])\n            # find 7s in row r\n            sevens = [c for c in range(W) if grid[r][c] == 7]\n            if not sevens:\n                continue\n            # nearest 7 to the pair\n            mid = (c1 + c2) / 2\n            nearest = min(sevens, key=lambda x: abs(x - mid))\n            # 6 should be closer to nearest 7\n            if nearest > c2:\n                # 7 on right, 6 at c2, 1 at c1\n                out[r][c1] = 1\n                out[r][c2] = 6\n            elif nearest < c1:\n                out[r][c1] = 6\n                out[r][c2] = 1\n            else:\n                # 7 between? unlikely\n                pass\n        else:\n            c = a[1]\n            r1, r2 = sorted([a[0], b[0]])\n            sevens = [r for r in range(H) if grid[r][c] == 7]\n            if not sevens:\n                continue\n            mid = (r1 + r2) / 2\n            nearest = min(sevens, key=lambda x: abs(x - mid))\n            if nearest > r2:\n                out[r1][c] = 1\n                out[r2][c] = 6\n            elif nearest < r1:\n                out[r1][c] = 6\n                out[r2][c] = 1\n            else:\n                pass\n\n    return out\n",
+      "source": "claude_agent_batch_002_v2_direct_write",
+      "approach": "Agent v2 prompt; code written directly to disk by the agent (no chat-extract step). Validated against all train+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

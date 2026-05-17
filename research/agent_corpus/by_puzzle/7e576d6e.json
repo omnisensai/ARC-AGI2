@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "7e576d6e",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Determine background color (most common)\n    counts = Counter()\n    for row in grid:\n        for v in row:\n            counts[v] += 1\n    bg = counts.most_common(1)[0][0]\n\n    # Find line rows and line cols (rows/cols that are mostly a single non-bg color)\n    # A \"line row\" has many cells of the same line color across the row.\n    line_rows = []\n    line_cols = []\n    # Identify candidate line color: a non-bg color that appears in long runs across full rows or full cols\n    # Find rows where >= half cells are non-bg of same color\n    row_line_color = {}\n    for r in range(H):\n        c = Counter(grid[r])\n        for color, cnt in c.most_common():\n            if color != bg and cnt >= W // 2:\n                row_line_color[r] = color\n                break\n    col_line_color = {}\n    for col in range(W):\n        c = Counter(grid[r][col] for r in range(H))\n        for color, cnt in c.most_common():\n            if color != bg and cnt >= H // 2:\n                col_line_color[col] = color\n                break\n\n    horizontal_lines = len(row_line_color) > len(col_line_color)\n    if horizontal_lines:\n        line_rows = sorted(row_line_color.keys())\n        line_color = list(row_line_color.values())[0]\n    else:\n        line_cols = sorted(col_line_color.keys())\n        line_color = list(col_line_color.values())[0]\n\n    # Find gates: in each line row/col, find cells != bg and != line_color\n    gates = []  # list of (axis_pos, perp_center)\n    if horizontal_lines:\n        for r in line_rows:\n            # find contiguous non-line-color cells in this row\n            cols_in_gate = [c for c in range(W) if grid[r][c] != line_color and grid[r][c] != bg]\n            # gate cells are 3 consecutive\n            if cols_in_gate:\n                # The gate cells form one contiguous group\n                cols_in_gate.sort()\n                center = cols_in_gate[len(cols_in_gate) // 2]\n                gates.append((r, center))\n            else:\n                # Maybe gate cells are same color as something else; check by finding contiguous runs of non-line-color in line row\n                pass\n    else:\n        for col in line_cols:\n            rows_in_gate = [r for r in range(H) if grid[r][col] != line_color and grid[r][col] != bg]\n            if rows_in_gate:\n                rows_in_gate.sort()\n                center = rows_in_gate[len(rows_in_gate) // 2]\n                gates.append((center, col))\n\n    # Find gate color\n    if horizontal_lines:\n        r, c = gates[0]\n        gate_color = grid[r][c]\n        # Actually gate cells might be different from center color; find any gate cell\n        for col in range(W):\n            if grid[r][col] != line_color and grid[r][col] != bg:\n                gate_color = grid[r][col]\n                break\n    else:\n        r, c = gates[0]\n        for row in range(H):\n            if grid[row][c] != line_color and grid[row][c] != bg:\n                gate_color = grid[row][c]\n                break\n\n    # Find markers: cells not bg, not line_color, not gate_color, and not on a line row/col\n    markers = []\n    for r in range(H):\n        for c in range(W):\n            v = grid[r][c]\n            if v == bg or v == line_color or v == gate_color:\n                continue\n            # Check it's not on a line row/col (it shouldn't be, since gates have gate_color)\n            if horizontal_lines and r in line_rows:\n                continue\n            if not horizontal_lines and c in line_cols:\n                continue\n            markers.append((r, c, v))\n\n    marker_color = markers[0][2]\n\n    # Order gates by axis position; determine start/end markers\n    if horizontal_lines:\n        # axis is row; order gates by row\n        gates.sort(key=lambda g: g[0])\n        # start marker has smaller row, end marker has larger row\n        markers.sort(key=lambda m: m[0])\n        start = (markers[0][0], markers[0][1])\n        end = (markers[-1][0], markers[-1][1])\n    else:\n        gates.sort(key=lambda g: g[1])\n        markers.sort(key=lambda m: m[1])\n        start = (markers[0][0], markers[0][1])\n        end = (markers[-1][0], markers[-1][1])\n\n    # Build path\n    def draw_h(r, c1, c2):\n        if c1 > c2:\n            c1, c2 = c2, c1\n        for c in range(c1, c2 + 1):\n            if grid[r][c] == bg or grid[r][c] == marker_color:\n                grid[r][c] = marker_color\n            # leave line/gate colors alone except at gate center\n            # actually we WILL overwrite gate center later when through gate\n\n    def draw_v(c, r1, r2):\n        if r1 > r2:\n            r1, r2 = r2, r1\n        for r in range(r1, r2 + 1):\n            if grid[r][c] == bg or grid[r][c] == marker_color:\n                grid[r][c] = marker_color\n\n    cur_r, cur_c = start\n\n    if horizontal_lines:\n        # Path: vertical from start to (gate_row-1), horizontal at gate_row-1 to gate_col,\n        # vertical through gate to (next_gate_row-1), etc.\n        for i, (gr, gc) in enumerate(gates):\n            # Vertical at cur_c from cur_r to (gr - 1) if cur_r < gr else (gr + 1)\n            if cur_r < gr:\n                turn_r = gr - 1\n            else:\n                turn_r = gr + 1\n            draw_v(cur_c, cur_r, turn_r)\n            # Horizontal at turn_r from cur_c to gc\n            draw_h(turn_r, cur_c, gc)\n            # Vertical through gate: from turn_r to gate_row (overwriting gate center)\n            # Set gate center to marker color\n            grid[gr][gc] = marker_color\n            cur_r = gr\n            cur_c = gc\n        # After last gate, continue vertical to end row, then horizontal to end col\n        if cur_r < end[0]:\n            draw_v(cur_c, cur_r, end[0])\n        else:\n            draw_v(cur_c, cur_r, end[0])\n        draw_h(end[0], cur_c, end[1])\n    else:\n        for i, (gr, gc) in enumerate(gates):\n            if cur_c < gc:\n                turn_c = gc - 1\n            else:\n                turn_c = gc + 1\n            draw_h(cur_r, cur_c, turn_c)\n            draw_v(turn_c, cur_r, gr)\n            grid[gr][gc] = marker_color\n            cur_r = gr\n            cur_c = gc\n        draw_h(cur_r, cur_c, end[1])\n        draw_v(end[1], cur_r, end[0])\n\n    return grid\n",
+      "source": "claude_agent_batch_002_v2_direct_write",
+      "approach": "Agent v2 prompt; code written directly to disk by the agent (no chat-extract step). Validated against all train+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

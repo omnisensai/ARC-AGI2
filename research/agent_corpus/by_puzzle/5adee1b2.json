@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "5adee1b2",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import deque\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    out = [row[:] for row in input_grid]\n\n    # Find legend pairs. A legend is a 2-row block in columns 0-1 where\n    # rows r and r+1 both equal [shape_color, frame_color] with both nonzero.\n    legend = {}\n    legend_cells = set()\n    r = 0\n    while r < H - 1:\n        a0, a1 = grid[r][0], grid[r][1]\n        b0, b1 = grid[r + 1][0], grid[r + 1][1]\n        if a0 != 0 and a1 != 0 and a0 == b0 and a1 == b1:\n            legend[a0] = a1\n            legend_cells.add((r, 0)); legend_cells.add((r, 1))\n            legend_cells.add((r + 1, 0)); legend_cells.add((r + 1, 1))\n            r += 2\n        else:\n            r += 1\n\n    # Build a working grid that excludes legend cells (so they don't count as shapes).\n    work = [row[:] for row in grid]\n    for (rr, cc) in legend_cells:\n        work[rr][cc] = 0\n\n    # Find connected components of non-zero cells (4-connectivity), each component\n    # consists of cells of a single color (the shapes are mono-colored).\n    visited = [[False] * W for _ in range(H)]\n    components = []\n    for i in range(H):\n        for j in range(W):\n            if work[i][j] != 0 and not visited[i][j]:\n                color = work[i][j]\n                q = deque([(i, j)])\n                visited[i][j] = True\n                cells = []\n                while q:\n                    y, x = q.popleft()\n                    cells.append((y, x))\n                    for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        ny, nx = y + dy, x + dx\n                        if 0 <= ny < H and 0 <= nx < W and not visited[ny][nx] and work[ny][nx] == color:\n                            visited[ny][nx] = True\n                            q.append((ny, nx))\n                components.append((color, cells))\n\n    # For each component, find bbox, expand by 1, then fill the expanded region:\n    # - keep shape cells as the shape color\n    # - flood-fill 0s in expanded region from the outer border; those become frame color\n    # - interior 0s (not reachable from border) stay 0\n    for color, cells in components:\n        if color not in legend:\n            continue\n        frame_color = legend[color]\n        r0 = min(c[0] for c in cells)\n        r1 = max(c[0] for c in cells)\n        c0 = min(c[1] for c in cells)\n        c1 = max(c[1] for c in cells)\n        er0 = max(0, r0 - 1)\n        er1 = min(H - 1, r1 + 1)\n        ec0 = max(0, c0 - 1)\n        ec1 = min(W - 1, c1 + 1)\n\n        # flood fill 0s from the border of the expanded region\n        reach = [[False] * W for _ in range(H)]\n        q = deque()\n        for cc in range(ec0, ec1 + 1):\n            for rr in (er0, er1):\n                if work[rr][cc] == 0 and not reach[rr][cc]:\n                    reach[rr][cc] = True\n                    q.append((rr, cc))\n        for rr in range(er0, er1 + 1):\n            for cc in (ec0, ec1):\n                if work[rr][cc] == 0 and not reach[rr][cc]:\n                    reach[rr][cc] = True\n                    q.append((rr, cc))\n        while q:\n            y, x = q.popleft()\n            for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                ny, nx = y + dy, x + dx\n                if er0 <= ny <= er1 and ec0 <= nx <= ec1 and not reach[ny][nx] and work[ny][nx] == 0:\n                    reach[ny][nx] = True\n                    q.append((ny, nx))\n\n        for rr in range(er0, er1 + 1):\n            for cc in range(ec0, ec1 + 1):\n                if reach[rr][cc]:\n                    out[rr][cc] = frame_color\n\n    return out\n",
+      "source": "claude_agent_batch_002_v2_direct_write",
+      "approach": "Agent v2 prompt; code written directly to disk by the agent (no chat-extract step). Validated against all train+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

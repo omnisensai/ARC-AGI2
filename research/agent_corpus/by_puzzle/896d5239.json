@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "896d5239",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    out = [row[:] for row in grid]\n\n    threes = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 3]\n\n    def in_bounds(r, c):\n        return 0 <= r < H and 0 <= c < W\n\n    n = len(threes)\n    parent = list(range(n))\n\n    def find(x):\n        while parent[x] != x:\n            parent[x] = parent[parent[x]]\n            x = parent[x]\n        return x\n\n    def union(x, y):\n        px, py = find(x), find(y)\n        if px != py:\n            parent[px] = py\n\n    # Connect 3s on the same diagonal at Chebyshev distance <= 2\n    for i in range(n):\n        for j in range(i + 1, n):\n            r1, c1 = threes[i]\n            r2, c2 = threes[j]\n            dr, dc = r2 - r1, c2 - c1\n            if abs(dr) == abs(dc) and dr != 0 and abs(dr) <= 2:\n                union(i, j)\n\n    comps = {}\n    for i in range(n):\n        root = find(i)\n        comps.setdefault(root, []).append(threes[i])\n\n    DIRS = ['up', 'down', 'left', 'right']\n\n    def check_apex(apex, others, direction):\n        ar, ac = apex\n        for (r, c) in others:\n            if direction == 'up':\n                if r <= ar:\n                    return False\n                if abs(c - ac) > r - ar:\n                    return False\n            elif direction == 'down':\n                if r >= ar:\n                    return False\n                if abs(c - ac) > ar - r:\n                    return False\n            elif direction == 'left':\n                if c <= ac:\n                    return False\n                if abs(r - ar) > c - ac:\n                    return False\n            elif direction == 'right':\n                if c >= ac:\n                    return False\n                if abs(r - ar) > ac - c:\n                    return False\n        return True\n\n    def triangle_boundary(apex_r, apex_c, direction, size):\n        cells = []\n        for k in range(size):\n            if direction == 'up':\n                row = apex_r + k\n                if k == 0:\n                    cells.append((row, apex_c))\n                else:\n                    cells.append((row, apex_c - k))\n                    cells.append((row, apex_c + k))\n            elif direction == 'down':\n                row = apex_r - k\n                if k == 0:\n                    cells.append((row, apex_c))\n                else:\n                    cells.append((row, apex_c - k))\n                    cells.append((row, apex_c + k))\n            elif direction == 'left':\n                col = apex_c + k\n                if k == 0:\n                    cells.append((apex_r, col))\n                else:\n                    cells.append((apex_r - k, col))\n                    cells.append((apex_r + k, col))\n            elif direction == 'right':\n                col = apex_c - k\n                if k == 0:\n                    cells.append((apex_r, col))\n                else:\n                    cells.append((apex_r - k, col))\n                    cells.append((apex_r + k, col))\n        return cells\n\n    triangles = []\n    for root, group in comps.items():\n        best = None\n        for cand in group:\n            others = [g for g in group if g != cand]\n            for direction in DIRS:\n                if not check_apex(cand, others, direction):\n                    continue\n                ar, ac = cand\n                max_dist = 0\n                for (r, c) in group:\n                    if direction == 'up':\n                        d = r - ar\n                    elif direction == 'down':\n                        d = ar - r\n                    elif direction == 'left':\n                        d = c - ac\n                    elif direction == 'right':\n                        d = ac - c\n                    if d > max_dist:\n                        max_dist = d\n                size = max_dist + 1\n                boundary = set(triangle_boundary(ar, ac, direction, size))\n                covered = sum(1 for g in group if g in boundary)\n                if direction == 'up':\n                    base_corners = [(ar + size - 1, ac - size + 1), (ar + size - 1, ac + size - 1)]\n                elif direction == 'down':\n                    base_corners = [(ar - size + 1, ac - size + 1), (ar - size + 1, ac + size - 1)]\n                elif direction == 'left':\n                    base_corners = [(ar - size + 1, ac + size - 1), (ar + size - 1, ac + size - 1)]\n                elif direction == 'right':\n                    base_corners = [(ar - size + 1, ac - size + 1), (ar + size - 1, ac - size + 1)]\n                base_3_count = sum(1 for bc in base_corners if in_bounds(*bc) and grid[bc[0]][bc[1]] == 3)\n                base_oob_count = sum(1 for bc in base_corners if not in_bounds(*bc))\n                score = (base_3_count + base_oob_count, covered)\n                if best is None or score > best[0]:\n                    best = (score, ar, ac, direction, size)\n        if best:\n            triangles.append(best[1:])\n\n    for (ar, ac, direction, size) in triangles:\n        for k in range(size):\n            if direction == 'up':\n                row = ar + k\n                for col in range(ac - k, ac + k + 1):\n                    if not in_bounds(row, col):\n                        continue\n                    if k == 0:\n                        continue\n                    if col == ac - k or col == ac + k:\n                        if grid[row][col] != 3:\n                            out[row][col] = 8\n                    else:\n                        out[row][col] = 8\n            elif direction == 'down':\n                row = ar - k\n                for col in range(ac - k, ac + k + 1):\n                    if not in_bounds(row, col):\n                        continue\n                    if k == 0:\n                        continue\n                    if col == ac - k or col == ac + k:\n                        if grid[row][col] != 3:\n                            out[row][col] = 8\n                    else:\n                        out[row][col] = 8\n            elif direction == 'left':\n                col = ac + k\n                for row in range(ar - k, ar + k + 1):\n                    if not in_bounds(row, col):\n                        continue\n                    if k == 0:\n                        continue\n                    if row == ar - k or row == ar + k:\n                        if grid[row][col] != 3:\n                            out[row][col] = 8\n                    else:\n                        out[row][col] = 8\n            elif direction == 'right':\n                col = ac - k\n                for row in range(ar - k, ar + k + 1):\n                    if not in_bounds(row, col):\n                        continue\n                    if k == 0:\n                        continue\n                    if row == ar - k or row == ar + k:\n                        if grid[row][col] != 3:\n                            out[row][col] = 8\n                    else:\n                        out[row][col] = 8\n\n    return out\n",
+      "source": "claude_agent_batch_002_v2_direct_write",
+      "approach": "Agent v2 prompt; code written directly to disk by the agent (no chat-extract step). Validated against all train+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

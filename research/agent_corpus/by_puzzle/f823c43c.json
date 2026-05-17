@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "f823c43c",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Count color frequencies\n    cnt = Counter()\n    for row in input_grid:\n        for v in row:\n            cnt[v] += 1\n    colors = [c for c, _ in cnt.most_common()]\n    bg = colors[0]\n    # Among the remaining colors, find the \"inner\" color whose placement is regular\n    others = [c for c in colors if c != bg]\n\n    def find_pattern(color):\n        # Return set of (row_residue, col_residue) for a period that fits, or None\n        positions = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == color]\n        if not positions:\n            return None\n        # Try periods 2,3,4,5\n        for pr in range(2, 7):\n            for pc in range(2, 7):\n                residues = set((r % pr, c % pc) for r, c in positions)\n                # Check that for every (r,c) with these residues in grid, the cell is \"consistent\"\n                # i.e., placing color at all (R,C) with (R%pr,C%pc) in residues should cover all positions\n                # and not be contradicted.\n                # Count expected positions\n                expected = 0\n                for R in range(H):\n                    for C in range(W):\n                        if (R % pr, C % pc) in residues:\n                            expected += 1\n                # All actual positions should be subset of expected (they are by construction)\n                # We want the residues to be \"minimal\" / consistent. Check ratio:\n                if expected > 0 and len(positions) / expected >= 0.5:\n                    return (pr, pc, residues)\n        return None\n\n    best_inner = None\n    best_score = -1\n    best_pattern = None\n    for c in others:\n        pat = find_pattern(c)\n        if pat is None:\n            continue\n        pr, pc, residues = pat\n        # Score: how well positions of c match the lattice\n        positions = [(r, cc) for r in range(H) for cc in range(W) if input_grid[r][cc] == c]\n        expected_cells = [(R, C) for R in range(H) for C in range(W) if (R % pr, C % pc) in residues]\n        # ratio of actual color positions to expected cells\n        score = len(positions) / max(1, len(expected_cells))\n        if score > best_score:\n            best_score = score\n            best_inner = c\n            best_pattern = pat\n\n    pr, pc, residues = best_pattern\n    out = [[bg] * W for _ in range(H)]\n    for r in range(H):\n        for c in range(W):\n            if (r % pr, c % pc) in residues:\n                out[r][c] = best_inner\n    return out\n",
+      "source": "claude_agent_batch_002_v2_direct_write",
+      "approach": "Agent v2 prompt; code written directly to disk by the agent (no chat-extract step). Validated against all train+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "66ac4c3b",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    cells = [(r, c, input_grid[r][c]) for r in range(H) for c in range(W)]\n    counts = Counter(v for _, _, v in cells)\n    bg = counts.most_common(1)[0][0]\n    other_colors = [v for v in counts if v != bg]\n\n    # Find which color appears only in a single row or column (the B-axis color)\n    B_color = None\n    B_axis_orientation = None\n    B_axis_index = None\n    for col in other_colors:\n        positions = [(r, c) for r, c, v in cells if v == col]\n        rows_used = set(r for r, c in positions)\n        cols_used = set(c for r, c in positions)\n        if len(rows_used) == 1:\n            B_color = col\n            B_axis_orientation = 'row'\n            B_axis_index = next(iter(rows_used))\n            break\n        if len(cols_used) == 1:\n            B_color = col\n            B_axis_orientation = 'col'\n            B_axis_index = next(iter(cols_used))\n            break\n\n    A_color = [v for v in other_colors if v != B_color][0]\n\n    # Find A-axis: parallel line with A-cells at same positions as B-cells on B-axis\n    if B_axis_orientation == 'row':\n        B_positions_along = [c for r, c, v in cells if v == B_color and r == B_axis_index]\n        A_axis_index = None\n        for r in range(H):\n            if r == B_axis_index:\n                continue\n            row_vals = input_grid[r]\n            a_positions = [c for c in range(W) if row_vals[c] == A_color]\n            other_vals = [row_vals[c] for c in range(W) if row_vals[c] != A_color]\n            if a_positions == B_positions_along and all(v == bg for v in other_vals):\n                A_axis_index = r\n                break\n    else:\n        B_positions_along = [r for r, c, v in cells if v == B_color and c == B_axis_index]\n        A_axis_index = None\n        for c in range(W):\n            if c == B_axis_index:\n                continue\n            col_vals = [input_grid[r][c] for r in range(H)]\n            a_positions = [r for r in range(H) if col_vals[r] == A_color]\n            other_vals = [col_vals[r] for r in range(H) if col_vals[r] != A_color]\n            if a_positions == B_positions_along and all(v == bg for v in other_vals):\n                A_axis_index = c\n                break\n\n    out = [row[:] for row in input_grid]\n\n    if B_axis_orientation == 'row':\n        sign = 0\n        for r, c, v in cells:\n            if v == A_color and r != A_axis_index and r != B_axis_index:\n                if r < B_axis_index:\n                    sign = -1\n                else:\n                    sign = 1\n                break\n        for r in range(H):\n            for c in range(W):\n                if input_grid[r][c] == A_color and r != A_axis_index and r != B_axis_index:\n                    mirror_r = A_axis_index + B_axis_index - r\n                    if 0 <= mirror_r < H:\n                        if (r - B_axis_index) * sign > 0:\n                            if out[mirror_r][c] == bg:\n                                out[mirror_r][c] = B_color\n    else:\n        sign = 0\n        for r, c, v in cells:\n            if v == A_color and c != A_axis_index and c != B_axis_index:\n                if c < B_axis_index:\n                    sign = -1\n                else:\n                    sign = 1\n                break\n        for r in range(H):\n            for c in range(W):\n                if input_grid[r][c] == A_color and c != A_axis_index and c != B_axis_index:\n                    mirror_c = A_axis_index + B_axis_index - c\n                    if 0 <= mirror_c < W:\n                        if (c - B_axis_index) * sign > 0:\n                            if out[r][mirror_c] == bg:\n                                out[r][mirror_c] = B_color\n\n    return out\n",
+      "source": "claude_agent_batch_002_v2_direct_write",
+      "approach": "Agent v2 prompt; code written directly to disk by the agent (no chat-extract step). Validated against all train+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

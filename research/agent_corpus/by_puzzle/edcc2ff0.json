@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "edcc2ff0",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find the divider region: the bottom block. The top has markers in column 0\n    # at odd rows (0-indexed). The bottom block has a background color filling the boundary.\n    # Find the start row of the bottom block: the first row that has more than just col-0 non-zero,\n    # or the row whose values are all the same non-zero color (the bg row).\n    bg_row_idx = None\n    for r in range(H):\n        # the \"frame\" row will have all cells equal to a single non-zero value\n        vals = set(grid[r])\n        if len(vals) == 1 and 0 not in vals:\n            bg_row_idx = r\n            break\n    if bg_row_idx is None:\n        # fallback\n        bg_row_idx = 7\n\n    bg = grid[bg_row_idx][0]\n\n    # Collect markers from top section: cells in column 0, rows 0..bg_row_idx-1, that are non-zero\n    markers = []  # list of (row, color)\n    for r in range(bg_row_idx):\n        if grid[r][0] != 0:\n            markers.append((r, grid[r][0]))\n\n    # Find all connected shapes (4-connectivity) in the bottom grid for each non-bg color\n    visited = [[False]*W for _ in range(H)]\n    shapes_by_color = {}  # color -> list of shapes (each shape is list of cells)\n    for r in range(bg_row_idx, H):\n        for c in range(W):\n            if visited[r][c]:\n                continue\n            color = grid[r][c]\n            if color == bg:\n                visited[r][c] = True\n                continue\n            # BFS\n            stack = [(r, c)]\n            cells = []\n            while stack:\n                rr, cc = stack.pop()\n                if rr < bg_row_idx or rr >= H or cc < 0 or cc >= W:\n                    continue\n                if visited[rr][cc]:\n                    continue\n                if grid[rr][cc] != color:\n                    continue\n                visited[rr][cc] = True\n                cells.append((rr, cc))\n                stack.extend([(rr+1, cc), (rr-1, cc), (rr, cc+1), (rr, cc-1)])\n            shapes_by_color.setdefault(color, []).append(cells)\n\n    marker_colors = set(c for _, c in markers)\n\n    # Build output\n    out = [row[:] for row in grid]\n\n    # Clear top section markers (column 0 cells in top region) - actually keep them only as needed\n    # The top section is unchanged except we draw lines for markers\n    # The marker stays at column 0; we extend to the right by (count-1) cells.\n    for r, color in markers:\n        count = len(shapes_by_color.get(color, []))\n        # Clear the row in the top section\n        for c in range(W):\n            out[r][c] = 0\n        # Draw the marker line of length `count` starting from column 0\n        for c in range(count):\n            out[r][c] = color\n\n    # Remove non-marker color shapes from the bottom grid\n    for color, shape_list in shapes_by_color.items():\n        if color not in marker_colors:\n            for cells in shape_list:\n                for (rr, cc) in cells:\n                    out[rr][cc] = bg\n\n    return out\n",
+      "source": "claude_agent_batch_002_v2_direct_write",
+      "approach": "Agent v2 prompt; code written directly to disk by the agent (no chat-extract step). Validated against all train+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

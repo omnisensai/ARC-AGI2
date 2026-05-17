@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "1190bc91",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find non-zero cells\n    nz = [(r, c, grid[r][c]) for r in range(H) for c in range(W) if grid[r][c] != 0]\n\n    # Group into horizontal/vertical lines\n    # Find sequence: longest line of cells in same row or column with distinct/multiple values\n    # First, group by row\n    rows_groups = {}\n    cols_groups = {}\n    for r, c, v in nz:\n        rows_groups.setdefault(r, []).append((c, v))\n        cols_groups.setdefault(c, []).append((r, v))\n\n    # Find lines: consecutive cells in a row or column\n    lines = []  # list of (orientation, positions, values) where positions are (r,c) ordered\n    for r, cells in rows_groups.items():\n        cells.sort()\n        # group consecutive cols\n        i = 0\n        while i < len(cells):\n            j = i\n            while j + 1 < len(cells) and cells[j+1][0] == cells[j][0] + 1:\n                j += 1\n            if j > i:\n                positions = [(r, cells[k][0]) for k in range(i, j+1)]\n                values = [cells[k][1] for k in range(i, j+1)]\n                lines.append(('H', positions, values))\n            else:\n                # single cell\n                positions = [(r, cells[i][0])]\n                values = [cells[i][1]]\n                lines.append(('H', positions, values))\n            i = j + 1\n\n    for c, cells in cols_groups.items():\n        cells.sort()\n        i = 0\n        while i < len(cells):\n            j = i\n            while j + 1 < len(cells) and cells[j+1][0] == cells[j][0] + 1:\n                j += 1\n            if j > i:\n                positions = [(cells[k][0], c) for k in range(i, j+1)]\n                values = [cells[k][1] for k in range(i, j+1)]\n                lines.append(('V', positions, values))\n            i = j + 1\n\n    # Now categorize: find the longest line as the sequence\n    # The sequence has length >= 3 typically (the marker pairs have length 2)\n    # Find lines with length >= 3\n    seq_candidates = [l for l in lines if len(l[1]) >= 3]\n    # If multiple, pick longest\n    seq_candidates.sort(key=lambda l: -len(l[1]))\n    sequence_line = seq_candidates[0]\n\n    seq_orient = sequence_line[0]\n    seq_positions = sequence_line[1]\n    seq_values = sequence_line[2]\n\n    # Determine anchor: end with more grid space behind\n    if seq_orient == 'H':\n        # positions sorted by col\n        seq_positions = sorted(seq_positions, key=lambda p: p[1])\n        seq_values_sorted = []\n        # rebuild values matching sorted positions\n        pos_to_val = {p: v for p, v in zip(sequence_line[1], sequence_line[2])}\n        seq_values = [pos_to_val[p] for p in seq_positions]\n        left_end = seq_positions[0]\n        right_end = seq_positions[-1]\n        space_left = left_end[1]\n        space_right = W - 1 - right_end[1]\n        if space_left >= space_right:\n            anchor = left_end\n            # sequence values as given (left to right)\n            direction = 'right'\n        else:\n            anchor = right_end\n            seq_values = seq_values[::-1]\n            direction = 'left'\n    else:  # 'V'\n        seq_positions = sorted(seq_positions, key=lambda p: p[0])\n        pos_to_val = {p: v for p, v in zip(sequence_line[1], sequence_line[2])}\n        seq_values = [pos_to_val[p] for p in seq_positions]\n        top_end = seq_positions[0]\n        bot_end = seq_positions[-1]\n        space_top = top_end[0]\n        space_bot = H - 1 - bot_end[0]\n        if space_top >= space_bot:\n            anchor = top_end\n            direction = 'down'\n        else:\n            anchor = bot_end\n            seq_values = seq_values[::-1]\n            direction = 'up'\n\n    ar, ac = anchor\n\n    # Identify markers - pairs of length 2 on grid edges\n    # Determine marker for each region (N, S, W, E)\n    markers = {}  # 'N','S','W','E' -> color\n    for line in lines:\n        if line is sequence_line:\n            continue\n        orient, positions, values = line\n        if len(positions) != 2:\n            continue\n        # All values same?\n        if values[0] != values[1]:\n            continue\n        color = values[0]\n        # Determine edge\n        r0, c0 = positions[0]\n        r1, c1 = positions[1]\n        if orient == 'H':\n            if r0 == 0:\n                markers['N'] = color\n            elif r0 == H - 1:\n                markers['S'] = color\n        else:  # V\n            if c0 == 0:\n                markers['W'] = color\n            elif c0 == W - 1:\n                markers['E'] = color\n\n    # Build output\n    out = [[0] * W for _ in range(H)]\n\n    # For each sequence value, compute X arms\n    # seq_values[0] = anchor value, at position based on sequence direction\n    # Position of seq_values[k]: depends on direction\n    def seq_pos(k):\n        if direction == 'right':\n            return (ar, ac + k)\n        elif direction == 'left':\n            return (ar, ac - k)\n        elif direction == 'down':\n            return (ar + k, ac)\n        else:  # up\n            return (ar - k, ac)\n\n    # For each cell, determine if it's on some X arm\n    # k=0,1: full X. k>=2: only arms in sequence direction (away from anchor)\n    # Paint in reverse order so that anchor (k=0) overwrites others\n\n    # Actually we want anchor and k=1 to take priority over k>=2 in shared cells\n    # Paint k from largest to smallest\n\n    L = len(seq_values)\n    for k in range(L - 1, -1, -1):\n        vr, vc = seq_pos(k)\n        v = seq_values[k]\n        if k <= 1:\n            # full X\n            directions = [(-1, -1), (-1, 1), (1, -1), (1, 1)]\n        else:\n            # only arms in sequence direction\n            if direction == 'right':\n                directions = [(-1, 1), (1, 1)]\n            elif direction == 'left':\n                directions = [(-1, -1), (1, -1)]\n            elif direction == 'down':\n                directions = [(1, -1), (1, 1)]\n            else:  # up\n                directions = [(-1, -1), (-1, 1)]\n        # Paint center\n        if 0 <= vr < H and 0 <= vc < W:\n            out[vr][vc] = v\n        for dr, dc in directions:\n            rr, cc = vr + dr, vc + dc\n            while 0 <= rr < H and 0 <= cc < W:\n                out[rr][cc] = v\n                rr += dr\n                cc += dc\n\n    # Now fill background based on quadrants\n    # First, identify which cells are already painted (non-zero from X arms)\n    painted = [[out[r][c] != 0 for c in range(W)] for r in range(H)]\n\n    # For unpainted cells, determine quadrant relative to anchor (ar, ac)\n    for r in range(H):\n        for c in range(W):\n            if painted[r][c]:\n                continue\n            dr = r - ar\n            dc = c - ac\n            # Quadrant: largest of |dr|, |dc| determines\n            if abs(dc) > abs(dr):\n                if dc > 0:\n                    # East\n                    color = markers.get('E', 0)\n                else:\n                    color = markers.get('W', 0)\n            elif abs(dr) > abs(dc):\n                if dr > 0:\n                    color = markers.get('S', 0)\n                else:\n                    color = markers.get('N', 0)\n            else:\n                # |dr|==|dc|, on diagonal - shouldn't happen if anchor X painted\n                color = 0\n            out[r][c] = color\n\n    return out\n",
+      "source": "claude_agent_batch_002_v2_direct_write",
+      "approach": "Agent v2 prompt; code written directly to disk by the agent (no chat-extract step). Validated against all train+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

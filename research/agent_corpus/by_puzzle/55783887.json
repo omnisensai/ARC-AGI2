@@ -1,0 +1,60 @@
+{
+  "puzzle_id": "55783887",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 5,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    h = len(input_grid)\n    w = len(input_grid[0])\n    out = [row[:] for row in input_grid]\n    cnt = Counter()\n    for r in range(h):\n        for c in range(w):\n            cnt[input_grid[r][c]] += 1\n    bg = cnt.most_common(1)[0][0]\n    ones = []\n    sixes = []\n    for r in range(h):\n        for c in range(w):\n            v = input_grid[r][c]\n            if v == 1:\n                ones.append((r, c))\n            elif v == 6:\n                sixes.append((r, c))\n    # Find pairs of 1s on shared diagonals\n    one_lines = []  # list of (kind, key, p1, p2)\n    n = len(ones)\n    for i in range(n):\n        for j in range(i+1, n):\n            r1, c1 = ones[i]\n            r2, c2 = ones[j]\n            if c1 - r1 == c2 - r2:\n                one_lines.append(('main', c1 - r1, (r1, c1), (r2, c2)))\n            elif r1 + c1 == r2 + c2:\n                one_lines.append(('anti', r1 + c1, (r1, c1), (r2, c2)))\n    # Draw 1-lines (only between endpoints inclusive), not overwriting 6s\n    for kind, key, (r1, c1), (r2, c2) in one_lines:\n        rmin = min(r1, r2)\n        rmax = max(r1, r2)\n        if kind == 'main':\n            for r in range(rmin, rmax + 1):\n                c = r + key\n                if 0 <= c < w and out[r][c] != 6:\n                    out[r][c] = 1\n        else:\n            for r in range(rmin, rmax + 1):\n                c = key - r\n                if 0 <= c < w and out[r][c] != 6:\n                    out[r][c] = 1\n    # Restore original 1s\n    for r, c in ones:\n        if out[r][c] != 6:\n            out[r][c] = 1\n    # For each 6 on a 1-line, draw perpendicular line through it\n    for r, c in sixes:\n        perp_kind = None\n        for kind, key, p1, p2 in one_lines:\n            if kind == 'main' and (c - r) == key:\n                perp_kind = 'anti'\n                break\n            if kind == 'anti' and (r + c) == key:\n                perp_kind = 'main'\n                break\n        if perp_kind == 'anti':\n            k = r + c\n            for rr in range(h):\n                cc = k - rr\n                if 0 <= cc < w:\n                    out[rr][cc] = 6\n        elif perp_kind == 'main':\n            k = c - r\n            for rr in range(h):\n                cc = rr + k\n                if 0 <= cc < w:\n                    out[rr][cc] = 6\n    # Restore original 6s\n    for r, c in sixes:\n        out[r][c] = 6\n    return out\n",
+      "source": "claude_agent_batch_002_v2_direct_write",
+      "approach": "Agent v2 prompt; code written directly to disk by the agent (no chat-extract step). Validated against all train+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

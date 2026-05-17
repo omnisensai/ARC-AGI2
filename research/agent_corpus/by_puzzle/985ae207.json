@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "985ae207",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    BG = 8\n\n    # Find connected components (rectangles) of non-8 cells.\n    # First identify small 3x3 frames and large solid rectangles separately.\n    # Small frame: 3x3 region where the 8 border cells are one color and center is another (non-8) color.\n    # Large rect: a solid rectangle of one color, larger than 3x3 OR solid (no center anomaly).\n\n    small_frames = []  # list of (r0, c0, frame_color, center_color)\n    large_rects = []   # list of (r1, r2, c1, c2, color)\n\n    # Detect small 3x3 frames\n    seen_frame = [[False] * W for _ in range(H)]\n    for r in range(H - 2):\n        for c in range(W - 2):\n            cells = [input_grid[r + dr][c + dc] for dr in range(3) for dc in range(3)]\n            border = [cells[i] for i in [0, 1, 2, 3, 5, 6, 7, 8]]\n            center = cells[4]\n            if center == BG:\n                continue\n            if all(b == border[0] and b != BG for b in border):\n                if border[0] != center:\n                    small_frames.append((r, c, border[0], center))\n                    for dr in range(3):\n                        for dc in range(3):\n                            seen_frame[r + dr][c + dc] = True\n\n    # Detect large solid rectangles (non-8 cells not part of a small frame)\n    visited = [[False] * W for _ in range(H)]\n    for r in range(H):\n        for c in range(W):\n            if visited[r][c] or input_grid[r][c] == BG or seen_frame[r][c]:\n                continue\n            color = input_grid[r][c]\n            # BFS to find component\n            stack = [(r, c)]\n            cells_set = []\n            while stack:\n                rr, cc = stack.pop()\n                if rr < 0 or rr >= H or cc < 0 or cc >= W:\n                    continue\n                if visited[rr][cc]:\n                    continue\n                if input_grid[rr][cc] != color or seen_frame[rr][cc]:\n                    continue\n                visited[rr][cc] = True\n                cells_set.append((rr, cc))\n                for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                    stack.append((rr + dr, cc + dc))\n            if not cells_set:\n                continue\n            rs = [p[0] for p in cells_set]\n            cs = [p[1] for p in cells_set]\n            r1, r2 = min(rs), max(rs)\n            c1, c2 = min(cs), max(cs)\n            large_rects.append((r1, r2, c1, c2, color))\n\n    # For each small frame, find the matching large rect with color == center_color\n    for (r0, c0, frame_color, center_color) in small_frames:\n        target = None\n        for rect in large_rects:\n            if rect[4] == center_color:\n                target = rect\n                break\n        if target is None:\n            continue\n        tr1, tr2, tc1, tc2, _ = target\n        fr = r0 + 1  # frame center row\n        fc = c0 + 1  # frame center col\n\n        # Determine direction\n        if tr1 <= fr <= tr2:\n            # horizontal\n            if fc < tc1:\n                dr_step, dc_step = 0, 3\n            else:\n                dr_step, dc_step = 0, -3\n        elif tc1 <= fc <= tc2:\n            # vertical\n            if fr < tr1:\n                dr_step, dc_step = 3, 0\n            else:\n                dr_step, dc_step = -3, 0\n        else:\n            continue\n\n        # Replicate 3x3 frames along direction until the new center is inside target.\n        cr, cc = fr, fc\n        # Keep placing replicas until cr,cc is inside target rect\n        max_iter = max(H, W)\n        for _ in range(max_iter):\n            cr += dr_step\n            cc += dc_step\n            # Place a 3x3 replica with border=frame_color, center=center_color\n            r_top = cr - 1\n            c_left = cc - 1\n            for dr in range(3):\n                for dc in range(3):\n                    rr = r_top + dr\n                    ccol = c_left + dc\n                    if 0 <= rr < H and 0 <= ccol < W:\n                        if dr == 1 and dc == 1:\n                            grid[rr][ccol] = center_color\n                        else:\n                            grid[rr][ccol] = frame_color\n            if tr1 <= cr <= tr2 and tc1 <= cc <= tc2:\n                break\n\n    return grid\n",
+      "source": "claude_agent_batch_002_v2_direct_write",
+      "approach": "Agent v2 prompt; code written directly to disk by the agent (no chat-extract step). Validated against all train+test pairs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
