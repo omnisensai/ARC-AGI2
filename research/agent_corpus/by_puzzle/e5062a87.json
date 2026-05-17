@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "e5062a87",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    rows = len(grid)\n    cols = len(grid[0])\n\n    twos = [(r, c) for r in range(rows) for c in range(cols) if grid[r][c] == 2]\n    if not twos:\n        return grid\n\n    min_r = min(r for r, c in twos)\n    max_r = max(r for r, c in twos)\n    min_c = min(c for r, c in twos)\n    max_c = max(c for r, c in twos)\n\n    template_set = set(twos)\n    offsets = [(r - min_r, c - min_c) for r, c in twos]\n\n    bbox_h = max_r - min_r + 1\n    bbox_w = max_c - min_c + 1\n\n    is_1d_horiz = bbox_h == 1\n    is_1d_vert = bbox_w == 1\n\n    # Identify template-5 positions (cells inside template bbox with value 5)\n    t5_positions = []\n    for dr in range(bbox_h):\n        for dc in range(bbox_w):\n            if grid[min_r + dr][min_c + dc] == 5:\n                t5_positions.append((dr, dc))\n\n    # Find candidate anchors\n    anchors = []\n    for ar in range(rows - bbox_h + 1):\n        for ac in range(cols - bbox_w + 1):\n            cells = [(ar + dr, ac + dc) for dr, dc in offsets]\n            if not all(grid[r][c] == 0 for r, c in cells):\n                continue\n            if set(cells) == template_set:\n                continue\n            # For 1D templates, restrict to same row/column as template\n            if is_1d_horiz and ar != min_r:\n                continue\n            if is_1d_vert and ac != min_c:\n                continue\n            # Require interior template-5 cells map to input-5\n            ok = True\n            for (dr, dc) in t5_positions:\n                is_interior = (0 < dr < bbox_h - 1) and (0 < dc < bbox_w - 1)\n                if is_interior:\n                    if grid[ar + dr][ac + dc] != 5:\n                        ok = False\n                        break\n            if not ok:\n                continue\n            anchors.append((ar, ac, cells))\n\n    # Greedy lex order, reject anchors whose cells overlap already-filled cells\n    filled = set()\n    for ar, ac, cells in anchors:\n        if any(cell in filled for cell in cells):\n            continue\n        filled.update(cells)\n\n    for r, c in filled:\n        grid[r][c] = 2\n\n    return grid\n",
+      "source": "claude_agent_batch_009_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
