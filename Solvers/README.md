@@ -21,6 +21,7 @@ pair** of its source puzzle, verified by `run_feedback.py`.
 | [`replace_non_top2_colors_with_seven`](replace_non_top2_colors_with_seven.py) | [9caf5b84](https://arcprize.org/tasks/9caf5b84) | Keep the two most frequent colors in the grid unchanged and replace every other cell with 7. |
 | [`rotate_bar_colors_and_lengths`](rotate_bar_colors_and_lengths.py) | [2601afb7](https://arcprize.org/tasks/2601afb7) | For bottom-anchored vertical bars (sorted left to right), each bar takes the color of the previous bar and the length of the next bar, cycling around. |
 | [`seeded_reachable_wall_contouring`](seeded_reachable_wall_contouring.py) | [8f3a5a89](https://arcprize.org/tasks/8f3a5a89) | From a unique seed, flood-fill the reachable region; only edge-touching 1-clusters act as wall barriers; draw the contour in 7; preserve walls adjacent to or inside the region, remove unreachable walls. |
+| [`stamp_template_on_anchor_singletons`](stamp_template_on_anchor_singletons.py) | [3e980e27](https://arcprize.org/tasks/3e980e27) | For each lone pixel whose color matches an anchor color inside a multi-cell template shape, replicate the rest of that template around the pixel (mirroring horizontally when the anchor color is 2). |
 
 ## Solver structure
 
