@@ -1,8 +1,58 @@
 {
   "puzzle_id": "2c608aff",
   "source": "arc2_train",
-  "consensus": null,
-  "right_codes": [],
+  "consensus": {
+    "name": "extend_scatter_pixels_to_rectangle",
+    "desc": "For each scattered pixel that shares a row or column with the solid rectangle, draw a line of that pixel's color from the pixel up to (but not into) the nearest edge of the rectangle.",
+    "majority": "3/5",
+    "solver_path": "Solvers/extend_scatter_pixels_to_rectangle.py"
+  },
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    cnt = Counter()\n    for row in input_grid:\n        for v in row:\n            cnt[v] += 1\n    bg = cnt.most_common(1)[0][0]\n\n    non_bg = {}\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != bg:\n                non_bg.setdefault(v, []).append((r, c))\n\n    rect_color = None\n    rect_bounds = None\n    for color, cells in non_bg.items():\n        rs = [r for r, c in cells]\n        cs = [c for r, c in cells]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        expected = (r1 - r0 + 1) * (c1 - c0 + 1)\n        if expected == len(cells) and expected > 1:\n            rect_color = color\n            rect_bounds = (r0, r1, c0, c1)\n            break\n\n    scatter_color = None\n    for color in non_bg:\n        if color != rect_color:\n            scatter_color = color\n            break\n\n    out = [row[:] for row in input_grid]\n    if rect_color is None or scatter_color is None:\n        return out\n\n    r0, r1, c0, c1 = rect_bounds\n    for (r, c) in non_bg[scatter_color]:\n        if r0 <= r <= r1:\n            if c < c0:\n                for cc in range(c, c0):\n                    out[r][cc] = scatter_color\n            elif c > c1:\n                for cc in range(c1 + 1, c + 1):\n                    out[r][cc] = scatter_color\n        elif c0 <= c <= c1:\n            if r < r0:\n                for rr in range(r, r0):\n                    out[rr][c] = scatter_color\n            elif r > r1:\n                for rr in range(r1 + 1, r + 1):\n                    out[rr][c] = scatter_color\n\n    return out\n",
+      "source": "claude_agent_R1_v2_full_puzzle",
+      "approach": "Agent v2 prompt: full puzzle (train + test with answers) shown; agent wrote code from complete spec rather than inferring from training alone."
+    }
+  ],
   "wrong_codes": [
     {
       "bucket": "wrong_training",
@@ -445,5 +495,33 @@
       "failure_mode": "fails 4/4 training pairs (total cell-diff 45)"
     }
   ],
-  "judging": null
+  "judging": {
+    "votes": [
+      {
+        "name": "extend_scatter_marks_to_rectangle",
+        "desc": "For each scatter-colored cell that shares a row or column with the solid rectangle, draw a line of the scatter color from that cell up to the rectangle's edge."
+      },
+      {
+        "name": "extend_scatter_pixels_to_rectangle",
+        "desc": "For each scattered pixel that shares a row or column with the solid rectangle, draw a line of that pixel's color from the pixel up to (but not into) the nearest edge of the rectangle."
+      },
+      {
+        "name": "extend_scatter_pixels_to_rectangle",
+        "desc": "For each scattered pixel aligned with the solid rectangle's row or column span, draw a line of the scatter color from that pixel up to the rectangle's edge."
+      },
+      {
+        "name": "extend_scatter_pixels_to_rectangle",
+        "desc": "For each scattered marker pixel that shares a row or column with the solid rectangle, fill the cells between that pixel and the rectangle's edge with the marker's color."
+      },
+      {
+        "name": "extend_scatter_points_to_rectangle",
+        "desc": "Each scattered marker that shares a row or column with the solid rectangle is extended as a line of its own color toward the rectangle, filling cells from the marker up to (but not into) the rectangle's edge."
+      }
+    ],
+    "counts": {
+      "extend_scatter_marks_to_rectangle": 1,
+      "extend_scatter_pixels_to_rectangle": 3,
+      "extend_scatter_points_to_rectangle": 1
+    }
+  }
 }

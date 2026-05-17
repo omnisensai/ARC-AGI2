@@ -1,8 +1,51 @@
 {
   "puzzle_id": "292dd178",
   "source": "arc2_train",
-  "consensus": null,
-  "right_codes": [],
+  "consensus": {
+    "name": "fill_boxes_and_leak_through_gap",
+    "desc": "For each rectangular box outlined by 1s, fill its interior with 2s and, if the border has a missing 1, extend a line of 2s outward from that gap to the grid edge.",
+    "majority": "3/5",
+    "solver_path": "Solvers/fill_boxes_and_leak_through_gap.py"
+  },
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    visited = [[False] * W for _ in range(H)]\n    boxes = []\n    for i in range(H):\n        for j in range(W):\n            if input_grid[i][j] == 1 and not visited[i][j]:\n                stack = [(i, j)]\n                comp = []\n                while stack:\n                    y, x = stack.pop()\n                    if y < 0 or y >= H or x < 0 or x >= W or visited[y][x] or input_grid[y][x] != 1:\n                        continue\n                    visited[y][x] = True\n                    comp.append((y, x))\n                    for dy in (-1, 0, 1):\n                        for dx in (-1, 0, 1):\n                            if dy == 0 and dx == 0:\n                                continue\n                            stack.append((y + dy, x + dx))\n                if comp:\n                    ys = [c[0] for c in comp]\n                    xs = [c[1] for c in comp]\n                    boxes.append((min(ys), max(ys), min(xs), max(xs)))\n\n    for (r0, r1, c0, c1) in boxes:\n        border_cells = []\n        for r in range(r0, r1 + 1):\n            for c in range(c0, c1 + 1):\n                if r == r0 or r == r1 or c == c0 or c == c1:\n                    border_cells.append((r, c))\n        missing = None\n        for (r, c) in border_cells:\n            if input_grid[r][c] != 1:\n                missing = (r, c)\n                break\n        for r in range(r0 + 1, r1):\n            for c in range(c0 + 1, c1):\n                grid[r][c] = 2\n        if missing is not None:\n            mr, mc = missing\n            dr = 0\n            dc = 0\n            if mr == r0:\n                dr = -1\n            elif mr == r1:\n                dr = 1\n            if mc == c0:\n                dc = -1\n            elif mc == c1:\n                dc = 1\n            r, c = mr, mc\n            while 0 <= r < H and 0 <= c < W:\n                grid[r][c] = 2\n                r += dr\n                c += dc\n\n    return grid\n",
+      "source": "claude_agent_R1_v2_full_puzzle",
+      "approach": "Agent v2 prompt: full puzzle (train + test with answers) shown; agent wrote code from complete spec rather than inferring from training alone."
+    }
+  ],
   "wrong_codes": [
     {
       "bucket": "wrong_training",
@@ -317,5 +360,33 @@
       "failure_mode": "fails 3/3 training pairs (total cell-diff 35)"
     }
   ],
-  "judging": null
+  "judging": {
+    "votes": [
+      {
+        "name": "fill_box_and_leak_through_gap",
+        "desc": "Fill the interior of each 1-bordered rectangle with 2s, and extend a 2-colored ray outward through the single missing border cell until it exits the grid."
+      },
+      {
+        "name": "fill_box_interior_and_leak_through_gap",
+        "desc": "For each rectangular box outlined by 1s, fill its interior with 2s and, if the border has a missing cell, extend a stream of 2s outward from that gap to the grid edge."
+      },
+      {
+        "name": "fill_boxes_and_leak_through_gap",
+        "desc": "For each rectangular box outlined by 1s, fill its interior with 2s and, if the border has a missing 1, extend a line of 2s outward from that gap to the grid edge."
+      },
+      {
+        "name": "fill_boxes_and_leak_through_gap",
+        "desc": "Fill the interior of each rectangular box outline with 2, and if the box border has a missing cell, extend a 2-colored ray outward from that gap until it leaves the grid."
+      },
+      {
+        "name": "fill_boxes_and_leak_through_gap",
+        "desc": "For each rectangular box outlined by 1s, fill its interior with 2s and, if the border has a gap, extend a line of 2s outward from that gap to the grid edge."
+      }
+    ],
+    "counts": {
+      "fill_box_and_leak_through_gap": 1,
+      "fill_box_interior_and_leak_through_gap": 1,
+      "fill_boxes_and_leak_through_gap": 3
+    }
+  }
 }

@@ -1,8 +1,51 @@
 {
   "puzzle_id": "36fdfd69",
   "source": "arc2_train",
-  "consensus": null,
-  "right_codes": [],
+  "consensus": {
+    "name": "recolor_foreground_in_two_clusters",
+    "desc": "Within the bounding box of each cluster of 2-cells, recolor every foreground (non-zero, non-2) cell to 4.",
+    "majority": "4/5",
+    "solver_path": "Solvers/recolor_foreground_in_two_clusters.py"
+  },
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    fg = None\n    for r in range(H):\n        for c in range(W):\n            v = grid[r][c]\n            if v != 0 and v != 2:\n                fg = v\n                break\n        if fg is not None:\n            break\n    twos = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 2]\n    n = len(twos)\n    parent = list(range(n))\n    def find(x):\n        while parent[x] != x:\n            parent[x] = parent[parent[x]]\n            x = parent[x]\n        return x\n    def union(a, b):\n        ra, rb = find(a), find(b)\n        if ra != rb:\n            parent[ra] = rb\n    for i in range(n):\n        for j in range(i + 1, n):\n            if max(abs(twos[i][0] - twos[j][0]), abs(twos[i][1] - twos[j][1])) <= 2:\n                union(i, j)\n    clusters = {}\n    for i, p in enumerate(twos):\n        clusters.setdefault(find(i), []).append(p)\n    for cells in clusters.values():\n        rs = [r for r, _ in cells]\n        cs = [c for _, c in cells]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        for r in range(r0, r1 + 1):\n            for c in range(c0, c1 + 1):\n                if grid[r][c] == fg:\n                    grid[r][c] = 4\n    return grid\n",
+      "source": "claude_agent_R1_v2_full_puzzle",
+      "approach": "Agent v2 prompt: full puzzle (train + test with answers) shown; agent wrote code from complete spec rather than inferring from training alone."
+    }
+  ],
   "wrong_codes": [
     {
       "bucket": "wrong_training",
@@ -375,5 +418,32 @@
       "failure_mode": "fails 3/3 training pairs (total cell-diff 165)"
     }
   ],
-  "judging": null
+  "judging": {
+    "votes": [
+      {
+        "name": "recolor_foreground_in_two_clusters",
+        "desc": "Within the bounding box of each cluster of 2-cells, recolor any foreground-colored cells to 4."
+      },
+      {
+        "name": "recolor_foreground_in_two_clusters",
+        "desc": "Within the bounding box of each cluster of 2-cells, recolor every foreground (non-zero, non-2) cell to 4."
+      },
+      {
+        "name": "recolor_foreground_in_two_clusters",
+        "desc": "Within the bounding box of each cluster of 2-cells, recolor every foreground (non-zero, non-2) cell to 4."
+      },
+      {
+        "name": "recolor_foreground_inside_two_clusters",
+        "desc": "Within the bounding box of each cluster of 2-cells, recolor any foreground (non-zero, non-2) cells to 4."
+      },
+      {
+        "name": "recolor_foreground_in_two_clusters",
+        "desc": "Within the bounding box of each cluster of 2-cells, recolor every foreground (non-zero, non-2) cell to 4."
+      }
+    ],
+    "counts": {
+      "recolor_foreground_in_two_clusters": 4,
+      "recolor_foreground_inside_two_clusters": 1
+    }
+  }
 }

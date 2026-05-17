@@ -1,8 +1,44 @@
 {
   "puzzle_id": "5792cb4d",
   "source": "arc2_train",
-  "consensus": null,
-  "right_codes": [],
+  "consensus": {
+    "name": "reverse_values_along_path",
+    "desc": "Trace the single connected non-background path from one endpoint to the other and write the sequence of cell values back along the path in reverse order.",
+    "majority": "5/5",
+    "solver_path": "Solvers/reverse_values_along_path.py"
+  },
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    cnt = Counter()\n    for r in range(H):\n        for c in range(W):\n            cnt[input_grid[r][c]] += 1\n    bg = cnt.most_common(1)[0][0]\n\n    cells = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] != bg]\n    cellset = set(cells)\n\n    def neighbors(r, c):\n        out = []\n        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n            if (r + dr, c + dc) in cellset:\n                out.append((r + dr, c + dc))\n        return out\n\n    endpoints = [p for p in cells if len(neighbors(*p)) == 1]\n    start = endpoints[0] if endpoints else cells[0]\n\n    path = [start]\n    prev = None\n    cur = start\n    while True:\n        nbrs = [n for n in neighbors(*cur) if n != prev]\n        if not nbrs:\n            break\n        prev = cur\n        cur = nbrs[0]\n        path.append(cur)\n\n    values = [input_grid[r][c] for r, c in path]\n    reversed_vals = values[::-1]\n\n    out = [row[:] for row in input_grid]\n    for (r, c), v in zip(path, reversed_vals):\n        out[r][c] = v\n    return out\n",
+      "source": "claude_agent_R1_v2_full_puzzle",
+      "approach": "Agent v2 prompt: full puzzle (train + test with answers) shown; agent wrote code from complete spec rather than inferring from training alone."
+    }
+  ],
   "wrong_codes": [
     {
       "bucket": "wrong_training",
@@ -217,5 +253,31 @@
       "failure_mode": "fails 2/2 training pairs (total cell-diff 56)"
     }
   ],
-  "judging": null
+  "judging": {
+    "votes": [
+      {
+        "name": "reverse_values_along_path",
+        "desc": "Trace the single connected non-background path from one endpoint to the other and write the sequence of cell values back along the path in reverse order."
+      },
+      {
+        "name": "reverse_values_along_path",
+        "desc": "Trace the connected non-background path from one endpoint to the other and reassign each cell's value to that of its mirrored position along the path."
+      },
+      {
+        "name": "reverse_values_along_path",
+        "desc": "Trace the single connected non-background path between its endpoints and write the sequence of cell values back along the path in reverse order."
+      },
+      {
+        "name": "reverse_values_along_path",
+        "desc": "Trace the connected non-background path from one endpoint to the other and reverse the sequence of cell values along it."
+      },
+      {
+        "name": "reverse_values_along_path",
+        "desc": "Trace the single connected non-background path from one endpoint to the other and overwrite each cell with the value originally at its mirrored position along the path."
+      }
+    ],
+    "counts": {
+      "reverse_values_along_path": 5
+    }
+  }
 }

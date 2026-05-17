@@ -1,8 +1,51 @@
 {
   "puzzle_id": "626c0bcc",
   "source": "arc2_train",
-  "consensus": null,
-  "right_codes": [],
+  "consensus": {
+    "name": "tile_eights_with_colored_2x2_shapes",
+    "desc": "Partition all 8-cells into 2x2 blocks where each block is recolored by which of its four cells are filled: full square becomes 1, and the three L-shaped triominoes become 2, 3, or 4 according to which corner is missing.",
+    "majority": "5/5 tiebreaker",
+    "solver_path": "Solvers/tile_eights_with_colored_2x2_shapes.py"
+  },
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    output = [[0]*cols for _ in range(rows)]\n\n    eights = set()\n    for r in range(rows):\n        for c in range(cols):\n            if input_grid[r][c] == 8:\n                eights.add((r, c))\n\n    shapes = {\n        1: [(0,0),(0,1),(1,0),(1,1)],\n        2: [(0,1),(1,0),(1,1)],\n        4: [(0,0),(1,0),(1,1)],\n        3: [(0,0),(0,1),(1,1)],\n    }\n\n    def backtrack(remaining, assignments):\n        if not remaining:\n            return assignments\n        cell = min(remaining)\n        r, c = cell\n        for dr, dc in [(0,0),(0,-1),(-1,0),(-1,-1)]:\n            br, bc = r+dr, c+dc\n            if br < 0 or bc < 0 or br+1 >= rows or bc+1 >= cols:\n                continue\n            for color, offsets in shapes.items():\n                cells = set((br+or_, bc+oc_) for or_, oc_ in offsets)\n                if cell not in cells:\n                    continue\n                if cells.issubset(remaining):\n                    result = backtrack(remaining - cells, assignments + [(color, cells)])\n                    if result is not None:\n                        return result\n        return None\n\n    result = backtrack(eights, [])\n    if result is None:\n        return output\n    for color, cells in result:\n        for r, c in cells:\n            output[r][c] = color\n    return output\n",
+      "source": "claude_agent_R1_v2_full_puzzle",
+      "approach": "Agent v2 prompt: full puzzle (train + test with answers) shown; agent wrote code from complete spec rather than inferring from training alone."
+    }
+  ],
   "wrong_codes": [
     {
       "bucket": "wrong_training",
@@ -375,5 +418,33 @@
       "failure_mode": "fails 3/3 training pairs (total cell-diff 27)"
     }
   ],
-  "judging": null
+  "judging": {
+    "votes": [
+      {
+        "name": "tile_eights_with_colored_2x2_shapes",
+        "desc": "Partition all 8-cells into 2x2 blocks where each block is recolored by which of its four cells are filled: full square becomes 1, and the three L-shaped triominoes become 2, 3, or 4 according to which corner is missing."
+      },
+      {
+        "name": "tile_eights_with_colored_2x2_pieces",
+        "desc": "Partition the set of 8-cells into 2x2 blocks where each block is either a full square (1) or one of three L-shaped triominoes, recoloring each block by its shape: full=1, missing-top-left=2, missing-top-right=4, missing-bottom-left=3."
+      },
+      {
+        "name": "tile_eights_with_colored_2x2_tetrominoes",
+        "desc": "Partition all 8-cells into 2x2 blocks where each block is recolored by which of its four cells are filled: full square becomes 1, missing top-left becomes 2, missing top-right becomes 4, and missing bottom-left becomes 3."
+      },
+      {
+        "name": "tile_eights_with_colored_2x2_shapes",
+        "desc": "Partition all 8-cells into 2x2 blocks where each block is replaced by one of four colored shapes (full square=1, missing-top-left=2, missing-top-right=4, missing-bottom-left=3) according to which corner of the 2x2 is empty."
+      },
+      {
+        "name": "tile_eights_with_colored_2x2_pieces",
+        "desc": "Partition all 8-cells into 2x2 blocks where each block is one of four colored tetromino/triomino shapes (full square=1, missing top-left=2, missing top-right=3, missing bottom-right=4) that exactly cover the 8s."
+      }
+    ],
+    "counts": {
+      "tile_eights_with_colored_2x2_shapes": 2,
+      "tile_eights_with_colored_2x2_pieces": 2,
+      "tile_eights_with_colored_2x2_tetrominoes": 1
+    }
+  }
 }

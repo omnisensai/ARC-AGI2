@@ -1,8 +1,58 @@
 {
   "puzzle_id": "0f63c0b9",
   "source": "arc2_train",
-  "consensus": null,
-  "right_codes": [],
+  "consensus": {
+    "name": "partition_rows_by_markers_into_bordered_bands",
+    "desc": "Sort non-zero pixels by row to split the grid into horizontal bands (one per pixel), then paint each band's left/right borders and the pixel's own row in that pixel's color, additionally drawing top/bottom edges for the first and last bands.",
+    "majority": "4/5 tiebreaker",
+    "solver_path": "Solvers/partition_rows_by_markers_into_bordered_bands.py"
+  },
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    pixels = []\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != 0:\n                pixels.append((r, c, v))\n    pixels.sort()\n    n = len(pixels)\n    bands = []\n    for i, (r, c, v) in enumerate(pixels):\n        top = 0 if i == 0 else (pixels[i-1][0] + r) // 2 + 1\n        bot = H - 1 if i == n - 1 else (r + pixels[i+1][0]) // 2\n        bands.append((top, bot, r, c, v))\n    out = [[0]*W for _ in range(H)]\n    for i, (top, bot, r, c, v) in enumerate(bands):\n        lines = {r}\n        if i == 0:\n            lines.add(top)\n        if i == n - 1:\n            lines.add(bot)\n        for rr in range(top, bot + 1):\n            out[rr][0] = v\n            out[rr][W-1] = v\n            if rr in lines:\n                for cc in range(W):\n                    out[rr][cc] = v\n    return out\n",
+      "source": "claude_agent_R1_v2_full_puzzle",
+      "approach": "Agent v2 prompt: full puzzle (train + test with answers) shown; agent wrote code from complete spec rather than inferring from training alone."
+    }
+  ],
   "wrong_codes": [
     {
       "bucket": "wrong_training",
@@ -409,5 +459,34 @@
       "failure_mode": "fails 4/4 training pairs (total cell-diff 698)"
     }
   ],
-  "judging": null
+  "judging": {
+    "votes": [
+      {
+        "name": "partition_rows_into_colored_bands",
+        "desc": "Sort the nonzero pixels by row to split the grid into vertical bands colored by each pixel, drawing side borders on every band row plus a horizontal line at each pixel's row (and at the top/bottom edges for the first/last bands)."
+      },
+      {
+        "name": "partition_rows_by_pixels_into_colored_bands",
+        "desc": "Sort the non-zero pixels by row, split the grid into horizontal bands around each pixel's row, and in each band draw left/right border columns plus a full horizontal line at the pixel's row (extending to the top/bottom edge for the first/last band) all in that pixel's color."
+      },
+      {
+        "name": "partition_rows_by_markers_into_bordered_bands",
+        "desc": "Sort non-zero pixels by row to split the grid into horizontal bands (one per pixel), then paint each band's left/right borders and the pixel's own row in that pixel's color, additionally drawing top/bottom edges for the first and last bands."
+      },
+      {
+        "name": "partition_rows_by_pixels_into_colored_bands",
+        "desc": "Sort the nonzero pixels by row, split the grid into horizontal bands around each pixel's row, and in each band draw side walls plus a full horizontal line at the pixel's row (extending to the outer edge for the first and last bands) using that pixel's color."
+      },
+      {
+        "name": "partition_rows_by_pixels_with_borders",
+        "desc": "Sort the nonzero pixels by row, split the grid into horizontal bands around each pixel's row, then for each band draw left/right column borders in that pixel's color and a full horizontal line across the pixel's row (also along the top edge for the first band and bottom edge for the last)."
+      }
+    ],
+    "counts": {
+      "partition_rows_into_colored_bands": 1,
+      "partition_rows_by_pixels_into_colored_bands": 2,
+      "partition_rows_by_markers_into_bordered_bands": 1,
+      "partition_rows_by_pixels_with_borders": 1
+    }
+  }
 }

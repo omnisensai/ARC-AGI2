@@ -1,8 +1,51 @@
 {
   "puzzle_id": "d6ad076f",
   "source": "arc2_train",
-  "consensus": null,
-  "right_codes": [],
+  "consensus": {
+    "name": "fill_inner_gap_between_rectangles",
+    "desc": "Between the two non-zero rectangles, fill the rectangular region bounded by their overlapping rows/columns (shrunk by one on each side) with color 8.",
+    "majority": "5/5 tiebreaker",
+    "solver_path": "Solvers/fill_inner_gap_between_rectangles.py"
+  },
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    seen_colors = set()\n    rects = []\n    for r in range(H):\n        for c in range(W):\n            v = grid[r][c]\n            if v != 0 and v not in seen_colors:\n                seen_colors.add(v)\n                cells = [(rr, cc) for rr in range(H) for cc in range(W) if grid[rr][cc] == v]\n                r0 = min(p[0] for p in cells)\n                r1 = max(p[0] for p in cells)\n                c0 = min(p[1] for p in cells)\n                c1 = max(p[1] for p in cells)\n                rects.append((r0, r1, c0, c1, v))\n    if len(rects) != 2:\n        return grid\n    a, b = rects\n    ar0, ar1, ac0, ac1, _ = a\n    br0, br1, bc0, bc1, _ = b\n    if ac1 < bc0 or bc1 < ac0:\n        if ac1 < bc0:\n            gap_c0, gap_c1 = ac1 + 1, bc0 - 1\n        else:\n            gap_c0, gap_c1 = bc1 + 1, ac0 - 1\n        r0 = max(ar0, br0) + 1\n        r1 = min(ar1, br1) - 1\n        for r in range(r0, r1 + 1):\n            for c in range(gap_c0, gap_c1 + 1):\n                grid[r][c] = 8\n    else:\n        if ar1 < br0:\n            gap_r0, gap_r1 = ar1 + 1, br0 - 1\n        else:\n            gap_r0, gap_r1 = br1 + 1, ar0 - 1\n        c0 = max(ac0, bc0) + 1\n        c1 = min(ac1, bc1) - 1\n        for r in range(gap_r0, gap_r1 + 1):\n            for c in range(c0, c1 + 1):\n                grid[r][c] = 8\n    return grid\n",
+      "source": "claude_agent_R1_v2_full_puzzle",
+      "approach": "Agent v2 prompt: full puzzle (train + test with answers) shown; agent wrote code from complete spec rather than inferring from training alone."
+    }
+  ],
   "wrong_codes": [
     {
       "bucket": "exec_error",
@@ -346,5 +389,33 @@
       "failure_mode": "fails 3/3 training pairs (total cell-diff 132)"
     }
   ],
-  "judging": null
+  "judging": {
+    "votes": [
+      {
+        "name": "fill_overlap_gap_between_rectangles",
+        "desc": "Fills the rectangular gap between the two colored rectangles with 8, spanning the perpendicular overlap of their extents along the axis separating them."
+      },
+      {
+        "name": "fill_inner_gap_between_rectangles",
+        "desc": "Between the two non-zero rectangles, fill the rectangular region spanning the gap along their separating axis and the overlap of their extents along the perpendicular axis (shrunk by one on each side) with color 8."
+      },
+      {
+        "name": "fill_overlap_gap_between_rectangles",
+        "desc": "Between the two non-zero rectangles, fill the empty gap region bounded by their overlapping rows or columns with color 8."
+      },
+      {
+        "name": "fill_inner_gap_between_rectangles",
+        "desc": "Between the two non-zero rectangles, fill the rectangular region bounded by their overlapping rows/columns (shrunk by one on each side) with color 8."
+      },
+      {
+        "name": "fill_overlap_between_rectangles_with_8",
+        "desc": "Find the two non-zero rectangles and fill the inner gap between them (along their overlapping rows or columns, excluding the borders) with color 8."
+      }
+    ],
+    "counts": {
+      "fill_overlap_gap_between_rectangles": 2,
+      "fill_inner_gap_between_rectangles": 2,
+      "fill_overlap_between_rectangles_with_8": 1
+    }
+  }
 }
