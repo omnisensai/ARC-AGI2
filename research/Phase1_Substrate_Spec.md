@@ -151,21 +151,23 @@ Mixed-batch training. No sequential phases.
 
 The pixel substrate (Phase 1a/1b) requires `input.shape == output.shape` because it's a per-cell comparison. That excludes ~33% of ARC puzzles (588 of 1,781 examples). Task A2 closes that gap.
 
-**Alphabet:**
+The hierarchy is **purely mechanical, not semantic**. Don't read meaning into the labels:
 
-| Symbol | Meaning |
+| Symbol | What it marks |
 |---|---|
-| `.` | most common color in the grid (background by frequency) |
-| `#` | second most common color (structure by frequency) |
-| `S` | all other colors (content / signal) |
+| `.` | the thing there's **most** of (whatever color it is) |
+| `#` | the thing there's **second most** of |
+| `S` | everything else (the rare stuff, the signal) |
 
-**Computation:** count color frequencies in a single grid; sort by count descending (ties broken by lower color value); map the top color → `.`, the next → `#`, everything else → `S`. Lossy by design — `S` doesn't say *which* content color, so the substrate can't be decoded back. That's intentional: hierarchy teaches perception (separate signal from filler), not reconstruction. No Task B2.
+Sometimes `.` is the background. Sometimes it's a big shape filling the grid. Sometimes it's border cells. **Doesn't matter.** The model learns "the dots are the most common, the S is the signal" — a frequency-decomposition skill. The labels are arbitrary; **consistency is what matters.**
+
+**Computation:** count color frequencies in a single grid; sort by count descending (ties broken by lower color value); map the top color → `.`, the next → `#`, everything else → `S`. Lossy by design — `S` doesn't say *which* content color, so the substrate can't be decoded back. That's intentional: Task A2 teaches perception (separate signal from filler), not reconstruction. No Task B2.
 
 **Skip rules:** grids with fewer than 2 unique colors (no hierarchy possible) and grids smaller than 3×3 (insufficient structure).
 
 **Augmentation:** D4 only (8 rotations/flips). Color permutation does not apply — the hierarchy is frequency-based and invariant under color relabeling, so permuting colors produces an identical substrate.
 
-**Worked example** (same grid as user's original spec, but following the mechanical rule):
+**Worked example** (grid with 3 colors, frequencies in parentheses):
 
 ```
 GRID (color 1: 24 cells, color 6: 19 cells, color 4: 6 cells):
@@ -187,7 +189,7 @@ HIERARCHY SUBSTRATE (1 -> ., 6 -> #, 4 -> S):
 . . . . . . .
 ```
 
-**Important note on the rule:** the mechanical "most common color" rule may not match the human-intuitive notion of "background." In the example above, the outer 1-border has more cells than the inner 6-layer, so 1 wins the `.` tier even though a human might call the border "the structure." That's fine — the model learns a *consistent deterministic function*, not a semantic heuristic. Whether this decomposition transfers usefully to Phase 2 is empirical.
+A human might look at this grid and call the outer 1-border "the structure" and the inner 6-layer "the background." That's a semantic reading. The mechanical rule disagrees: 1 has 24 cells, so 1 wins `.`. **The model doesn't care.** It learns a consistent deterministic function. Whether the resulting decomposition transfers usefully to Phase 2 (rule perception → code) is empirical.
 
 ---
 

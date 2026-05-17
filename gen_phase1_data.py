@@ -50,10 +50,12 @@ PHASE1B_SYSTEM = (
 )
 
 HIERARCHY_SYSTEM = (
-    "You decompose ARC grids into structural layers by color frequency. Produce "
-    "the hierarchy substrate: '.' = most common color (background), '#' = second "
-    "most common (structure), 'S' = all other colors (content signal). Ties on "
-    "frequency broken by lower color value. Grid dimensions are preserved."
+    "You decompose ARC grids by color frequency. Produce the hierarchy substrate: "
+    "'.' = the most common color in the grid, '#' = the second most common color, "
+    "'S' = all other colors. The rule is purely mechanical based on frequency, not "
+    "semantic — '.' is whatever color appears most, regardless of whether it looks "
+    "like a background or a structure. Ties broken by lower color value. Grid "
+    "dimensions are preserved."
 )
 
 

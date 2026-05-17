@@ -71,19 +71,23 @@ def is_same_size(puzzle: dict) -> bool:
 
 
 def hierarchy_substrate(grid: Grid):
-    """Decompose a single grid into 3 frequency tiers.
+    """Decompose a single grid into 3 frequency tiers (purely mechanical).
 
-    '.' = most common color (background by frequency)
-    '#' = second most common color (structure by frequency)
-    'S' = all other colors (content/signal)
+    '.' = the most common color (whatever it is)
+    '#' = the second most common color
+    'S' = all other colors
+
+    No semantic interpretation — '.' is not necessarily "background" and '#'
+    is not necessarily "structure". The rule is frequency-only. Sometimes '.'
+    is a big shape filling the grid; sometimes it's border cells. The model
+    learns consistent frequency-decomposition; consistency is what matters.
 
     Ties broken by lower color value (deterministic). Returns None if the grid
     has fewer than 2 unique colors (no hierarchy to decompose).
 
-    The hierarchy is lossy: 'S' doesn't specify WHICH content color, so this
-    substrate cannot be decoded back to the original grid. That's intentional;
-    the hierarchy substrate teaches perception (separate signal from filler),
-    not reconstruction.
+    Lossy by design: 'S' doesn't specify WHICH content color, so this
+    substrate cannot be decoded back. Teaches perception (separate the most
+    frequent from the rare), not reconstruction.
     """
     counts = Counter(c for row in grid for c in row)
     if len(counts) < 2:
