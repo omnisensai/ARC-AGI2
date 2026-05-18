@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "1da012fc",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import deque\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    out = [row[:] for row in input_grid]\n\n    # Find key region: rectangle containing 5s with markers inside\n    fives = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 5]\n    if not fives:\n        return out\n\n    rmin = min(r for r, c in fives)\n    rmax = max(r for r, c in fives)\n    cmin = min(c for r, c in fives)\n    cmax = max(c for r, c in fives)\n\n    # Markers in key: cells inside the key bbox that aren't 5 and aren't 0\n    markers = []\n    for r in range(rmin, rmax + 1):\n        for c in range(cmin, cmax + 1):\n            v = grid[r][c]\n            if v != 5 and v != 0:\n                markers.append((r, c, v))\n\n    # Find shapes: connected components of nonzero cells outside the key bbox\n    visited = [[False] * W for _ in range(H)]\n    for r in range(rmin, rmax + 1):\n        for c in range(cmin, cmax + 1):\n            visited[r][c] = True\n\n    shapes = []\n    for r in range(H):\n        for c in range(W):\n            if not visited[r][c] and grid[r][c] != 0:\n                q = deque([(r, c)])\n                visited[r][c] = True\n                cells = []\n                while q:\n                    cr, cc = q.popleft()\n                    cells.append((cr, cc))\n                    for dr in (-1, 0, 1):\n                        for dc in (-1, 0, 1):\n                            if dr == 0 and dc == 0:\n                                continue\n                            nr, nc = cr + dr, cc + dc\n                            if (0 <= nr < H and 0 <= nc < W and\n                                    not visited[nr][nc] and grid[nr][nc] != 0):\n                                visited[nr][nc] = True\n                                q.append((nr, nc))\n                shapes.append(cells)\n\n    if not shapes or not markers:\n        return out\n\n    # Normalize marker positions within the markers' bounding box\n    mrs = [mr for mr, mc, mv in markers]\n    mcs = [mc for mr, mc, mv in markers]\n    mr_min, mr_max = min(mrs), max(mrs)\n    mc_min, mc_max = min(mcs), max(mcs)\n    marker_rel = []\n    for mr, mc, mv in markers:\n        rf = (mr - mr_min) / (mr_max - mr_min) if mr_max > mr_min else 0.5\n        cf = (mc - mc_min) / (mc_max - mc_min) if mc_max > mc_min else 0.5\n        marker_rel.append((rf, cf, mv))\n\n    # Compute shape centers\n    shape_centers = []\n    for cells in shapes:\n        srs = [r for r, c in cells]\n        scs = [c for r, c in cells]\n        cr = (min(srs) + max(srs)) / 2\n        cc = (min(scs) + max(scs)) / 2\n        shape_centers.append((cells, cr, cc))\n\n    # Normalize shape centers within the shapes' bounding box\n    srs_all = [cr for _, cr, cc in shape_centers]\n    scs_all = [cc for _, cr, cc in shape_centers]\n    sr_min, sr_max = min(srs_all), max(srs_all)\n    sc_min, sc_max = min(scs_all), max(scs_all)\n\n    # For each shape, find best marker by nearest normalized position\n    for cells, cr, cc in shape_centers:\n        rf = (cr - sr_min) / (sr_max - sr_min) if sr_max > sr_min else 0.5\n        cf = (cc - sc_min) / (sc_max - sc_min) if sc_max > sc_min else 0.5\n        best = None\n        best_d = float('inf')\n        for mrf, mcf, mv in marker_rel:\n            d = (mrf - rf) ** 2 + (mcf - cf) ** 2\n            if d < best_d:\n                best_d = d\n                best = mv\n        for r, c in cells:\n            out[r][c] = best\n\n    return out\n",
+      "source": "claude_agent_batch_035_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

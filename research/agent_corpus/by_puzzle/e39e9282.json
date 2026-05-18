@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "e39e9282",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find all 3x3 blocks of color 5 or 6\n    blocks = []  # list of (color, r0, c0) where block spans r0..r0+2, c0..c0+2\n    seen = set()\n    for r in range(H - 2):\n        for c in range(W - 2):\n            color = grid[r][c]\n            if color in (5, 6):\n                ok = True\n                for dr in range(3):\n                    for dc in range(3):\n                        if grid[r + dr][c + dc] != color:\n                            ok = False\n                            break\n                    if not ok:\n                        break\n                if ok:\n                    # ensure this is the top-left of the block (no extension up/left of same color)\n                    if (r - 1 >= 0 and grid[r - 1][c] == color) or (c - 1 >= 0 and grid[r][c - 1] == color):\n                        continue\n                    blocks.append((color, r, c))\n\n    # Initialize output: copy input\n    out = [row[:] for row in grid]\n\n    # For each block, find markers (9s) adjacent on cardinal sides\n    # Collect markers used (to remove for 6-blocks)\n    used_markers = set()\n    # For 5-blocks: erase block (set to 8), then for each marker add 9 at edge cell\n    # For 6-blocks: keep block, for each marker set middle cell of line to 9, remove marker\n\n    block_markers = []  # (color, r0, c0, list of markers)\n\n    for color, r0, c0 in blocks:\n        markers = []\n        # Top side: row r0-1, cols c0..c0+2 \u2014 marker above col c\n        if r0 - 1 >= 0:\n            for dc in range(3):\n                c = c0 + dc\n                if grid[r0 - 1][c] == 9:\n                    markers.append(('above', r0 - 1, c))\n        # Bottom side: row r0+3\n        if r0 + 3 < H:\n            for dc in range(3):\n                c = c0 + dc\n                if grid[r0 + 3][c] == 9:\n                    markers.append(('below', r0 + 3, c))\n        # Left side: col c0-1, rows r0..r0+2\n        if c0 - 1 >= 0:\n            for dr in range(3):\n                r = r0 + dr\n                if grid[r][c0 - 1] == 9:\n                    markers.append(('left', r, c0 - 1))\n        # Right side: col c0+3\n        if c0 + 3 < W:\n            for dr in range(3):\n                r = r0 + dr\n                if grid[r][c0 + 3] == 9:\n                    markers.append(('right', r, c0 + 3))\n        block_markers.append((color, r0, c0, markers))\n\n    # Apply transformations\n    for color, r0, c0, markers in block_markers:\n        if color == 6:\n            # Place 9 at middle cell of the marker's row/col within block\n            for side, mr, mc in markers:\n                if side in ('left', 'right'):\n                    # marker on row mr, middle col = c0 + 1\n                    out[mr][c0 + 1] = 9\n                else:  # above/below\n                    # marker on col mc, middle row = r0 + 1\n                    out[r0 + 1][mc] = 9\n                # Remove marker\n                out[mr][mc] = 8\n        else:  # color == 5\n            # Erase block\n            for dr in range(3):\n                for dc in range(3):\n                    out[r0 + dr][c0 + dc] = 8\n            # For each marker, place 9 at edge cell of block adjacent to marker; keep marker\n            for side, mr, mc in markers:\n                if side == 'left':\n                    out[mr][c0] = 9\n                elif side == 'right':\n                    out[mr][c0 + 2] = 9\n                elif side == 'above':\n                    out[r0][mc] = 9\n                else:  # below\n                    out[r0 + 2][mc] = 9\n                # marker stays at out[mr][mc] = 9 (already 9 from input copy)\n\n    return out\n",
+      "source": "claude_agent_batch_035_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

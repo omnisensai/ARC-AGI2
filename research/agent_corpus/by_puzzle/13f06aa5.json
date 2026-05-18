@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "13f06aa5",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import Counter\n\ndef solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find background color (most common)\n    cnt = Counter()\n    for r in range(H):\n        for c in range(W):\n            cnt[grid[r][c]] += 1\n    bg = cnt.most_common(1)[0][0]\n\n    # Find connected components of non-bg cells (4-connectivity)\n    visited = [[False]*W for _ in range(H)]\n    components = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != bg and not visited[r][c]:\n                stack = [(r, c)]\n                comp = []\n                while stack:\n                    y, x = stack.pop()\n                    if y < 0 or y >= H or x < 0 or x >= W:\n                        continue\n                    if visited[y][x] or grid[y][x] == bg:\n                        continue\n                    visited[y][x] = True\n                    comp.append((y, x))\n                    stack.extend([(y+1, x), (y-1, x), (y, x+1), (y, x-1)])\n                components.append(comp)\n\n    # For each component, find marker (unique-color cell) and determine projection direction\n    shapes = []\n    for comp in components:\n        colors = Counter(grid[y][x] for y, x in comp)\n        body_color = colors.most_common(1)[0][0]\n        markers = [(y, x) for y, x in comp if grid[y][x] != body_color]\n        if not markers:\n            continue\n        my, mx = markers[0]\n        marker_color = grid[my][mx]\n        body = [(y, x) for y, x in comp if grid[y][x] == body_color]\n        cy = sum(y for y, x in body) / len(body)\n        cx = sum(x for y, x in body) / len(body)\n        dy = my - cy\n        dx = mx - cx\n        if abs(dy) > abs(dx):\n            direction = 'up' if dy < 0 else 'down'\n        else:\n            direction = 'left' if dx < 0 else 'right'\n        shapes.append({\n            'marker_pos': (my, mx),\n            'marker_color': marker_color,\n            'direction': direction,\n        })\n\n    edge_directions = []\n\n    for shape in shapes:\n        my, mx = shape['marker_pos']\n        color = shape['marker_color']\n        d = shape['direction']\n        edge_directions.append(d)\n\n        if d == 'up':\n            steps = [(r, mx) for r in range(my-1, -1, -1)]\n            for i, (r, c) in enumerate(steps):\n                if i % 2 == 1:\n                    grid[r][c] = color\n            for c in range(W):\n                grid[0][c] = color\n        elif d == 'down':\n            steps = [(r, mx) for r in range(my+1, H)]\n            for i, (r, c) in enumerate(steps):\n                if i % 2 == 1:\n                    grid[r][c] = color\n            for c in range(W):\n                grid[H-1][c] = color\n        elif d == 'left':\n            steps = [(my, c) for c in range(mx-1, -1, -1)]\n            for i, (r, c) in enumerate(steps):\n                if i % 2 == 1:\n                    grid[r][c] = color\n            for r in range(H):\n                grid[r][0] = color\n        elif d == 'right':\n            steps = [(my, c) for c in range(mx+1, W)]\n            for i, (r, c) in enumerate(steps):\n                if i % 2 == 1:\n                    grid[r][c] = color\n            for r in range(H):\n                grid[r][W-1] = color\n\n    dirs_set = set(edge_directions)\n    if 'up' in dirs_set and 'right' in dirs_set:\n        grid[0][W-1] = 0\n    if 'up' in dirs_set and 'left' in dirs_set:\n        grid[0][0] = 0\n    if 'down' in dirs_set and 'right' in dirs_set:\n        grid[H-1][W-1] = 0\n    if 'down' in dirs_set and 'left' in dirs_set:\n        grid[H-1][0] = 0\n\n    return grid\n",
+      "source": "claude_agent_batch_034_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

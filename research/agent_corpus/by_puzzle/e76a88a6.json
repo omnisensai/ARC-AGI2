@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "e76a88a6",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    h = len(input_grid)\n    w = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find connected rectangular regions of non-zero cells.\n    # Identify the template (contains colors other than 5) and the 5-blocks.\n    visited = [[False] * w for _ in range(h)]\n\n    def find_rect(r, c, predicate):\n        # BFS to find bounding box of contiguous cells satisfying predicate\n        stack = [(r, c)]\n        cells = []\n        while stack:\n            y, x = stack.pop()\n            if y < 0 or y >= h or x < 0 or x >= w:\n                continue\n            if visited[y][x]:\n                continue\n            if not predicate(grid[y][x]):\n                continue\n            visited[y][x] = True\n            cells.append((y, x))\n            for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                stack.append((y + dy, x + dx))\n        return cells\n\n    template = None  # (r0, c0, rows, cols, pattern)\n    five_blocks = []\n\n    for r in range(h):\n        for c in range(w):\n            if visited[r][c] or grid[r][c] == 0:\n                continue\n            if grid[r][c] == 5:\n                cells = find_rect(r, c, lambda v: v == 5)\n                rs = [y for y, x in cells]\n                cs = [x for y, x in cells]\n                r0, r1 = min(rs), max(rs)\n                c0, c1 = min(cs), max(cs)\n                five_blocks.append((r0, c0, r1 - r0 + 1, c1 - c0 + 1))\n            else:\n                cells = find_rect(r, c, lambda v: v != 0 and v != 5)\n                rs = [y for y, x in cells]\n                cs = [x for y, x in cells]\n                r0, r1 = min(rs), max(rs)\n                c0, c1 = min(cs), max(cs)\n                rows = r1 - r0 + 1\n                cols = c1 - c0 + 1\n                pattern = [[grid[r0 + i][c0 + j] for j in range(cols)] for i in range(rows)]\n                template = (r0, c0, rows, cols, pattern)\n\n    if template is not None:\n        _, _, trows, tcols, pattern = template\n        for r0, c0, rows, cols in five_blocks:\n            if rows == trows and cols == tcols:\n                for i in range(rows):\n                    for j in range(cols):\n                        grid[r0 + i][c0 + j] = pattern[i][j]\n\n    return grid\n",
+      "source": "claude_agent_batch_035_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

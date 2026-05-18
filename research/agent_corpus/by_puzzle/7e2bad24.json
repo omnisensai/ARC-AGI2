@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "7e2bad24",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find all 1 positions\n    ones = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 1]\n    if len(ones) < 2:\n        return grid\n\n    # Determine the direction from the existing 1s (they form a diagonal line)\n    ones_sorted = sorted(ones)\n    r0, c0 = ones_sorted[0]\n    r1, c1 = ones_sorted[1]\n    dr = 1 if r1 > r0 else (-1 if r1 < r0 else 0)\n    dc = 1 if c1 > c0 else (-1 if c1 < c0 else 0)\n\n    def is_vertical_wall(r, c):\n        # Check if the 2 at (r,c) is part of a vertical line\n        v = 0\n        for nr in (r - 1, r + 1):\n            if 0 <= nr < H and grid[nr][c] == 2:\n                v += 1\n        h = 0\n        for nc in (c - 1, c + 1):\n            if 0 <= nc < W and grid[r][nc] == 2:\n                h += 1\n        if v > h:\n            return True\n        if h > v:\n            return False\n        # tie: default to vertical\n        return True\n\n    def trace(start_r, start_c, ddr, ddc):\n        r, c = start_r, start_c\n        cur_dr, cur_dc = ddr, ddc\n        # We bounce at most some number of times; cap iterations.\n        for _ in range(H * W * 4):\n            nr, nc = r + cur_dr, c + cur_dc\n            if not (0 <= nr < H and 0 <= nc < W):\n                return\n            val = grid[nr][nc]\n            if val == 2:\n                # bounce\n                if is_vertical_wall(nr, nc):\n                    cur_dc = -cur_dc\n                else:\n                    cur_dr = -cur_dr\n                nr, nc = r + cur_dr, c + cur_dc\n                if not (0 <= nr < H and 0 <= nc < W):\n                    return\n                # If after bouncing we're still on a 2, try the other reflection\n                if grid[nr][nc] == 2:\n                    # undo and try other axis\n                    cur_dc = -cur_dc  # restore\n                    cur_dr = -cur_dr\n                    nr, nc = r + cur_dr, c + cur_dc\n                    if not (0 <= nr < H and 0 <= nc < W):\n                        return\n            # Place 1 (overwriting whatever was there, including 3)\n            grid[nr][nc] = 1\n            r, c = nr, nc\n\n    # Trace forward from the last (largest) existing 1 in the direction\n    # We need to find the endpoint of the existing 1 diagonal in each direction\n    # Use the \"max\" end for forward direction (dr, dc)\n    # and the \"min\" end for backward direction (-dr, -dc)\n    if dr >= 0:\n        fwd_start = ones_sorted[-1]\n    else:\n        fwd_start = ones_sorted[0]\n    if dr >= 0:\n        bwd_start = ones_sorted[0]\n    else:\n        bwd_start = ones_sorted[-1]\n\n    trace(fwd_start[0], fwd_start[1], dr, dc)\n    trace(bwd_start[0], bwd_start[1], -dr, -dc)\n\n    return grid\n",
+      "source": "claude_agent_batch_035_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
