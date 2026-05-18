@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "320afe60",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    out = [[4] * W for _ in range(H)]\n\n    visited = [[False] * W for _ in range(H)]\n    components = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 1 and not visited[r][c]:\n                stack = [(r, c)]\n                visited[r][c] = True\n                cells = []\n                while stack:\n                    y, x = stack.pop()\n                    cells.append((y, x))\n                    for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        ny, nx = y + dy, x + dx\n                        if 0 <= ny < H and 0 <= nx < W and not visited[ny][nx] and grid[ny][nx] == 1:\n                            visited[ny][nx] = True\n                            stack.append((ny, nx))\n                components.append(cells)\n\n    for cells in components:\n        rs = [y for y, x in cells]\n        cs = [x for y, x in cells]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        h = r1 - r0 + 1\n        w = c1 - c0 + 1\n\n        # Build bbox local grid\n        local = [[grid[r0 + i][c0 + j] for j in range(w)] for i in range(h)]\n\n        # Flood-fill 4s from bbox border to find which 4s connect to \"outside\"\n        reach = [[False] * w for _ in range(h)]\n        from collections import deque\n        q = deque()\n        for i in range(h):\n            for j in range(w):\n                if (i == 0 or i == h - 1 or j == 0 or j == w - 1) and local[i][j] == 4:\n                    reach[i][j] = True\n                    q.append((i, j))\n        while q:\n            i, j = q.popleft()\n            for di, dj in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                ni, nj = i + di, j + dj\n                if 0 <= ni < h and 0 <= nj < w and not reach[ni][nj] and local[ni][nj] == 4:\n                    reach[ni][nj] = True\n                    q.append((ni, nj))\n\n        # Are there any 4s that are NOT reachable from boundary? Those are enclosed.\n        has_enclosed = False\n        has_any_4 = False\n        for i in range(h):\n            for j in range(w):\n                if local[i][j] == 4:\n                    has_any_4 = True\n                    if not reach[i][j]:\n                        has_enclosed = True\n                        break\n            if has_enclosed:\n                break\n\n        # Closed (move left, color 2) if has enclosed 4s OR no 4s at all\n        if has_enclosed or not has_any_4:\n            color = 2\n            new_c0 = 0\n        else:\n            color = 3\n            new_c0 = W - w\n\n        for i in range(h):\n            for j in range(w):\n                if local[i][j] == 1:\n                    out[r0 + i][new_c0 + j] = color\n\n    return out\n",
+      "source": "claude_agent_batch_055_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

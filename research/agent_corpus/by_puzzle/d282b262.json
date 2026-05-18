@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "d282b262",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find connected components of non-zero cells (8-connectivity to be safe,\n    # but shapes are filled rectangles so 4-connectivity suffices).\n    visited = [[False] * W for _ in range(H)]\n    shapes = []\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] != 0 and not visited[r][c]:\n                stack = [(r, c)]\n                cells = []\n                while stack:\n                    rr, cc = stack.pop()\n                    if rr < 0 or rr >= H or cc < 0 or cc >= W:\n                        continue\n                    if visited[rr][cc] or input_grid[rr][cc] == 0:\n                        continue\n                    visited[rr][cc] = True\n                    cells.append((rr, cc))\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        stack.append((rr + dr, cc + dc))\n                rs = [x[0] for x in cells]\n                cs = [x[1] for x in cells]\n                r0, r1 = min(rs), max(rs)\n                c0, c1 = min(cs), max(cs)\n                # Capture the pattern (rectangle bounding box content)\n                pattern = [[input_grid[r0 + i][c0 + j] for j in range(c1 - c0 + 1)]\n                           for i in range(r1 - r0 + 1)]\n                shapes.append({\n                    'r0': r0, 'r1': r1, 'c0': c0, 'c1': c1,\n                    'pattern': pattern,\n                })\n\n    # Order shapes by rightmost column descending (rightmost slides first)\n    shapes_sorted = sorted(shapes, key=lambda s: -s['c1'])\n\n    # Output grid\n    out = [[0] * W for _ in range(H)]\n\n    # Track placed shape rectangles for collision detection\n    placed = []  # list of (r0, r1, c0_new, c1_new)\n\n    for s in shapes_sorted:\n        r0, r1, c0, c1 = s['r0'], s['r1'], s['c0'], s['c1']\n        height = r1 - r0 + 1\n        width = c1 - c0 + 1\n        # Slide right: find the largest c1_new such that:\n        # - c1_new <= W-1\n        # - no overlap with any placed shape that shares any row in [r0..r1]\n        max_c1 = W - 1\n        for p in placed:\n            pr0, pr1, pc0, pc1 = p\n            # Check row overlap\n            if pr1 < r0 or pr0 > r1:\n                continue\n            # If row-overlap, our right edge must be < pc0\n            if pc0 - 1 < max_c1:\n                max_c1 = pc0 - 1\n        c1_new = max_c1\n        c0_new = c1_new - width + 1\n        # Place pattern\n        for i in range(height):\n            for j in range(width):\n                out[r0 + i][c0_new + j] = s['pattern'][i][j]\n        placed.append((r0, r1, c0_new, c1_new))\n\n    return out\n",
+      "source": "claude_agent_batch_055_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

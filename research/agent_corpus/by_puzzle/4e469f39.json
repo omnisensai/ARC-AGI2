@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "4e469f39",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    out = [row[:] for row in input_grid]\n\n    # Find connected components of 5s\n    seen = [[False] * W for _ in range(H)]\n    components = []\n    for i in range(H):\n        for j in range(W):\n            if input_grid[i][j] == 5 and not seen[i][j]:\n                stack = [(i, j)]\n                comp = []\n                while stack:\n                    r, c = stack.pop()\n                    if r < 0 or r >= H or c < 0 or c >= W:\n                        continue\n                    if seen[r][c] or input_grid[r][c] != 5:\n                        continue\n                    seen[r][c] = True\n                    comp.append((r, c))\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        stack.append((r + dr, c + dc))\n                components.append(comp)\n\n    for comp in components:\n        rs = [r for r, c in comp]\n        cs = [c for r, c in comp]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n\n        # Identify opening in top row: the column in [c0, c1] where (r0, col) is 0\n        opening_col = None\n        for col in range(c0, c1 + 1):\n            if input_grid[r0][col] == 0:\n                opening_col = col\n                break\n\n        if opening_col is None:\n            continue\n\n        # Fill interior (cells inside rectangle that are 0) with 2\n        for r in range(r0, r1 + 1):\n            for c in range(c0, c1 + 1):\n                if input_grid[r][c] == 0:\n                    out[r][c] = 2\n\n        # Determine stream direction: opposite of the shorter side\n        left_count = opening_col - c0  # number of cells to left of opening in top row\n        right_count = c1 - opening_col  # number of cells to right of opening\n        # Stream goes away from shorter side (toward the longer side direction? Let's check)\n        # Pair 1: left_count=2, right_count=1. Stream goes LEFT. So toward larger count.\n        # Pair 2: left_count=1, right_count=2. Stream goes RIGHT. Toward larger count.\n        # Pair 3 cup1: left_count=1, right_count=2. Stream RIGHT. Toward larger.\n        # Pair 3 cup2: left_count=2, right_count=1. Stream LEFT. Toward larger.\n        if left_count > right_count:\n            direction = -1\n        else:\n            direction = 1\n\n        # Stream is on row r0 - 1, from opening_col to edge in direction\n        stream_row = r0 - 1\n        if 0 <= stream_row < H:\n            c = opening_col\n            while 0 <= c < W:\n                out[stream_row][c] = 2\n                c += direction\n\n    return out\n",
+      "source": "claude_agent_batch_055_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

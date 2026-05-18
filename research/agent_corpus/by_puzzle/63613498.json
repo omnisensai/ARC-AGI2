@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "63613498",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import deque\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find connected components for each non-zero, non-5 color\n    def get_components():\n        visited = [[False] * W for _ in range(H)]\n        comps = []\n        for r in range(H):\n            for c in range(W):\n                if grid[r][c] != 0 and grid[r][c] != 5 and not visited[r][c]:\n                    color = grid[r][c]\n                    q = deque([(r, c)])\n                    visited[r][c] = True\n                    cells = []\n                    while q:\n                        cr, cc = q.popleft()\n                        cells.append((cr, cc))\n                        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1),\n                                       (-1, -1), (-1, 1), (1, -1), (1, 1)]:\n                            nr, nc = cr + dr, cc + dc\n                            if 0 <= nr < H and 0 <= nc < W and not visited[nr][nc] and grid[nr][nc] == color:\n                                visited[nr][nc] = True\n                                q.append((nr, nc))\n                    comps.append((color, cells))\n        return comps\n\n    def normalize(cells):\n        min_r = min(c[0] for c in cells)\n        min_c = min(c[1] for c in cells)\n        return frozenset((r - min_r, c - min_c) for r, c in cells)\n\n    # Find the divider region. Identify the marked quadrant cells (top-left of 5-border).\n    # The 5-border seems to mark the quadrant containing the \"key\" shape.\n    # Find the 5 cells forming the L/divider\n    five_cells = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 5]\n\n    # Determine the quadrant inside the 5 divider:\n    # The divider forms an L. Find the corner.\n    # The corner is the cell that has 5's both horizontally and vertically extending.\n    # The marked region is on the side away from the extending arms... Actually inside.\n    # Looking at examples: divider is at row 3, col 3 forming an L (row 3 cols 0-3, col 3 rows 0-3).\n    # Marked region: rows 0-2, cols 0-2 (top-left of the L corner).\n\n    # Find corner: a 5 cell with 5 neighbors both vertically and horizontally\n    corner = None\n    for r, c in five_cells:\n        has_h = any((r, cc) in [(r2, c2) for r2, c2 in five_cells] and cc != c for cc in range(W))\n        has_v = any((rr, c) in [(r2, c2) for r2, c2 in five_cells] and rr != r for rr in range(H))\n        # corner has 5's extending in two perpendicular directions\n        # count 5s in same row and same column\n        row_count = sum(1 for cc in range(W) if grid[r][cc] == 5)\n        col_count = sum(1 for rr in range(H) if grid[rr][c] == 5)\n        if row_count >= 2 and col_count >= 2:\n            corner = (r, c)\n            break\n\n    cr, cc = corner\n    # Determine which direction the arms extend\n    # Find extents\n    row_5_cols = [c for c in range(W) if grid[cr][c] == 5]\n    col_5_rows = [r for r in range(H) if grid[r][cc] == 5]\n    # The marked quadrant is bounded by these arms\n    # E.g., if arm extends from col 0 to corner_c, then marked col range is [0, corner_c-1] or [corner_c+1, W-1] depending\n    # Looking at examples, arms go from col 0 to corner and row 0 to corner; marked quad is rows 0..corner-1, cols 0..corner-1\n\n    min_row_arm = min(col_5_rows)\n    max_row_arm = max(col_5_rows)\n    min_col_arm = min(row_5_cols)\n    max_col_arm = max(row_5_cols)\n\n    # The marked quad is the corner of the L\n    # If arms extend \"down\" and \"right\" from corner: marked is top-left = rows[min_row..cr-1], cols[min_col..cc-1]?\n    # Actually arms extend FROM corner. The corner is at the inside corner; arms extend outward in two directions\n    # marked quad sits in the angle of the L\n\n    # Determine quadrant direction:\n    # vertical arm: does it extend up (min_row_arm < cr) or down (max_row_arm > cr)?\n    vert_up = (min_row_arm < cr)\n    vert_down = (max_row_arm > cr)\n    horz_left = (min_col_arm < cc)\n    horz_right = (max_col_arm > cc)\n\n    # The marked quadrant is the one NOT covered by the arms' direction\n    # Actually arms form an L. The marked region is inside the L (the corner pocket)\n    # E.g., arms go up and left from corner -> marked region is top-left (rows < cr, cols < cc)\n    # In training 1: corner (3,3), row arm cols 0-3, col arm rows 0-3. So arms go up (rows 0-2) and left (cols 0-2).\n    # Marked = rows 0-2, cols 0-2 (the pocket inside)\n\n    if vert_up and horz_left:\n        marked_rows = range(0, cr)\n        marked_cols = range(0, cc)\n    elif vert_up and horz_right:\n        marked_rows = range(0, cr)\n        marked_cols = range(cc + 1, W)\n    elif vert_down and horz_left:\n        marked_rows = range(cr + 1, H)\n        marked_cols = range(0, cc)\n    else:\n        marked_rows = range(cr + 1, H)\n        marked_cols = range(cc + 1, W)\n\n    marked_set = set((r, c) for r in marked_rows for c in marked_cols)\n\n    comps = get_components()\n\n    # Find the key shape - the component inside the marked region\n    key_shape = None\n    for color, cells in comps:\n        if all((r, c) in marked_set for r, c in cells):\n            key_shape = normalize(cells)\n            key_color = color\n            break\n\n    # Find a matching shape outside the marked region with a different color\n    for color, cells in comps:\n        if color == key_color:\n            continue\n        if normalize(cells) == key_shape:\n            # recolor to 5\n            for r, c in cells:\n                grid[r][c] = 5\n            break\n\n    return grid\n",
+      "source": "claude_agent_batch_055_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "2f767503",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    H = len(grid)\n    W = len(grid[0])\n\n    nine = None\n    fives = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 9:\n                nine = (r, c)\n            elif grid[r][c] == 5:\n                fives.append((r, c))\n\n    nr, nc = nine\n    center5 = None\n    for (r, c) in fives:\n        if abs(r - nr) + abs(c - nc) == 1:\n            center5 = (r, c)\n            break\n\n    cr, cc = center5\n    dr = cr - nr\n    dc = cc - nc\n\n    beam = set()\n    r, c = cr + dr, cc + dc\n    while 0 <= r < H and 0 <= c < W:\n        beam.add((r, c))\n        r += dr\n        c += dc\n\n    visited = [[False] * W for _ in range(H)]\n    to_clear = set()\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 4 and not visited[r][c]:\n                cluster = []\n                stack = [(r, c)]\n                visited[r][c] = True\n                touches_beam = False\n                while stack:\n                    x, y = stack.pop()\n                    cluster.append((x, y))\n                    if (x, y) in beam:\n                        touches_beam = True\n                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        nx, ny = x + dx, y + dy\n                        if 0 <= nx < H and 0 <= ny < W and not visited[nx][ny] and grid[nx][ny] == 4:\n                            visited[nx][ny] = True\n                            stack.append((nx, ny))\n                if touches_beam:\n                    to_clear.update(cluster)\n\n    for (r, c) in to_clear:\n        grid[r][c] = 7\n\n    return grid\n",
+      "source": "claude_agent_batch_055_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
