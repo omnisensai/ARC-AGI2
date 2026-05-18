@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "79369cc6",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    H = len(grid)\n    W = len(grid[0])\n\n    # Find the 3x3 template region made entirely of 4s and 6s (with both present).\n    template = None\n    tr, tc = -1, -1\n    for r in range(H - 2):\n        for c in range(W - 2):\n            cells = [grid[r + dr][c + dc] for dr in range(3) for dc in range(3)]\n            if all(v in (4, 6) for v in cells) and 4 in cells and 6 in cells:\n                template = [[grid[r + dr][c + dc] for dc in range(3)] for dr in range(3)]\n                tr, tc = r, c\n                break\n        if template is not None:\n            break\n\n    def rot(m):\n        return [[m[2 - c][r] for c in range(3)] for r in range(3)]\n\n    def flip(m):\n        return [row[::-1] for row in m]\n\n    syms = []\n    m = template\n    for _ in range(4):\n        syms.append(m)\n        syms.append(flip(m))\n        m = rot(m)\n\n    unique = []\n    seen = set()\n    for s in syms:\n        key = tuple(tuple(r) for r in s)\n        if key not in seen:\n            seen.add(key)\n            unique.append(s)\n\n    # Search every 3x3 placement (allowing partial off-grid positions at edges).\n    for r in range(-2, H):\n        for c in range(-2, W):\n            if r == tr and c == tc:\n                continue\n            for sym in unique:\n                sym_sixes = [(dr, dc) for dr in range(3) for dc in range(3) if sym[dr][dc] == 6]\n                # All 6s of the symmetry must fit within the grid bounds.\n                if not all(0 <= r + dr < H and 0 <= c + dc < W for dr, dc in sym_sixes):\n                    continue\n                # In-bounds 6 cells of the input region must exactly match the symmetry's 6 positions.\n                region_sixes = set()\n                for dr in range(3):\n                    for dc in range(3):\n                        rr, cc = r + dr, c + dc\n                        if 0 <= rr < H and 0 <= cc < W and grid[rr][cc] == 6:\n                            region_sixes.add((dr, dc))\n                if region_sixes != set(sym_sixes):\n                    continue\n                # Fill in the 4 cells of the symmetry where they fall inside the grid.\n                for dr in range(3):\n                    for dc in range(3):\n                        if sym[dr][dc] == 4:\n                            rr, cc = r + dr, c + dc\n                            if 0 <= rr < H and 0 <= cc < W:\n                                grid[rr][cc] = 4\n                break\n\n    return grid\n",
+      "source": "claude_agent_batch_032_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

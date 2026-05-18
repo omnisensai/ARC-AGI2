@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "96a8c0cd",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    output = [row[:] for row in input_grid]\n\n    # Find start (the single 2)\n    start = None\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 2:\n                start = (r, c)\n                break\n        if start:\n            break\n\n    sr, sc = start\n\n    # Determine direction (away from closest edge)\n    d_top = sr\n    d_bot = H - 1 - sr\n    d_left = sc\n    d_right = W - 1 - sc\n\n    min_d = min(d_top, d_bot, d_left, d_right)\n    if min_d == d_left:\n        direction = 'right'\n    elif min_d == d_right:\n        direction = 'left'\n    elif min_d == d_top:\n        direction = 'down'\n    else:\n        direction = 'up'\n\n    # Find all barriers (lines of length >= 2 in same color)\n    barriers = []  # for vertical path direction: (col, row_start, row_end, color)\n                   # for horizontal path direction: (row, col_start, col_end, color)\n\n    if direction in ('right', 'left'):\n        # Vertical barriers\n        for c in range(W):\n            r = 0\n            while r < H:\n                if grid[r][c] in (1, 3):\n                    color = grid[r][c]\n                    r1 = r\n                    while r < H and grid[r][c] == color:\n                        r += 1\n                    r2 = r - 1\n                    if r2 - r1 + 1 >= 2:\n                        barriers.append((c, r1, r2, color))\n                else:\n                    r += 1\n    else:\n        # Horizontal barriers\n        for r in range(H):\n            c = 0\n            while c < W:\n                if grid[r][c] in (1, 3):\n                    color = grid[r][c]\n                    c1 = c\n                    while c < W and grid[r][c] == color:\n                        c += 1\n                    c2 = c - 1\n                    if c2 - c1 + 1 >= 2:\n                        barriers.append((r, c1, c2, color))\n                else:\n                    c += 1\n\n    cur_r, cur_c = sr, sc\n\n    def mark(r, c):\n        if 0 <= r < H and 0 <= c < W:\n            if output[r][c] == 0:\n                output[r][c] = 2\n\n    mark(cur_r, cur_c)\n\n    if direction == 'right':\n        while True:\n            candidates = [b for b in barriers if b[0] > cur_c and b[1] <= cur_r <= b[2]]\n            if not candidates:\n                for c in range(cur_c + 1, W):\n                    mark(cur_r, c)\n                break\n            bcol, br1, br2, color = min(candidates, key=lambda b: b[0])\n            for c in range(cur_c + 1, bcol):\n                mark(cur_r, c)\n            cur_c = bcol - 1\n            if color == 3:\n                new_r = br2 + 1\n            else:\n                new_r = br1 - 1\n            step = 1 if new_r > cur_r else -1\n            for r in range(cur_r + step, new_r + step, step):\n                mark(r, cur_c)\n            cur_r = new_r\n    elif direction == 'left':\n        while True:\n            candidates = [b for b in barriers if b[0] < cur_c and b[1] <= cur_r <= b[2]]\n            if not candidates:\n                for c in range(cur_c - 1, -1, -1):\n                    mark(cur_r, c)\n                break\n            bcol, br1, br2, color = max(candidates, key=lambda b: b[0])\n            for c in range(cur_c - 1, bcol, -1):\n                mark(cur_r, c)\n            cur_c = bcol + 1\n            if color == 3:\n                new_r = br2 + 1\n            else:\n                new_r = br1 - 1\n            step = 1 if new_r > cur_r else -1\n            for r in range(cur_r + step, new_r + step, step):\n                mark(r, cur_c)\n            cur_r = new_r\n    elif direction == 'down':\n        while True:\n            candidates = [b for b in barriers if b[0] > cur_r and b[1] <= cur_c <= b[2]]\n            if not candidates:\n                for r in range(cur_r + 1, H):\n                    mark(r, cur_c)\n                break\n            brow, bc1, bc2, color = min(candidates, key=lambda b: b[0])\n            for r in range(cur_r + 1, brow):\n                mark(r, cur_c)\n            cur_r = brow - 1\n            if color == 3:\n                new_c = bc1 - 1\n            else:\n                new_c = bc2 + 1\n            step = 1 if new_c > cur_c else -1\n            for c in range(cur_c + step, new_c + step, step):\n                mark(cur_r, c)\n            cur_c = new_c\n    elif direction == 'up':\n        while True:\n            candidates = [b for b in barriers if b[0] < cur_r and b[1] <= cur_c <= b[2]]\n            if not candidates:\n                for r in range(cur_r - 1, -1, -1):\n                    mark(r, cur_c)\n                break\n            brow, bc1, bc2, color = max(candidates, key=lambda b: b[0])\n            for r in range(cur_r - 1, brow, -1):\n                mark(r, cur_c)\n            cur_r = brow + 1\n            if color == 3:\n                new_c = bc1 - 1\n            else:\n                new_c = bc2 + 1\n            step = 1 if new_c > cur_c else -1\n            for c in range(cur_c + step, new_c + step, step):\n                mark(cur_r, c)\n            cur_c = new_c\n\n    return output\n",
+      "source": "claude_agent_batch_031_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

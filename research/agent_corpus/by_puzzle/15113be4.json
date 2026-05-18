@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "15113be4",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    g = [row[:] for row in input_grid]\n\n    # Find the special color (not in {0, 1, 4})\n    special = None\n    special_cells = []\n    for r in range(H):\n        for c in range(W):\n            v = g[r][c]\n            if v not in (0, 1, 4):\n                special = v\n                special_cells.append((r, c))\n\n    rs = [r for r, c in special_cells]\n    cs = [c for r, c in special_cells]\n    rmin, rmax = min(rs), max(rs)\n    cmin, cmax = min(cs), max(cs)\n\n    n_cell_rows = (H + 1) // 4\n    n_cell_cols = (W + 1) // 4\n\n    # Find the 6x6 template area: anchor (tr, tc) such that the 6x6 region\n    # at that origin contains only 0 or special, and forms a valid 3x3 of 2x2 uniform blocks.\n    template = None\n    template_origin = None\n    for tr in range(max(0, rmax - 5), rmin + 1):\n        for tc in range(max(0, cmax - 5), cmin + 1):\n            if tr + 6 > H or tc + 6 > W:\n                continue\n            ok = True\n            for rr in range(tr, tr + 6):\n                if not ok:\n                    break\n                for cc in range(tc, tc + 6):\n                    if g[rr][cc] not in (0, special):\n                        ok = False\n                        break\n            if not ok:\n                continue\n            valid = True\n            for bi in range(3):\n                if not valid:\n                    break\n                for bj in range(3):\n                    vals = set()\n                    for di in range(2):\n                        for dj in range(2):\n                            vals.add(g[tr + bi * 2 + di][tc + bj * 2 + dj])\n                    if len(vals) != 1:\n                        valid = False\n                        break\n            if valid:\n                template = [[g[tr + bi * 2][tc + bj * 2] for bj in range(3)] for bi in range(3)]\n                template_origin = (tr, tc)\n                break\n        if template:\n            break\n\n    tr, tc = template_origin\n\n    # Determine which normal-cell positions overlap the template area\n    template_cells = set()\n    for cci in range(n_cell_rows):\n        for ccj in range(n_cell_cols):\n            r0c = 4 * cci\n            c0c = 4 * ccj\n            if r0c + 3 > tr and r0c < tr + 6 and c0c + 3 > tc and c0c < tc + 6:\n                template_cells.add((cci, ccj))\n\n    out = [row[:] for row in g]\n\n    # For each non-template 3x3 cell, if all template-special positions have a 1 in the cell,\n    # replace those 1s with the special color.\n    for cci in range(n_cell_rows):\n        for ccj in range(n_cell_cols):\n            if (cci, ccj) in template_cells:\n                continue\n            r0c = 4 * cci\n            c0c = 4 * ccj\n            if r0c + 3 > H or c0c + 3 > W:\n                continue\n            match = True\n            for i in range(3):\n                if not match:\n                    break\n                for j in range(3):\n                    if template[i][j] == special and g[r0c + i][c0c + j] != 1:\n                        match = False\n                        break\n            if match:\n                for i in range(3):\n                    for j in range(3):\n                        if template[i][j] == special:\n                            out[r0c + i][c0c + j] = special\n\n    return out\n",
+      "source": "claude_agent_batch_032_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
