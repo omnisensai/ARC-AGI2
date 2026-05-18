@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "fafd9572",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find connected components of cells with value 1 (shapes)\n    # and find the key region (cells with values not in {0, 1})\n    visited = [[False] * W for _ in range(H)]\n    shapes = []  # list of dicts: {cells, min_r, max_r, min_c, max_c}\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 1 and not visited[r][c]:\n                # BFS\n                stack = [(r, c)]\n                visited[r][c] = True\n                cells = []\n                while stack:\n                    cr, cc = stack.pop()\n                    cells.append((cr, cc))\n                    for dr in (-1, 0, 1):\n                        for dc in (-1, 0, 1):\n                            if dr == 0 and dc == 0:\n                                continue\n                            nr, nc = cr + dr, cc + dc\n                            if 0 <= nr < H and 0 <= nc < W and not visited[nr][nc] and grid[nr][nc] == 1:\n                                visited[nr][nc] = True\n                                stack.append((nr, nc))\n                rs = [x[0] for x in cells]\n                cs = [x[1] for x in cells]\n                shapes.append({\n                    'cells': cells,\n                    'min_r': min(rs),\n                    'max_r': max(rs),\n                    'min_c': min(cs),\n                    'max_c': max(cs),\n                })\n\n    # Find key region: connected component (8-connected) of non-zero non-one cells\n    key_cells = []\n    for r in range(H):\n        for c in range(W):\n            v = grid[r][c]\n            if v != 0 and v != 1:\n                key_cells.append((r, c, v))\n    if not key_cells:\n        return grid\n\n    key_rs = [x[0] for x in key_cells]\n    key_cs = [x[1] for x in key_cells]\n    key_min_r = min(key_rs)\n    key_max_r = max(key_rs)\n    key_min_c = min(key_cs)\n    key_max_c = max(key_cs)\n    key_h = key_max_r - key_min_r + 1\n    key_w = key_max_c - key_min_c + 1\n\n    # Build key grid (key_h x key_w) with the color values\n    key_grid = [[0] * key_w for _ in range(key_h)]\n    for (r, c, v) in key_cells:\n        key_grid[r - key_min_r][c - key_min_c] = v\n\n    # Now organize shapes into a grid by their top-left positions\n    # Get unique row-groups and col-groups\n    if not shapes:\n        return grid\n\n    top_rs = sorted(set(s['min_r'] for s in shapes))\n    top_cs = sorted(set(s['min_c'] for s in shapes))\n\n    # The number of row-groups should equal key_h, col-groups equal key_w\n    # But sometimes shapes may not exist at every grid position.\n    # We need to map each shape to a grid position.\n\n    # If there are exactly key_h row groups and key_w col groups, simple mapping.\n    if len(top_rs) == key_h and len(top_cs) == key_w:\n        row_index = {r: i for i, r in enumerate(top_rs)}\n        col_index = {c: i for i, c in enumerate(top_cs)}\n        for s in shapes:\n            gi = row_index[s['min_r']]\n            gj = col_index[s['min_c']]\n            color = key_grid[gi][gj]\n            if color != 0:\n                for (cr, cc) in s['cells']:\n                    grid[cr][cc] = color\n        return grid\n\n    # Otherwise, we need a more robust approach: figure out the grid spacing\n    # based on shape dimensions and positions.\n    # Determine shape dimensions (assume all shapes have same bounding box)\n    sh = shapes[0]['max_r'] - shapes[0]['min_r'] + 1\n    sw = shapes[0]['max_c'] - shapes[0]['min_c'] + 1\n\n    # Compute the overall layout: find min row/col among shapes\n    all_min_r = min(s['min_r'] for s in shapes)\n    all_min_c = min(s['min_c'] for s in shapes)\n    all_max_r = max(s['min_r'] for s in shapes)\n    all_max_c = max(s['min_c'] for s in shapes)\n\n    # Compute step size (typically shape size + 1 for spacing)\n    # Try to derive from existing positions\n    def derive_step(positions, size):\n        positions = sorted(set(positions))\n        if len(positions) <= 1:\n            return size + 1\n        diffs = [positions[i + 1] - positions[i] for i in range(len(positions) - 1)]\n        # The step is the GCD-like minimum positive difference\n        from math import gcd\n        from functools import reduce\n        return reduce(gcd, diffs)\n\n    row_step = derive_step([s['min_r'] for s in shapes], sh)\n    col_step = derive_step([s['min_c'] for s in shapes], sw)\n\n    # Now expected grid is key_h rows x key_w cols starting at (all_min_r, all_min_c)\n    # Map each shape to (gi, gj)\n    for s in shapes:\n        gi = (s['min_r'] - all_min_r) // row_step\n        gj = (s['min_c'] - all_min_c) // col_step\n        if 0 <= gi < key_h and 0 <= gj < key_w:\n            color = key_grid[gi][gj]\n            if color != 0:\n                for (cr, cc) in s['cells']:\n                    grid[cr][cc] = color\n    return grid\n",
+      "source": "claude_agent_batch_059_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

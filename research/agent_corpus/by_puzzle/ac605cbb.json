@@ -1,0 +1,67 @@
+{
+  "puzzle_id": "ac605cbb",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 5,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 6,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    out = [row[:] for row in input_grid]\n\n    # Find all colored cells\n    cells = []\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != 0:\n                cells.append((r, c, v))\n\n    def put(r, c, v):\n        if 0 <= r < H and 0 <= c < W:\n            # Only overwrite if not already a non-5/non-zero (preserve original colors)\n            cur = out[r][c]\n            if cur == 0 or cur == 5:\n                out[r][c] = v\n\n    # Place each shape\n    twos = []\n    verticals = []  # (col, row_start, row_end) for 3-lines and 6-lines (vertical lines)\n    for (r, c, v) in cells:\n        if v == 1:\n            # 1 at (r,c), 5 at (r,c+1), 5 at (r,c+2), 1 at (r-1,c+2)\n            put(r, c, 1)\n            put(r, c + 1, 5)\n            put(r, c + 2, 5)\n            put(r - 1, c + 2, 1)\n        elif v == 2:\n            # 2 at (r,c-4), 5s in between, 2 at (r,c)\n            put(r, c, 2)\n            put(r, c - 1, 5)\n            put(r, c - 2, 5)\n            put(r, c - 3, 5)\n            put(r, c - 4, 2)\n            twos.append((r, c))\n        elif v == 3:\n            # 3 at (r,c), 5 at (r+1,c), 5 at (r+2,c), 3 at (r+3,c)\n            put(r, c, 3)\n            put(r + 1, c, 5)\n            put(r + 2, c, 5)\n            put(r + 3, c, 3)\n            verticals.append((c, r, r + 3))\n        elif v == 6:\n            # 6 at (r,c), 5s upward, 6 at (r-6,c)\n            put(r, c, 6)\n            for k in range(1, 6):\n                put(r - k, c, 5)\n            put(r - 6, c, 6)\n            verticals.append((c, r - 6, r))\n\n    # Now handle 2-line intersections with vertical lines\n    # 2-line center is at (r2, c2 - 2)\n    for (r2, c2) in twos:\n        center_c = c2 - 2\n        center_r = r2\n        for (vc, vr1, vr2) in verticals:\n            if vc == center_c and vr1 <= center_r <= vr2:\n                # Intersection - set to 4 and draw down-left diagonal\n                out[center_r][center_c] = 4\n                rr, cc = center_r + 1, center_c - 1\n                while 0 <= rr < H and 0 <= cc < W:\n                    if out[rr][cc] == 0 or out[rr][cc] == 5:\n                        out[rr][cc] = 4\n                    rr += 1\n                    cc -= 1\n\n    return out\n",
+      "source": "claude_agent_batch_059_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "2e65ae53",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Determine border color: the most common non-zero, non-fill color that forms rectangles.\n    # Actually find connected components of any non-zero color via 4-connectivity but treat one\n    # specific color (the one with most cells) as the border.\n    from collections import Counter\n    cnt = Counter()\n    for r in range(H):\n        for c in range(W):\n            v = grid[r][c]\n            if v != 0:\n                cnt[v] += 1\n    border_color = cnt.most_common(1)[0][0]\n\n    # Find connected components of border_color via 4-connectivity.\n    visited = [[False] * W for _ in range(H)]\n    rects = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == border_color and not visited[r][c]:\n                # BFS\n                stack = [(r, c)]\n                cells = []\n                visited[r][c] = True\n                while stack:\n                    cr, cc = stack.pop()\n                    cells.append((cr, cc))\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        nr, nc = cr + dr, cc + dc\n                        if 0 <= nr < H and 0 <= nc < W and not visited[nr][nc] and grid[nr][nc] == border_color:\n                            visited[nr][nc] = True\n                            stack.append((nr, nc))\n                if len(cells) < 4:\n                    continue\n                rs = [x[0] for x in cells]\n                cs = [x[1] for x in cells]\n                top, bottom = min(rs), max(rs)\n                left, right = min(cs), max(cs)\n                # Check this is a rectangle with dividers\n                if bottom - top < 4 or right - left < 4:\n                    continue\n                rects.append((top, bottom, left, right))\n\n    # For each rectangle, find dividers and quadrants\n    def get_quadrants(rect):\n        top, bottom, left, right = rect\n        # horizontal divider: row r with top<r<bottom, all cells from left..right are border_color\n        hdiv = None\n        for r in range(top + 1, bottom):\n            if all(grid[r][c] == border_color for c in range(left, right + 1)):\n                hdiv = r\n                break\n        vdiv = None\n        for c in range(left + 1, right):\n            if all(grid[r][c] == border_color for r in range(top, bottom + 1)):\n                vdiv = c\n                break\n        if hdiv is None or vdiv is None:\n            return None\n        # Quadrants (interior cell ranges)\n        TL = (top + 1, hdiv - 1, left + 1, vdiv - 1)\n        TR = (top + 1, hdiv - 1, vdiv + 1, right - 1)\n        BL = (hdiv + 1, bottom - 1, left + 1, vdiv - 1)\n        BR = (hdiv + 1, bottom - 1, vdiv + 1, right - 1)\n        return TL, TR, BL, BR\n\n    rect_info = []\n    for rect in rects:\n        q = get_quadrants(rect)\n        if q is None:\n            continue\n        rect_info.append((rect, q))\n\n    # Determine color mapping for each quadrant position\n    pos_color = {0: None, 1: None, 2: None, 3: None}  # TL, TR, BL, BR\n    for rect, quads in rect_info:\n        for idx, (r1, r2, c1, c2) in enumerate(quads):\n            for r in range(r1, r2 + 1):\n                for c in range(c1, c2 + 1):\n                    v = grid[r][c]\n                    if v != 0 and v != border_color:\n                        if pos_color[idx] is None:\n                            pos_color[idx] = v\n\n    # Fill all quadrants\n    out = [row[:] for row in grid]\n    for rect, quads in rect_info:\n        for idx, (r1, r2, c1, c2) in enumerate(quads):\n            color = pos_color[idx]\n            if color is None:\n                continue\n            for r in range(r1, r2 + 1):\n                for c in range(c1, c2 + 1):\n                    out[r][c] = color\n\n    return out\n",
+      "source": "claude_agent_batch_059_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

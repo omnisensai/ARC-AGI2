@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "ecaa0ec1",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find all positions of 4 and the 1/8 block\n    fours = []\n    block_cells = []\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v == 4:\n                fours.append((r, c))\n            elif v == 1 or v == 8:\n                block_cells.append((r, c))\n\n    # Block bounding box\n    rmin = min(r for r, c in block_cells)\n    rmax = max(r for r, c in block_cells)\n    cmin = min(c for r, c in block_cells)\n    cmax = max(c for r, c in block_cells)\n    # 3x3 block\n    block = [[input_grid[rmin + i][cmin + j] for j in range(3)] for i in range(3)]\n\n    # The four corner positions diagonally outside the block\n    corners = {\n        'TL': (rmin - 1, cmin - 1),\n        'TR': (rmin - 1, cmax + 1),\n        'BL': (rmax + 1, cmin - 1),\n        'BR': (rmax + 1, cmax + 1),\n    }\n\n    # Identify the single 4 (the one sitting exactly on a corner)\n    source_corner = None\n    source_pos = None\n    for name, pos in corners.items():\n        if pos in fours:\n            source_corner = name\n            source_pos = pos\n            break\n\n    # The remaining three 4s form an L; the destination corner is the\n    # center of their bounding rectangle (the missing 4th point's midpoint)\n    other_fours = [f for f in fours if f != source_pos]\n    rs = [r for r, c in other_fours]\n    cs = [c for r, c in other_fours]\n    dest_r = (min(rs) + max(rs)) // 2\n    dest_c = (min(cs) + max(cs)) // 2\n    dest_pos = (dest_r, dest_c)\n\n    # Determine which corner dest_pos corresponds to\n    dest_corner = None\n    for name, pos in corners.items():\n        if pos == dest_pos:\n            dest_corner = name\n            break\n\n    # Determine rotation from source_corner -> dest_corner\n    # 0: identity, 1: 90 CW, 2: 180, 3: 90 CCW\n    rotations = {\n        # 0 degrees\n        ('TL', 'TL'): 0, ('TR', 'TR'): 0, ('BL', 'BL'): 0, ('BR', 'BR'): 0,\n        # 90 CW\n        ('TL', 'TR'): 1, ('TR', 'BR'): 1, ('BR', 'BL'): 1, ('BL', 'TL'): 1,\n        # 180\n        ('TL', 'BR'): 2, ('TR', 'BL'): 2, ('BL', 'TR'): 2, ('BR', 'TL'): 2,\n        # 90 CCW\n        ('TL', 'BL'): 3, ('BL', 'BR'): 3, ('BR', 'TR'): 3, ('TR', 'TL'): 3,\n    }\n    k = rotations[(source_corner, dest_corner)]\n\n    def rotate(b, k):\n        for _ in range(k):\n            # 90 CW\n            b = [[b[2 - j][i] for j in range(3)] for i in range(3)]\n        return b\n\n    # Apply rotation. We're rotating CW k times. But our k values are:\n    # 0: 0 rotations, 1: 90 CW = 1 rotation CW, 2: 180 = 2 rotations CW, 3: 90 CCW = 3 rotations CW\n    new_block = rotate(block, k)\n\n    # Build output grid: all zeros, place rotated block at original location,\n    # place a single 4 at dest_pos\n    output = [[0] * W for _ in range(H)]\n    for i in range(3):\n        for j in range(3):\n            output[rmin + i][cmin + j] = new_block[i][j]\n    output[dest_pos[0]][dest_pos[1]] = 4\n\n    return output\n",
+      "source": "claude_agent_batch_059_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
