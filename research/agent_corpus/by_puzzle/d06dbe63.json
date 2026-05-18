@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "d06dbe63",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    H = len(grid)\n    W = len(grid[0])\n    # find the 8\n    r8, c8 = None, None\n    for i in range(H):\n        for j in range(W):\n            if grid[i][j] == 8:\n                r8, c8 = i, j\n                break\n        if r8 is not None:\n            break\n\n    def setcell(r, c):\n        if 0 <= r < H and 0 <= c < W:\n            if grid[r][c] == 0:\n                grid[r][c] = 5\n\n    # Above: going up-right\n    k = 0\n    while True:\n        v_row = r8 - (2 * k + 1)\n        v_col = c8 + 2 * k\n        t_row = r8 - (2 * k + 2)\n        t_cols = [c8 + 2 * k, c8 + 2 * k + 1, c8 + 2 * k + 2]\n        if v_row < 0 and t_row < 0:\n            # Check if any cell is in bounds\n            if v_row < 0 and all(c >= W for c in [v_col]) and all(tc >= W or t_row < 0 for tc in t_cols):\n                break\n        any_in = False\n        if 0 <= v_row < H and 0 <= v_col < W:\n            setcell(v_row, v_col)\n            any_in = True\n        if 0 <= t_row < H:\n            for tc in t_cols:\n                if 0 <= tc < W:\n                    setcell(t_row, tc)\n                    any_in = True\n        if not any_in:\n            break\n        k += 1\n        if k > max(H, W) + 5:\n            break\n\n    # Below: going down-left\n    k = 0\n    while True:\n        v_row = r8 + (2 * k + 1)\n        v_col = c8 - 2 * k\n        t_row = r8 + (2 * k + 2)\n        t_cols = [c8 - 2 * k - 2, c8 - 2 * k - 1, c8 - 2 * k]\n        any_in = False\n        if 0 <= v_row < H and 0 <= v_col < W:\n            setcell(v_row, v_col)\n            any_in = True\n        if 0 <= t_row < H:\n            for tc in t_cols:\n                if 0 <= tc < W:\n                    setcell(t_row, tc)\n                    any_in = True\n        if not any_in:\n            break\n        k += 1\n        if k > max(H, W) + 5:\n            break\n\n    return grid\n",
+      "source": "claude_agent_batch_020_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

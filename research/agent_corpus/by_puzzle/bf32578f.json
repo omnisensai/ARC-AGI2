@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "bf32578f",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    cells = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] != 0]\n    if not cells:\n        return [row[:] for row in input_grid]\n    color = input_grid[cells[0][0]][cells[0][1]]\n\n    rs = [r for r, c in cells]\n    cs = [c for r, c in cells]\n    r0, r1 = min(rs), max(rs)\n    c0, c1 = min(cs), max(cs)\n\n    right_cells = sorted([r for (r, c) in cells if c == c1])\n    left_cells = sorted([r for (r, c) in cells if c == c0])\n    top_cells = sorted([c for (r, c) in cells if r == r0])\n    bottom_cells = sorted([c for (r, c) in cells if r == r1])\n\n    if right_cells == [r0, r1]:\n        open_side = 'right'\n    elif left_cells == [r0, r1]:\n        open_side = 'left'\n    elif top_cells == [c0, c1]:\n        open_side = 'top'\n    elif bottom_cells == [c0, c1]:\n        open_side = 'bottom'\n    else:\n        sides = {\n            'right': len(right_cells),\n            'left': len(left_cells),\n            'top': len(top_cells),\n            'bottom': len(bottom_cells),\n        }\n        open_side = min(sides, key=sides.get)\n\n    mirrored = set()\n    if open_side == 'right':\n        for (r, c) in cells:\n            mirrored.add((r, 2 * c1 + 1 - c))\n    elif open_side == 'left':\n        for (r, c) in cells:\n            mirrored.add((r, 2 * c0 - 1 - c))\n    elif open_side == 'top':\n        for (r, c) in cells:\n            mirrored.add((2 * r0 - 1 - r, c))\n    elif open_side == 'bottom':\n        for (r, c) in cells:\n            mirrored.add((2 * r1 + 1 - r, c))\n\n    outline = set(cells) | mirrored\n\n    all_rs = [r for r, c in outline]\n    all_cs = [c for r, c in outline]\n    nr0, nr1 = min(all_rs), max(all_rs)\n\n    interior = set()\n    if open_side in ('right', 'left'):\n        for r in range(nr0, nr1 + 1):\n            row_cols = [c for (rr, c) in outline if rr == r]\n            if len(row_cols) >= 2:\n                cmin, cmax = min(row_cols), max(row_cols)\n                for c in range(cmin + 1, cmax):\n                    if (r, c) not in outline:\n                        interior.add((r, c))\n    else:\n        nc0, nc1 = min(all_cs), max(all_cs)\n        for c in range(nc0, nc1 + 1):\n            col_rows = [r for (r, cc) in outline if cc == c]\n            if len(col_rows) >= 2:\n                rmin, rmax = min(col_rows), max(col_rows)\n                for r in range(rmin + 1, rmax):\n                    if (r, c) not in outline:\n                        interior.add((r, c))\n\n    out = [[0] * W for _ in range(H)]\n    for (r, c) in interior:\n        if 0 <= r < H and 0 <= c < W:\n            out[r][c] = color\n    return out\n",
+      "source": "claude_agent_batch_020_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

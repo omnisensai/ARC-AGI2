@@ -1,0 +1,60 @@
+{
+  "puzzle_id": "db7260a4",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 5,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find marker (1)\n    marker_col = None\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 1:\n                marker_col = c\n                grid[r][c] = 0\n\n    # Find vertical walls: maximal vertical runs of 2s with length >= 2\n    # Each wall: (col, top_row, bottom_row)\n    walls = []\n    visited = [[False]*W for _ in range(H)]\n    for c in range(W):\n        r = 0\n        while r < H:\n            if grid[r][c] == 2 and not visited[r][c]:\n                start = r\n                while r < H and grid[r][c] == 2:\n                    visited[r][c] = True\n                    r += 1\n                end = r - 1\n                if end - start >= 1:  # length >= 2\n                    walls.append((c, start, end))\n            else:\n                r += 1\n\n    # Group walls by bottom row (each U-structure has walls with the same bottom row)\n    from collections import defaultdict\n    by_bottom = defaultdict(list)\n    for w in walls:\n        by_bottom[w[2]].append(w)\n\n    # For each U-structure, sort walls by column\n    structures = []  # list of (bottom_row, sorted walls list)\n    for br, ws in by_bottom.items():\n        ws_sorted = sorted(ws, key=lambda x: x[0])\n        structures.append((br, ws_sorted))\n\n    # Sort structures by bottom row ascending (top first - ball falls and hits them in order)\n    structures.sort(key=lambda x: x[0])\n\n    # Ball simulation\n    ball_col = marker_col\n    ball_row = 0\n    caught = False\n\n    for br, ws in structures:\n        if br < ball_row:\n            continue\n        # Find pair of adjacent walls such that ball_col is strictly between them\n        pair = None\n        for i in range(len(ws) - 1):\n            left = ws[i]\n            right = ws[i+1]\n            if left[0] < ball_col < right[0]:\n                pair = (left, right)\n                break\n        if pair is None:\n            continue\n        left, right = pair\n        # Check bottom between left[0] and right[0] at row br\n        bottom_complete = True\n        gap_col = None\n        for c in range(left[0], right[0] + 1):\n            if grid[br][c] != 2:\n                bottom_complete = False\n                gap_col = c\n                break\n        if bottom_complete:\n            # Fill interior with 1s: cols left[0]+1 .. right[0]-1, rows from max(left[1],right[1]) to br-1\n            top_row = max(left[1], right[1])\n            for r in range(top_row, br):\n                for c in range(left[0]+1, right[0]):\n                    grid[r][c] = 1\n            caught = True\n            break\n        else:\n            # Ball falls through gap\n            ball_col = gap_col\n            ball_row = br + 1\n            continue\n\n    if not caught:\n        # Draw line of 1s at the bottom row\n        for c in range(W):\n            grid[H-1][c] = 1\n\n    return grid\n",
+      "source": "claude_agent_batch_020_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
