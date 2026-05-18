@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "93c31fbe",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    corners = []\n    for r in range(H - 1):\n        for c in range(W - 1):\n            cells = [(r, c), (r, c + 1), (r + 1, c), (r + 1, c + 1)]\n            vals = [grid[rr][cc] for rr, cc in cells]\n            colored = [(i, v) for i, v in enumerate(vals) if v != 0 and v != 1]\n            if len(colored) != 3:\n                continue\n            colors = set(v for _, v in colored)\n            if len(colors) != 1:\n                continue\n            color = next(iter(colors))\n            colored_idx = [j for j, _ in colored]\n            empty_idx = [i for i in range(4) if i not in colored_idx]\n            ei = empty_idx[0]\n            if ei == 3:\n                orient = 'TL'; outer = (r, c)\n            elif ei == 2:\n                orient = 'TR'; outer = (r, c + 1)\n            elif ei == 1:\n                orient = 'BL'; outer = (r + 1, c)\n            else:\n                orient = 'BR'; outer = (r + 1, c + 1)\n            corners.append((color, orient, outer))\n\n    by_color = {}\n    for color, orient, outer in corners:\n        by_color.setdefault(color, {'TL': [], 'TR': [], 'BL': [], 'BR': []})[orient].append(outer)\n\n    rectangles = []\n    for color, d in by_color.items():\n        for tl in d['TL']:\n            for tr in d['TR']:\n                if tl[0] != tr[0] or tr[1] <= tl[1]:\n                    continue\n                for bl in d['BL']:\n                    if bl[1] != tl[1] or bl[0] <= tl[0]:\n                        continue\n                    for br in d['BR']:\n                        if br[0] == bl[0] and br[1] == tr[1]:\n                            rectangles.append((tl[0], tl[1], br[0], br[1], color))\n\n    inside = [[False] * W for _ in range(H)]\n    for r1, c1, r2, c2, _ in rectangles:\n        for rr in range(r1, r2 + 1):\n            for cc in range(c1, c2 + 1):\n                inside[rr][cc] = True\n\n    for rr in range(H):\n        for cc in range(W):\n            if grid[rr][cc] == 1 and not inside[rr][cc]:\n                grid[rr][cc] = 0\n\n    for r1, c1, r2, c2, color in rectangles:\n        height = r2 - r1 + 1\n        width = c2 - c1 + 1\n        ones = []\n        for rr in range(r1, r2 + 1):\n            for cc in range(c1, c2 + 1):\n                if grid[rr][cc] == 1:\n                    ones.append((rr, cc))\n        if width > height:\n            for rr, cc in ones:\n                new_cc = c1 + c2 - cc\n                if 0 <= new_cc < W and grid[rr][new_cc] != color:\n                    grid[rr][new_cc] = 1\n        elif height > width:\n            for rr, cc in ones:\n                new_rr = r1 + r2 - rr\n                if 0 <= new_rr < H and grid[new_rr][cc] != color:\n                    grid[new_rr][cc] = 1\n        else:\n            for rr, cc in ones:\n                new_cc = c1 + c2 - cc\n                if grid[rr][new_cc] != color:\n                    grid[rr][new_cc] = 1\n                new_rr = r1 + r2 - rr\n                if grid[new_rr][cc] != color:\n                    grid[new_rr][cc] = 1\n                if grid[new_rr][new_cc] != color:\n                    grid[new_rr][new_cc] = 1\n\n    return grid\n",
+      "source": "claude_agent_batch_026_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "ef135b50",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find rectangles of 2s using flood fill\n    visited = [[False] * W for _ in range(H)]\n    rects = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 2 and not visited[r][c]:\n                # BFS\n                stack = [(r, c)]\n                cells = []\n                while stack:\n                    y, x = stack.pop()\n                    if y < 0 or y >= H or x < 0 or x >= W:\n                        continue\n                    if visited[y][x] or grid[y][x] != 2:\n                        continue\n                    visited[y][x] = True\n                    cells.append((y, x))\n                    stack.extend([(y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)])\n                rs = [p[0] for p in cells]\n                cs = [p[1] for p in cells]\n                rects.append((min(rs), max(rs), min(cs), max(cs)))\n\n    # For each pair of rectangles, check row overlap or column overlap\n    for i in range(len(rects)):\n        for j in range(i + 1, len(rects)):\n            r1a, r1b, c1a, c1b = rects[i]\n            r2a, r2b, c2a, c2b = rects[j]\n\n            # Row overlap -> horizontal gap\n            row_lo = max(r1a, r2a)\n            row_hi = min(r1b, r2b)\n            if row_lo <= row_hi:\n                # check horizontal separation (no overlap in cols)\n                if c1b < c2a:\n                    gap_lo, gap_hi = c1b + 1, c2a - 1\n                elif c2b < c1a:\n                    gap_lo, gap_hi = c2b + 1, c1a - 1\n                else:\n                    continue\n                if gap_lo <= gap_hi:\n                    # Check the gap region is all 0s in input\n                    all_zero = True\n                    for rr in range(row_lo, row_hi + 1):\n                        for cc in range(gap_lo, gap_hi + 1):\n                            if grid[rr][cc] != 0:\n                                all_zero = False\n                                break\n                        if not all_zero:\n                            break\n                    if all_zero:\n                        for rr in range(row_lo, row_hi + 1):\n                            for cc in range(gap_lo, gap_hi + 1):\n                                grid[rr][cc] = 9\n\n    return grid\n",
+      "source": "claude_agent_batch_026_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

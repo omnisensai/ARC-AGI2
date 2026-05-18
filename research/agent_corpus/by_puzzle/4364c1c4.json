@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "4364c1c4",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # background = most common color\n    cnt = Counter()\n    for row in input_grid:\n        for v in row:\n            cnt[v] += 1\n    bg = cnt.most_common(1)[0][0]\n\n    # Find connected components by color (4-connected).\n    # Each component is a set of cells of a single color.\n    visited = [[False] * W for _ in range(H)]\n    components = []  # list of dicts: {'color': c, 'cells': [(r,c)...]}\n    for r in range(H):\n        for c in range(W):\n            if visited[r][c] or input_grid[r][c] == bg:\n                continue\n            color = input_grid[r][c]\n            stack = [(r, c)]\n            cells = []\n            visited[r][c] = True\n            while stack:\n                cr, cc = stack.pop()\n                cells.append((cr, cc))\n                for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):\n                    nr, nc = cr + dr, cc + dc\n                    if 0 <= nr < H and 0 <= nc < W and not visited[nr][nc] and input_grid[nr][nc] == color:\n                        visited[nr][nc] = True\n                        stack.append((nr, nc))\n            components.append({'color': color, 'cells': cells})\n\n    # For each component, get its row range and column set\n    for comp in components:\n        rs = [r for r, _ in comp['cells']]\n        comp['rmin'] = min(rs)\n        comp['rmax'] = max(rs)\n        comp['cols'] = set(c for _, c in comp['cells'])\n\n    # Pair components: A is the top of a pair with B if rmax(A)+1 == rmin(B) and columns overlap.\n    shifts = [(0, 0)] * len(components)\n    for i, a in enumerate(components):\n        for j, b in enumerate(components):\n            if i == j:\n                continue\n            if a['rmax'] + 1 == b['rmin'] and (a['cols'] & b['cols']):\n                shifts[i] = (0, -1)\n                shifts[j] = (0, 1)\n\n    # Build output\n    output = [[bg] * W for _ in range(H)]\n    for comp, (dr, dc) in zip(components, shifts):\n        for r, c in comp['cells']:\n            nr, nc = r + dr, c + dc\n            if 0 <= nr < H and 0 <= nc < W:\n                output[nr][nc] = comp['color']\n    return output\n",
+      "source": "claude_agent_batch_026_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
