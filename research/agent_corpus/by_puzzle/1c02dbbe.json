@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "1c02dbbe",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import defaultdict\n    g = [row[:] for row in input_grid]\n    H = len(g)\n    W = len(g[0])\n    # Find rectangle of 5s\n    rs, cs = [], []\n    for r in range(H):\n        for c in range(W):\n            if g[r][c] == 5:\n                rs.append(r)\n                cs.append(c)\n    r0, r1 = min(rs), max(rs)\n    c0, c1 = min(cs), max(cs)\n\n    # Group markers by color\n    markers = defaultdict(list)\n    for r in range(H):\n        for c in range(W):\n            v = g[r][c]\n            if v != 0 and v != 5:\n                markers[v].append((r, c))\n\n    # Output: rectangle of 5s, rest zeros\n    out = [[0] * W for _ in range(H)]\n    for r in range(r0, r1 + 1):\n        for c in range(c0, c1 + 1):\n            out[r][c] = 5\n\n    for color, pts in markers.items():\n        corner = None\n        edge_h = None  # marker outside top/bottom row -> defines column extent\n        edge_v = None  # marker outside left/right column -> defines row extent\n        for (r, c) in pts:\n            if r0 <= r <= r1 and c0 <= c <= c1:\n                corner = (r, c)\n            elif r < r0 or r > r1:\n                edge_h = (r, c)\n            else:\n                edge_v = (r, c)\n\n        cr, cc = corner\n        top = (cr == r0)\n        left = (cc == c0)\n\n        eh_c = edge_h[1]\n        ev_r = edge_v[0]\n\n        if top and left:\n            for r in range(r0, ev_r + 1):\n                for c in range(c0, eh_c + 1):\n                    out[r][c] = color\n        elif top and not left:\n            for r in range(r0, ev_r + 1):\n                for c in range(eh_c, c1 + 1):\n                    out[r][c] = color\n        elif not top and left:\n            for r in range(ev_r, r1 + 1):\n                for c in range(c0, eh_c + 1):\n                    out[r][c] = color\n        else:\n            for r in range(ev_r, r1 + 1):\n                for c in range(eh_c, c1 + 1):\n                    out[r][c] = color\n\n    return out\n",
+      "source": "claude_agent_batch_066_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

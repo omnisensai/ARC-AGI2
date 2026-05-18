@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "396d80d7",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    h = len(input_grid)\n    w = len(input_grid[0])\n\n    # Find background (most common color)\n    counts = Counter()\n    for row in input_grid:\n        for v in row:\n            counts[v] += 1\n    bg = counts.most_common(1)[0][0]\n\n    # Find colored cells\n    colored = [(r, c, input_grid[r][c]) for r in range(h) for c in range(w) if input_grid[r][c] != bg]\n\n    colors = set(v for r, c, v in colored)\n\n    # Bounding box\n    rs = [r for r, c, v in colored]\n    cs = [c for r, c, v in colored]\n    r_min, r_max = min(rs), max(rs)\n    c_min, c_max = min(cs), max(cs)\n\n    # Outer color = color of cells on bbox boundary\n    outer_color = None\n    for r, c, v in colored:\n        if r == r_min or r == r_max or c == c_min or c == c_max:\n            outer_color = v\n            break\n\n    inner_color = (colors - {outer_color}).pop()\n\n    inner_cells = [(r, c) for r, c, v in colored if v == inner_color]\n    outer_cells = [(r, c) for r, c, v in colored if v == outer_color]\n\n    # Inner centroid\n    if inner_cells:\n        rc = sum(r for r, c in inner_cells) / len(inner_cells)\n        cc = sum(c for r, c in inner_cells) / len(inner_cells)\n    else:\n        rc = (r_min + r_max) / 2\n        cc = (c_min + c_max) / 2\n\n    def l1_to_inner(r, c):\n        if not inner_cells:\n            return 0\n        return min(abs(r - ri) + abs(c - ci) for ri, ci in inner_cells)\n\n    if outer_cells:\n        max_l1 = max(l1_to_inner(r, c) for r, c in outer_cells)\n    else:\n        max_l1 = 0\n\n    new_cells = set()\n\n    # DIAGONAL STEP: from each outer cell at max L1 with diagonal direction\n    for r, c in outer_cells:\n        if l1_to_inner(r, c) != max_l1:\n            continue\n        dr = 1 if r > rc else (-1 if r < rc else 0)\n        dc = 1 if c > cc else (-1 if c < cc else 0)\n        if dr != 0 and dc != 0:\n            new_r, new_c = r + dr, c + dc\n            if 0 <= new_r < h and 0 <= new_c < w:\n                new_cells.add((new_r, new_c))\n\n    # REFLECTION\n    def reflect_row(inside_row, edge_row, outside_row):\n        if not (0 <= inside_row < h and 0 <= edge_row < h):\n            return\n        for c in range(w):\n            if input_grid[inside_row][c] != bg:\n                if input_grid[edge_row][c] == bg:\n                    if 0 <= outside_row < h:\n                        new_cells.add((outside_row, c))\n\n    def reflect_col(inside_col, edge_col, outside_col):\n        if not (0 <= inside_col < w and 0 <= edge_col < w):\n            return\n        for r in range(h):\n            if input_grid[r][inside_col] != bg:\n                if input_grid[r][edge_col] == bg:\n                    if 0 <= outside_col < w:\n                        new_cells.add((r, outside_col))\n\n    reflect_row(r_min + 1, r_min, r_min - 1)\n    reflect_row(r_max - 1, r_max, r_max + 1)\n    reflect_col(c_min + 1, c_min, c_min - 1)\n    reflect_col(c_max - 1, c_max, c_max + 1)\n\n    output = [row[:] for row in input_grid]\n    for r, c in new_cells:\n        output[r][c] = inner_color\n\n    return output\n",
+      "source": "claude_agent_batch_062_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

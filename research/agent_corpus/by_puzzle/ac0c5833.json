@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "ac0c5833",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0]) if H else 0\n    # Copy grid as output\n    out = [row[:] for row in input_grid]\n\n    # Collect all 4 positions and all 2 positions\n    fours = []\n    twos = []\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 4:\n                fours.append((r, c))\n            elif input_grid[r][c] == 2:\n                twos.append((r, c))\n\n    # Find all \"L\" groups of three 4s at right angles with arms of length 2.\n    # An L is defined by a corner C and two arms: one with another 4 at C + (0, +-2) (horizontal arm)\n    # and another with a 4 at C + (+-2, 0) (vertical arm).\n    four_set = set(fours)\n    L_groups = []  # list of (corner, e_v, e_h) where e_v, e_h are unit direction vectors\n    for (r, c) in fours:\n        # Check each pair of directions (one vertical, one horizontal)\n        for dv in [(-1, 0), (1, 0)]:\n            vr, vc = r + 2 * dv[0], c + 2 * dv[1]\n            if (vr, vc) not in four_set:\n                continue\n            for dh in [(0, -1), (0, 1)]:\n                hr, hc = r + 2 * dh[0], c + 2 * dh[1]\n                if (hr, hc) not in four_set:\n                    continue\n                L_groups.append(((r, c), dv, dh))\n\n    # Find the template L: the one whose shape extension contains 2's.\n    # The shape consists of 2's near the corner extended in (e_v, e_h) direction.\n    # Find the L_group such that there are 2's at positions C + a*e_v + b*e_h for small a, b.\n    template = None\n    template_shape = None  # set of (a, b) offsets\n    for corner, e_v, e_h in L_groups:\n        # Collect 2-cells reachable by some (a, b) with a>=2 and b>=2 (since shape begins at distance 2)\n        shape_cells = []\n        valid = True\n        for (tr, tc) in twos:\n            # Solve for (a, b): tr - corner[0] = a * e_v[0] + b * e_h[0]\n            #                   tc - corner[1] = a * e_v[1] + b * e_h[1]\n            # Since e_v is vertical (e_v[1]=0) and e_h is horizontal (e_h[0]=0):\n            # a * e_v[0] = tr - corner[0]\n            # b * e_h[1] = tc - corner[1]\n            dr = tr - corner[0]\n            dc = tc - corner[1]\n            if e_v[0] != 0:\n                if dr % e_v[0] != 0:\n                    valid = False\n                    break\n                a = dr // e_v[0]\n            else:\n                a = 0\n            if e_h[1] != 0:\n                if dc % e_h[1] != 0:\n                    valid = False\n                    break\n                b = dc // e_h[1]\n            else:\n                b = 0\n            if a < 2 or b < 2:\n                valid = False\n                break\n            shape_cells.append((a, b))\n        if valid and shape_cells:\n            template = (corner, e_v, e_h)\n            template_shape = set(shape_cells)\n            break\n\n    if template is None or template_shape is None:\n        return out\n\n    # For each L group, place the shape (unless it's the template \u2014 that's where the shape already is)\n    for corner, e_v, e_h in L_groups:\n        for (a, b) in template_shape:\n            tr = corner[0] + a * e_v[0]\n            tc = corner[1] + b * e_h[1]\n            if 0 <= tr < H and 0 <= tc < W:\n                if out[tr][tc] == 0:\n                    out[tr][tc] = 2\n\n    return out\n",
+      "source": "claude_agent_batch_066_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

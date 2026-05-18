@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "37d3e8b2",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0]) if H > 0 else 0\n    grid = [row[:] for row in input_grid]\n\n    # Find connected components of 8s (4-connected)\n    seen = [[False] * W for _ in range(H)]\n    shapes = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 8 and not seen[r][c]:\n                stack = [(r, c)]\n                seen[r][c] = True\n                cells = []\n                while stack:\n                    cr, cc = stack.pop()\n                    cells.append((cr, cc))\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        nr, nc = cr + dr, cc + dc\n                        if 0 <= nr < H and 0 <= nc < W and not seen[nr][nc] and grid[nr][nc] == 8:\n                            seen[nr][nc] = True\n                            stack.append((nr, nc))\n                shapes.append(cells)\n\n    color_map = {1: 1, 2: 2, 3: 3, 4: 7}\n\n    out = [row[:] for row in input_grid]\n    for cells in shapes:\n        rs = [r for r, c in cells]\n        cs = [c for r, c in cells]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        # Count connected components of 0s inside bounding box\n        bh = r1 - r0 + 1\n        bw = c1 - c0 + 1\n        local_seen = [[False] * bw for _ in range(bh)]\n        zero_components = 0\n        for i in range(bh):\n            for j in range(bw):\n                if input_grid[r0 + i][c0 + j] == 0 and not local_seen[i][j]:\n                    zero_components += 1\n                    st = [(i, j)]\n                    local_seen[i][j] = True\n                    while st:\n                        ci, cj = st.pop()\n                        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                            ni, nj = ci + dr, cj + dc\n                            if 0 <= ni < bh and 0 <= nj < bw and not local_seen[ni][nj] and input_grid[r0 + ni][c0 + nj] == 0:\n                                local_seen[ni][nj] = True\n                                st.append((ni, nj))\n        color = color_map.get(zero_components, 8)\n        for r, c in cells:\n            out[r][c] = color\n    return out\n",
+      "source": "claude_agent_batch_066_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

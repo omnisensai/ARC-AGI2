@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "d968ffd4",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # find background color (most common)\n    from collections import Counter\n    cnt = Counter()\n    for row in input_grid:\n        for v in row:\n            cnt[v] += 1\n    bg = cnt.most_common(1)[0][0]\n\n    # find connected (axis-aligned bounding box) shapes by color\n    shapes = {}  # color -> (r0, r1, c0, c1)\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v == bg:\n                continue\n            if v not in shapes:\n                shapes[v] = [r, r, c, c]\n            else:\n                s = shapes[v]\n                s[0] = min(s[0], r)\n                s[1] = max(s[1], r)\n                s[2] = min(s[2], c)\n                s[3] = max(s[3], c)\n\n    # output starts as copy of input\n    out = [row[:] for row in input_grid]\n\n    colors = list(shapes.keys())\n    if len(colors) != 2:\n        return out\n\n    a, b = colors\n    sa = shapes[a]\n    sb = shapes[b]\n\n    # Determine orientation: horizontal (shapes separated by columns) or vertical\n    # If c-ranges don't overlap -> horizontal layout\n    horizontal = sa[3] < sb[2] or sb[3] < sa[2]\n\n    if horizontal:\n        # ensure a is left, b is right\n        if sa[2] > sb[2]:\n            a, b = b, a\n            sa, sb = sb, sa\n        # gap columns: sa[3]+1 .. sb[2]-1\n        gap_start = sa[3] + 1\n        gap_end = sb[2] - 1\n        gap_len = gap_end - gap_start + 1\n        half = gap_len // 2\n        # left extension columns: gap_start .. gap_start+half-1\n        left_ext_cols = range(gap_start, gap_start + half)\n        # right extension columns: gap_end-half+1 .. gap_end\n        right_ext_cols = range(gap_end - half + 1, gap_end + 1)\n        # perpendicular spread: shape rows +/- 1\n        a_rows_ext = range(max(0, sa[0] - 1), min(H, sa[1] + 2))\n        b_rows_ext = range(max(0, sb[0] - 1), min(H, sb[1] + 2))\n        for r in a_rows_ext:\n            for c in left_ext_cols:\n                out[r][c] = a\n        for r in b_rows_ext:\n            for c in right_ext_cols:\n                out[r][c] = b\n    else:\n        # vertical layout; ensure a is top, b is bottom\n        if sa[0] > sb[0]:\n            a, b = b, a\n            sa, sb = sb, sa\n        gap_start = sa[1] + 1\n        gap_end = sb[0] - 1\n        gap_len = gap_end - gap_start + 1\n        half = gap_len // 2\n        top_ext_rows = range(gap_start, gap_start + half)\n        bot_ext_rows = range(gap_end - half + 1, gap_end + 1)\n        a_cols_ext = range(max(0, sa[2] - 1), min(W, sa[3] + 2))\n        b_cols_ext = range(max(0, sb[2] - 1), min(W, sb[3] + 2))\n        for r in top_ext_rows:\n            for c in a_cols_ext:\n                out[r][c] = a\n        for r in bot_ext_rows:\n            for c in b_cols_ext:\n                out[r][c] = b\n\n    return out\n",
+      "source": "claude_agent_batch_066_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
