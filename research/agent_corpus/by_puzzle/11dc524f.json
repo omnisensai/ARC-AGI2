@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "11dc524f",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    bg = 7\n\n    # find cells of 2 and 5\n    twos = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 2]\n    fives = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 5]\n\n    # bboxes\n    def bbox(cells):\n        rs = [c[0] for c in cells]\n        cs = [c[1] for c in cells]\n        return min(rs), max(rs), min(cs), max(cs)\n\n    r0_2, r1_2, c0_2, c1_2 = bbox(twos)\n    r0_5, r1_5, c0_5, c1_5 = bbox(fives)\n\n    # determine direction from 2 to 5\n    cr2 = (r0_2 + r1_2) / 2\n    cc2 = (c0_2 + c1_2) / 2\n    cr5 = (r0_5 + r1_5) / 2\n    cc5 = (c0_5 + c1_5) / 2\n\n    dr = cr5 - cr2\n    dc = cc5 - cc2\n\n    # primary direction: whichever absolute is bigger\n    if abs(dc) >= abs(dr):\n        # horizontal movement\n        if dc > 0:\n            # 2 moves right, until its right edge is at c0_5 - 1\n            shift_c = (c0_5 - 1) - c1_2\n            shift_r = 0\n            mirror_axis = 'v'\n            axis_val = (c0_5 - 1) + 0.5  # vertical line between moved 2 and 5\n        else:\n            # 2 moves left, until left edge at c1_5 + 1\n            shift_c = (c1_5 + 1) - c0_2\n            shift_r = 0\n            mirror_axis = 'v'\n            axis_val = (c1_5 + 1) - 0.5\n    else:\n        if dr > 0:\n            # 2 moves down\n            shift_r = (r0_5 - 1) - r1_2\n            shift_c = 0\n            mirror_axis = 'h'\n            axis_val = (r0_5 - 1) + 0.5\n        else:\n            # 2 moves up\n            shift_r = (r1_5 + 1) - r0_2\n            shift_c = 0\n            mirror_axis = 'h'\n            axis_val = (r1_5 + 1) - 0.5\n\n    new_twos = [(r + shift_r, c + shift_c) for (r, c) in twos]\n\n    # mirror new_twos across axis\n    new_fives = []\n    for (r, c) in new_twos:\n        if mirror_axis == 'v':\n            new_c = int(2 * axis_val - c)\n            new_fives.append((r, new_c))\n        else:\n            new_r = int(2 * axis_val - r)\n            new_fives.append((new_r, c))\n\n    # build output: start with background\n    out = [[bg] * W for _ in range(H)]\n    for (r, c) in new_twos:\n        if 0 <= r < H and 0 <= c < W:\n            out[r][c] = 2\n    for (r, c) in new_fives:\n        if 0 <= r < H and 0 <= c < W:\n            out[r][c] = 5\n\n    return out\n",
+      "source": "claude_agent_batch_057_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

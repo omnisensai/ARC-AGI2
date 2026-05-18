@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "e048c9ed",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    out = [row[:] for row in input_grid]\n\n    # Find isolated 5 marker (a single 5 not part of a horizontal run of 5s)\n    five_r, five_c = None, None\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 5:\n                left = input_grid[r][c-1] if c-1 >= 0 else 0\n                right = input_grid[r][c+1] if c+1 < W else 0\n                if left != 5 and right != 5:\n                    five_r, five_c = r, c\n                    break\n        if five_r is not None:\n            break\n\n    # For each row (except the row containing the 5 marker),\n    # find horizontal bars (runs of same non-zero value with length >= 2)\n    for r in range(H):\n        if r == five_r:\n            continue\n        c = 0\n        while c < W:\n            v = input_grid[r][c]\n            if v != 0:\n                end = c\n                while end + 1 < W and input_grid[r][end+1] == v:\n                    end += 1\n                L = end - c + 1\n                if L >= 2:\n                    start_col = c\n                    end_col = end\n                    # Determine gap between bar and the 5-column\n                    if five_c > end_col:\n                        gap = five_c - end_col - 1\n                    elif five_c < start_col:\n                        gap = start_col - five_c - 1\n                    else:\n                        gap = -1\n\n                    if gap >= 0:\n                        if gap == 0:\n                            # Extend bar with its color into the 5-column\n                            out[r][five_c] = v\n                        else:\n                            val = (L - 1) ** 2\n                            if gap == 1:\n                                val = val % 10\n                            else:\n                                val = min(val, 9)\n                            out[r][five_c] = val\n                c = end + 1\n            else:\n                c += 1\n\n    return out\n",
+      "source": "claude_agent_batch_054_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

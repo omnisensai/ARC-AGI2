@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "9c1e755f",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find all maximal runs of 5s (horizontal and vertical), length >= 2.\n    five_runs = []\n    # Horizontal\n    for r in range(H):\n        c = 0\n        while c < W:\n            if grid[r][c] == 5:\n                start = c\n                while c < W and grid[r][c] == 5:\n                    c += 1\n                if c - start >= 2:\n                    five_runs.append(('H', r, start, c - 1))\n            else:\n                c += 1\n    # Vertical\n    for c in range(W):\n        r = 0\n        while r < H:\n            if grid[r][c] == 5:\n                start = r\n                while r < H and grid[r][c] == 5:\n                    r += 1\n                if r - start >= 2:\n                    five_runs.append(('V', c, start, r - 1))\n            else:\n                r += 1\n\n    def is_color(v):\n        return v != 0 and v != 5\n\n    for run in five_runs:\n        orient, fixed, a, b = run\n        if orient == 'V':\n            # 5-line at col=fixed, rows a..b\n            col_5 = fixed\n            r0, r1 = a, b\n            # Color block is to the left or right of the 5-line.\n            # Determine side: check for non-zero non-5 colors adjacent.\n            for side_col, direction in [(col_5 - 1, -1), (col_5 + 1, 1)]:\n                if side_col < 0 or side_col >= W:\n                    continue\n                # Check if there are colors in this side adjacent to the 5-line\n                has_color = any(is_color(grid[r][side_col]) for r in range(r0, r1 + 1))\n                if not has_color:\n                    continue\n                # Determine T: how many rows of color exist (rows within [r0,r1] that have colors at side_col)\n                # The color block sits at one end of the 5-line. Find the contiguous rows with colors.\n                color_rows = [r for r in range(r0, r1 + 1) if is_color(grid[r][side_col])]\n                if not color_rows:\n                    continue\n                # Determine the M: the width of colors block in the perpendicular direction\n                # Find max extent of the colors row along the direction\n                # For each color_row, find contiguous color run starting at side_col extending in direction\n                M = 0\n                for cr in color_rows:\n                    cc = side_col\n                    cnt = 0\n                    while 0 <= cc < W and is_color(grid[cr][cc]):\n                        cnt += 1\n                        cc += direction\n                    M = max(M, cnt)\n                # Determine T: contiguous block at one end of 5-line\n                # Use the color rows as-is; T pattern rows = those color_rows in order\n                T_rows = color_rows\n                T = len(T_rows)\n                # The color block is at the end of the 5-line. Determine which end:\n                # if T_rows are at the bottom of (r0..r1), end='bottom'; else 'top'\n                # The pattern to tile is the existing T rows of colors.\n                # Build pattern: for each of T rows, the M values starting at side_col in direction\n                pattern = []\n                for cr in T_rows:\n                    row_vals = []\n                    cc = side_col\n                    for _ in range(M):\n                        if 0 <= cc < W:\n                            v = grid[cr][cc]\n                            if not is_color(v):\n                                v = 0\n                            row_vals.append(v)\n                        else:\n                            row_vals.append(0)\n                        cc += direction\n                    pattern.append(row_vals)\n                # Now tile pattern across rows r0..r1\n                # Determine starting alignment: pattern starts at row r0 (top)?\n                # From examples: pattern always starts at r0 (top of 5-line) and tiles down.\n                # Verify by checking training 2: T_rows = [7,8], r0=1, r1=8. Pattern starts at row 1.\n                # row 1 -> pattern[0], row 2 -> pattern[1], row 3 -> pattern[0], ...\n                # That matches.\n                for r in range(r0, r1 + 1):\n                    idx = (r - r0) % T\n                    cc = side_col\n                    for k in range(M):\n                        if 0 <= cc < W:\n                            grid[r][cc] = pattern[idx][k]\n                        cc += direction\n        else:  # 'H'\n            row_5 = fixed\n            c0, c1 = a, b\n            for side_row, direction in [(row_5 - 1, -1), (row_5 + 1, 1)]:\n                if side_row < 0 or side_row >= H:\n                    continue\n                has_color = any(is_color(grid[side_row][c]) for c in range(c0, c1 + 1))\n                if not has_color:\n                    continue\n                color_cols = [c for c in range(c0, c1 + 1) if is_color(grid[side_row][c])]\n                if not color_cols:\n                    continue\n                M = 0\n                for cc in color_cols:\n                    rr = side_row\n                    cnt = 0\n                    while 0 <= rr < H and is_color(grid[rr][cc]):\n                        cnt += 1\n                        rr += direction\n                    M = max(M, cnt)\n                T_cols = color_cols\n                T = len(T_cols)\n                pattern = []\n                for cc in T_cols:\n                    col_vals = []\n                    rr = side_row\n                    for _ in range(M):\n                        if 0 <= rr < H:\n                            v = grid[rr][cc]\n                            if not is_color(v):\n                                v = 0\n                            col_vals.append(v)\n                        else:\n                            col_vals.append(0)\n                        rr += direction\n                    pattern.append(col_vals)\n                for c in range(c0, c1 + 1):\n                    idx = (c - c0) % T\n                    rr = side_row\n                    for k in range(M):\n                        if 0 <= rr < H:\n                            grid[rr][c] = pattern[idx][k]\n                        rr += direction\n\n    return grid\n",
+      "source": "claude_agent_batch_057_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

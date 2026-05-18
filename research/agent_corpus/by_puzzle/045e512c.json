@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "045e512c",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find connected components (8-connectivity), each is a group of same-color adjacent cells\n    visited = [[False]*W for _ in range(H)]\n    components = []  # list of (color, list of cells)\n    for r0 in range(H):\n        for c0 in range(W):\n            if input_grid[r0][c0] != 0 and not visited[r0][c0]:\n                color = input_grid[r0][c0]\n                stack = [(r0, c0)]\n                comp = []\n                while stack:\n                    r, c = stack.pop()\n                    if r < 0 or r >= H or c < 0 or c >= W:\n                        continue\n                    if visited[r][c]:\n                        continue\n                    if input_grid[r][c] != color:\n                        continue\n                    visited[r][c] = True\n                    comp.append((r, c))\n                    for dr in [-1, 0, 1]:\n                        for dc in [-1, 0, 1]:\n                            if dr == 0 and dc == 0:\n                                continue\n                            stack.append((r+dr, c+dc))\n                components.append((color, comp))\n\n    if not components:\n        return [row[:] for row in input_grid]\n\n    # The anchor is the largest component\n    anchor_idx = max(range(len(components)), key=lambda i: len(components[i][1]))\n    anchor_color, anchor_cells = components[anchor_idx]\n    anchor_rows = [r for r, c in anchor_cells]\n    anchor_cols = [c for r, c in anchor_cells]\n    ar0, ar1 = min(anchor_rows), max(anchor_rows)\n    ac0, ac1 = min(anchor_cols), max(anchor_cols)\n    height = ar1 - ar0 + 1\n    width = ac1 - ac0 + 1\n\n    # Anchor shape: relative cell offsets\n    anchor_shape = [(r - ar0, c - ac0) for r, c in anchor_cells]\n\n    # Build output: keep only anchor, clear other markers (we'll redraw)\n    output = [row[:] for row in input_grid]\n    for idx, (color, cells) in enumerate(components):\n        if idx == anchor_idx:\n            continue\n        for r, c in cells:\n            output[r][c] = 0\n\n    # Step sizes\n    step_r = height + 1\n    step_c = width + 1\n\n    # For each marker component, find direction\n    for idx, (color, cells) in enumerate(components):\n        if idx == anchor_idx:\n            continue\n\n        # Determine direction by which adjacent copy position contains ALL marker cells\n        found_dir = None\n        for dr in [-1, 0, 1]:\n            for dc in [-1, 0, 1]:\n                if dr == 0 and dc == 0:\n                    continue\n                nr0 = ar0 + dr * step_r\n                nr1 = nr0 + height - 1\n                nc0 = ac0 + dc * step_c\n                nc1 = nc0 + width - 1\n                if all(nr0 <= r <= nr1 and nc0 <= c <= nc1 for r, c in cells):\n                    found_dir = (dr, dc)\n                    break\n            if found_dir:\n                break\n\n        if found_dir is None:\n            continue\n\n        dr, dc = found_dir\n        # Replicate anchor shape in this color, stepping in this direction\n        k = 1\n        while k <= 100:\n            nr0 = ar0 + dr * step_r * k\n            nc0 = ac0 + dc * step_c * k\n            on_grid_any = False\n            for (rr, cc) in anchor_shape:\n                tr = nr0 + rr\n                tc = nc0 + cc\n                if 0 <= tr < H and 0 <= tc < W:\n                    output[tr][tc] = color\n                    on_grid_any = True\n            br0, br1 = nr0, nr0 + height - 1\n            bc0, bc1 = nc0, nc0 + width - 1\n            if br1 < 0 or br0 >= H or bc1 < 0 or bc0 >= W:\n                break\n            if not on_grid_any:\n                break\n            k += 1\n\n    return output\n",
+      "source": "claude_agent_batch_056_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

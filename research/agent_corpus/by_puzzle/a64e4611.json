@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "a64e4611",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    gin = input_grid\n    h = len(gin)\n    w = len(gin[0])\n\n    # Find all maximal zero rectangles\n    rects = set()\n    for r1 in range(h):\n        for r2 in range(r1, h):\n            c = 0\n            while c < w:\n                while c < w and not all(gin[r][c] == 0 for r in range(r1, r2 + 1)):\n                    c += 1\n                c1 = c\n                while c < w and all(gin[r][c] == 0 for r in range(r1, r2 + 1)):\n                    c += 1\n                c2 = c - 1\n                if c1 <= c2:\n                    rects.add((r1, r2, c1, c2))\n\n    def is_max(rect):\n        r1, r2, c1, c2 = rect\n        if r1 > 0 and all(gin[r1 - 1][c] == 0 for c in range(c1, c2 + 1)):\n            return False\n        if r2 < h - 1 and all(gin[r2 + 1][c] == 0 for c in range(c1, c2 + 1)):\n            return False\n        if c1 > 0 and all(gin[r][c1 - 1] == 0 for r in range(r1, r2 + 1)):\n            return False\n        if c2 < w - 1 and all(gin[r][c2 + 1] == 0 for r in range(r1, r2 + 1)):\n            return False\n        return True\n\n    max_rects = [r for r in rects if is_max(r)]\n\n    if not max_rects:\n        return [row[:] for row in gin]\n\n    # Spine = largest by area\n    spine = max(max_rects, key=lambda r: (r[1] - r[0] + 1) * (r[3] - r[2] + 1))\n    sr1, sr2, sc1, sc2 = spine\n\n    selected = [spine]\n\n    # Find arms: max rects that touch a grid edge spine doesn't,\n    # and span spine in the appropriate direction\n    for r in max_rects:\n        if r == spine:\n            continue\n        r1, r2, c1, c2 = r\n\n        touches_top = (r1 == 0 and sr1 != 0)\n        touches_bot = (r2 == h - 1 and sr2 != h - 1)\n        touches_left = (c1 == 0 and sc1 != 0)\n        touches_right = (c2 == w - 1 and sc2 != w - 1)\n\n        if not (touches_top or touches_bot or touches_left or touches_right):\n            continue\n\n        is_v_arm = (touches_top or touches_bot) and (r1 <= sr1 and r2 >= sr2)\n        is_h_arm = (touches_left or touches_right) and (c1 <= sc1 and c2 >= sc2)\n\n        if is_v_arm or is_h_arm:\n            selected.append(r)\n\n    # Truncate arms: each arm should extend from grid edge it touches\n    # through the spine to the spine's far edge (unless arm touches opposite edge too)\n    truncated = []\n    for r in selected:\n        if r == spine:\n            truncated.append(r)\n            continue\n        r1, r2, c1, c2 = r\n        tt = (r1 == 0)\n        tb = (r2 == h - 1)\n        tl = (c1 == 0)\n        tr = (c2 == w - 1)\n        if tt and not tb and sr1 > 0:\n            r2 = sr2\n        if tb and not tt and sr2 < h - 1:\n            r1 = sr1\n        if tl and not tr and sc1 > 0:\n            c2 = sc2\n        if tr and not tl and sc2 < w - 1:\n            c1 = sc1\n        truncated.append((r1, r2, c1, c2))\n\n    # Build output: shrink each selected rect by 1 on each non-edge side, paint 3\n    gout = [row[:] for row in gin]\n    for r1, r2, c1, c2 in truncated:\n        nr1 = r1 if r1 == 0 else r1 + 1\n        nr2 = r2 if r2 == h - 1 else r2 - 1\n        nc1 = c1 if c1 == 0 else c1 + 1\n        nc2 = c2 if c2 == w - 1 else c2 - 1\n        for r in range(nr1, nr2 + 1):\n            for c in range(nc1, nc2 + 1):\n                gout[r][c] = 3\n    return gout\n",
+      "source": "claude_agent_batch_053_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

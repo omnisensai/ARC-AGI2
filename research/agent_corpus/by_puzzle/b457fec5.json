@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "b457fec5",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find the key: a horizontal sequence of non-zero, non-5 cells\n    key = None\n    for r in range(H):\n        cells = []\n        cols = []\n        for c in range(W):\n            v = grid[r][c]\n            if v != 0 and v != 5:\n                cells.append(v)\n                cols.append(c)\n        if cells:\n            if cols == list(range(cols[0], cols[-1] + 1)):\n                key = cells\n                break\n\n    L = len(key)\n\n    # Find connected components of 5s\n    visited = [[False] * W for _ in range(H)]\n    shapes = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 5 and not visited[r][c]:\n                comp = []\n                stack = [(r, c)]\n                visited[r][c] = True\n                while stack:\n                    rr, cc = stack.pop()\n                    comp.append((rr, cc))\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        nr, nc = rr + dr, cc + dc\n                        if 0 <= nr < H and 0 <= nc < W and grid[nr][nc] == 5 and not visited[nr][nc]:\n                            visited[nr][nc] = True\n                            stack.append((nr, nc))\n                shapes.append(comp)\n\n    # Compute global head_size across all shapes\n    all_lens = []\n    for shape in shapes:\n        rows_dict_s = {}\n        for r, c in shape:\n            rows_dict_s.setdefault(r, []).append(c)\n        for r in rows_dict_s:\n            cols = rows_dict_s[r]\n            all_lens.append(max(cols) - min(cols) + 1)\n    global_min_len = min(all_lens)\n    global_max_len = max(all_lens)\n    head_size = global_max_len - global_min_len + 1\n\n    # Process each shape\n    for shape in shapes:\n        rows_dict = {}\n        for r, c in shape:\n            rows_dict.setdefault(r, []).append(c)\n        for r in rows_dict:\n            rows_dict[r].sort()\n\n        sorted_rows = sorted(rows_dict.keys())\n\n        runs = {}\n        for r in sorted_rows:\n            cols = rows_dict[r]\n            runs[r] = (cols[0], cols[-1])\n\n        topmost_row = sorted_rows[0]\n        a_top, b_top = runs[topmost_row]\n\n        overall_min_a = min(a for a, b in runs.values())\n\n        # If top row's left edge equals overall leftmost extent, head on right (tilt \\\\)\n        # Otherwise head on left (tilt //)\n        if a_top == overall_min_a:\n            head_side = 'right'\n            b_first = b_top\n        else:\n            head_side = 'left'\n            a_first = a_top\n\n        for r in sorted_rows:\n            a, b = runs[r]\n            if head_side == 'right':\n                head_idx = (b - b_first) % L\n                head_start = b - head_size + 1\n                for c in range(a, b + 1):\n                    if c >= head_start:\n                        grid[r][c] = key[head_idx]\n                    else:\n                        i = head_start - 1 - c\n                        idx = (head_idx - 1 - i) % L\n                        grid[r][c] = key[idx]\n            else:\n                head_idx = (a_first - a) % L\n                head_end = a + head_size - 1\n                for c in range(a, b + 1):\n                    if c <= head_end:\n                        grid[r][c] = key[head_idx]\n                    else:\n                        i = c - head_end - 1\n                        idx = (head_idx - 1 - i) % L\n                        grid[r][c] = key[idx]\n\n    return grid\n",
+      "source": "claude_agent_batch_056_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
