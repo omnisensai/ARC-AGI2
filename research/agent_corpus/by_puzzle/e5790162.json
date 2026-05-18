@@ -1,0 +1,60 @@
+{
+  "puzzle_id": "e5790162",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 5,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find the 3\n    start = None\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 3:\n                start = (r, c)\n                break\n        if start:\n            break\n\n    # Directions: N, E, S, W\n    DIRS = {'N': (-1, 0), 'E': (0, 1), 'S': (1, 0), 'W': (0, -1)}\n    CW = {'N': 'E', 'E': 'S', 'S': 'W', 'W': 'N'}\n    CCW = {'N': 'W', 'W': 'S', 'S': 'E', 'E': 'N'}\n\n    def find_marker_in_direction(r, c, d):\n        # Find first cell in direction d that contains 6 or 8\n        dr, dc = DIRS[d]\n        nr, nc = r + dr, c + dc\n        while 0 <= nr < H and 0 <= nc < W:\n            if grid[nr][nc] in (6, 8):\n                return (nr, nc)\n            nr += dr\n            nc += dc\n        return None\n\n    def find_edge(r, c, d):\n        # Find the last in-bounds cell in direction d\n        dr, dc = DIRS[d]\n        nr, nc = r, c\n        while 0 <= nr + dr < H and 0 <= nc + dc < W:\n            nr += dr\n            nc += dc\n        return (nr, nc)\n\n    # Initial direction: find marker reachable from start\n    r, c = start\n    direction = None\n    for d in DIRS:\n        m = find_marker_in_direction(r, c, d)\n        if m is not None:\n            direction = d\n            break\n\n    if direction is None:\n        return grid\n\n    visited = set()\n    visited.add((r, c, direction))\n\n    while True:\n        marker = find_marker_in_direction(r, c, direction)\n        dr, dc = DIRS[direction]\n        if marker is not None:\n            mr, mc = marker\n            # Fill cells from (r,c) exclusive up to but not including marker with 3\n            nr, nc = r + dr, c + dc\n            while (nr, nc) != (mr, mc):\n                if grid[nr][nc] == 0:\n                    grid[nr][nc] = 3\n                nr += dr\n                nc += dc\n            # Turn: 6 -> CW, 8 -> CCW\n            marker_val = grid[mr][mc]\n            # Turn happens at cell BEFORE marker\n            turn_r, turn_c = mr - dr, mc - dc\n            if marker_val == 6:\n                new_dir = CW[direction]\n            else:  # 8\n                new_dir = CCW[direction]\n            state = (turn_r, turn_c, new_dir)\n            if state in visited:\n                break\n            visited.add(state)\n            r, c = turn_r, turn_c\n            direction = new_dir\n        else:\n            # Go to edge\n            er, ec = find_edge(r, c, direction)\n            nr, nc = r + dr, c + dc\n            while True:\n                if 0 <= nr < H and 0 <= nc < W:\n                    if grid[nr][nc] == 0:\n                        grid[nr][nc] = 3\n                if (nr, nc) == (er, ec):\n                    break\n                nr += dr\n                nc += dc\n            break\n\n    return grid\n",
+      "source": "claude_agent_batch_021_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "305b1341",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find legend: top-left contiguous 2-column block\n    legend = []\n    r = 0\n    while r < H and input_grid[r][0] != 0 and input_grid[r][1] != 0:\n        legend.append((input_grid[r][0], input_grid[r][1]))\n        r += 1\n    legend_rows = r\n    # Build output: start from input but remove legend\n    out = [row[:] for row in input_grid]\n    for rr in range(legend_rows):\n        out[rr][0] = 0\n        out[rr][1] = 0\n    # Collect pattern positions by color (excluding legend area)\n    from collections import defaultdict\n    positions = defaultdict(list)\n    for rr in range(H):\n        for cc in range(W):\n            if rr < legend_rows and cc < 2:\n                continue\n            v = input_grid[rr][cc]\n            if v != 0:\n                positions[v].append((rr, cc))\n    # Process from bottom legend entry to top (so top entry is drawn last/on top)\n    for i in range(legend_rows - 1, -1, -1):\n        color, frame = legend[i]\n        if color not in positions:\n            continue\n        pts = positions[color]\n        r_min = min(p[0] for p in pts)\n        r_max = max(p[0] for p in pts)\n        c_min = min(p[1] for p in pts)\n        c_max = max(p[1] for p in pts)\n        r0 = r_min - 1\n        r1 = r_max + 1\n        c0 = c_min - 1\n        c1 = c_max + 1\n        for rr in range(r0, r1 + 1):\n            for cc in range(c0, c1 + 1):\n                if 0 <= rr < H and 0 <= cc < W:\n                    out[rr][cc] = frame\n        # Restore the original dots\n        for (pr, pc) in pts:\n            out[pr][pc] = color\n    return out\n",
+      "source": "claude_agent_batch_021_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
