@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "9f27f097",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Determine background color (most common)\n    cnt = Counter()\n    for row in input_grid:\n        for v in row:\n            cnt[v] += 1\n    bg = cnt.most_common(1)[0][0]\n\n    # Find zero region bounding box\n    zero_cells = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 0]\n    zr_min = min(r for r, _ in zero_cells)\n    zr_max = max(r for r, _ in zero_cells)\n    zc_min = min(c for _, c in zero_cells)\n    zc_max = max(c for _, c in zero_cells)\n\n    # Find pattern region: cells that are not background and not zero\n    pat_cells = [(r, c) for r in range(H) for c in range(W)\n                 if input_grid[r][c] != bg and input_grid[r][c] != 0]\n    pr_min = min(r for r, _ in pat_cells)\n    pr_max = max(r for r, _ in pat_cells)\n    pc_min = min(c for _, c in pat_cells)\n    pc_max = max(c for _, c in pat_cells)\n\n    # Extract pattern\n    pattern = [input_grid[r][pc_min:pc_max + 1] for r in range(pr_min, pr_max + 1)]\n    # Horizontally flip\n    flipped = [list(reversed(row)) for row in pattern]\n\n    # Build output\n    out = [row[:] for row in input_grid]\n    ph = pr_max - pr_min + 1\n    pw = pc_max - pc_min + 1\n    for r in range(ph):\n        for c in range(pw):\n            out[zr_min + r][zc_min + c] = flipped[r][c]\n    return out\n",
+      "source": "claude_agent_batch_034_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

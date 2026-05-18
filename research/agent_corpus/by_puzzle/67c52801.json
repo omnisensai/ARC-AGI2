@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "67c52801",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Base color is the bottom row (assumed to be all same non-zero color)\n    base_row = grid[H - 1]\n    base_color = base_row[0]\n    for v in base_row:\n        if v != 0 and v != base_color:\n            # find majority\n            pass\n    # Use most common non-zero in last row\n    from collections import Counter\n    cnt = Counter(v for v in base_row if v != 0)\n    base_color = cnt.most_common(1)[0][0]\n\n    # Find shapes (connected components of non-zero, non-base colors) in rows above\n    # Identify each by color (assuming one component per color)\n    shape_cells = {}  # color -> list of (r, c)\n    for r in range(H - 1):\n        for c in range(W):\n            v = grid[r][c]\n            if v != 0 and v != base_color:\n                shape_cells.setdefault(v, []).append((r, c))\n\n    # Compute bounding boxes\n    shapes = {}\n    for color, cells in shape_cells.items():\n        rs = [r for r, c in cells]\n        cs = [c for r, c in cells]\n        h = max(rs) - min(rs) + 1\n        w = max(cs) - min(cs) + 1\n        shapes[color] = (h, w, len(cells))\n\n    # Identify gaps in the 2nd-to-last row (penultimate)\n    pen_row = grid[H - 2]\n    gaps = []  # list of (start_col, width)\n    c = 0\n    while c < W:\n        if pen_row[c] == 0:\n            start = c\n            while c < W and pen_row[c] == 0:\n                c += 1\n            gaps.append((start, c - start))\n        else:\n            c += 1\n\n    # Match each gap to a shape: shape with n_cells = 2 * gap_width\n    # Place as 2 rows by gap_width cols\n    used = set()\n    matches = []  # (start, gw, color, place_h, place_w)\n    for (start, gw) in gaps:\n        chosen = None\n        for color, (sh, sw, n) in shapes.items():\n            if color in used:\n                continue\n            if n == 2 * gw:\n                chosen = (color, 2, gw)\n                break\n        if chosen is None:\n            # Fallback: any with matching width\n            for color, (sh, sw, n) in shapes.items():\n                if color in used:\n                    continue\n                if sw == gw:\n                    chosen = (color, sh, sw); break\n                if sh == gw:\n                    chosen = (color, sw, sh); break\n        used.add(chosen[0])\n        matches.append((start, gw, chosen[0], chosen[1], chosen[2]))\n\n    # Build output: clear the area above the last row, keep last row,\n    # set penultimate row to base color where base_row has base, keep gaps to be filled\n    out = [[0] * W for _ in range(H)]\n    out[H - 1] = grid[H - 1][:]\n\n    # Fill penultimate row with original base pattern\n    for c in range(W):\n        out[H - 2][c] = pen_row[c]  # base_color or 0\n\n    # Place shapes bottom-anchored on penultimate row going up\n    for (start, gw, color, ph, pw) in matches:\n        # Fill bottom-aligned to row H-2 (so rows H-2-ph+1 .. H-2), cols start..start+pw-1\n        for dr in range(ph):\n            for dc in range(pw):\n                r = H - 2 - dr\n                c = start + dc\n                out[r][c] = color\n\n    return out\n",
+      "source": "claude_agent_batch_034_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "98cf29f8",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find colors\n    colors = set()\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != 0:\n                colors.add(grid[r][c])\n    colors = list(colors)\n    assert len(colors) == 2\n\n    # For each color, get all cells\n    def cells_of(color):\n        return [(r, c) for r in range(H) for c in range(W) if grid[r][c] == color]\n\n    # Find the largest rectangle of solid color cells\n    def find_rect(cells):\n        # Try every pair (r1,r2) x (c1,c2) and find largest filled rect within cells\n        cell_set = set(cells)\n        best = None\n        best_area = 0\n        rs = sorted(set(r for r, _ in cells))\n        cs = sorted(set(c for _, c in cells))\n        for r1 in rs:\n            for r2 in rs:\n                if r2 < r1:\n                    continue\n                for c1 in cs:\n                    for c2 in cs:\n                        if c2 < c1:\n                            continue\n                        ok = True\n                        for r in range(r1, r2 + 1):\n                            for c in range(c1, c2 + 1):\n                                if (r, c) not in cell_set:\n                                    ok = False\n                                    break\n                            if not ok:\n                                break\n                        if ok:\n                            area = (r2 - r1 + 1) * (c2 - c1 + 1)\n                            if area > best_area:\n                                best_area = area\n                                best = (r1, c1, r2, c2)\n        return best\n\n    color_info = {}\n    for col in colors:\n        cells = cells_of(col)\n        rect = find_rect(cells)\n        rect_cells = set()\n        r1, c1, r2, c2 = rect\n        for r in range(r1, r2 + 1):\n            for c in range(c1, c2 + 1):\n                rect_cells.add((r, c))\n        tail_cells = set(cells) - rect_cells\n        color_info[col] = {\n            'cells': cells,\n            'rect': rect,\n            'tail': tail_cells,\n        }\n\n    # The color with non-empty tail is the mover\n    mover_color = None\n    target_color = None\n    for col in colors:\n        if len(color_info[col]['tail']) > 0:\n            mover_color = col\n        else:\n            target_color = col\n\n    mover = color_info[mover_color]\n    target = color_info[target_color]\n\n    # Determine direction from tail\n    mr1, mc1, mr2, mc2 = mover['rect']\n    tail = mover['tail']\n\n    # Determine direction: see where the tail extends relative to rect\n    # If all tail cells have r < mr1: up\n    # If all tail cells have r > mr2: down\n    # If all tail cells have c < mc1: left\n    # If all tail cells have c > mc2: right\n    up = all(r < mr1 for r, c in tail)\n    down = all(r > mr2 for r, c in tail)\n    left = all(c < mc1 for r, c in tail)\n    right = all(c > mc2 for r, c in tail)\n\n    tr1, tc1, tr2, tc2 = target['rect']\n\n    # Clear all mover cells (rect + tail) and the rect-only old position\n    for (r, c) in mover['cells']:\n        grid[r][c] = 0\n\n    # Compute new rect position: move until adjacent to target\n    h = mr2 - mr1 + 1\n    w = mc2 - mc1 + 1\n    if up:\n        # Mover moves up toward target which is above. New top = tr2 + 1\n        new_r1 = tr2 + 1\n        new_r2 = new_r1 + h - 1\n        new_c1, new_c2 = mc1, mc2\n    elif down:\n        # Mover moves down toward target which is below. New bottom = tr1 - 1\n        new_r2 = tr1 - 1\n        new_r1 = new_r2 - h + 1\n        new_c1, new_c2 = mc1, mc2\n    elif left:\n        # Target is to the left; new left edge = tc2 + 1\n        new_c1 = tc2 + 1\n        new_c2 = new_c1 + w - 1\n        new_r1, new_r2 = mr1, mr2\n    elif right:\n        # Target is to the right; new right edge = tc1 - 1\n        new_c2 = tc1 - 1\n        new_c1 = new_c2 - w + 1\n        new_r1, new_r2 = mr1, mr2\n\n    for r in range(new_r1, new_r2 + 1):\n        for c in range(new_c1, new_c2 + 1):\n            grid[r][c] = mover_color\n\n    return grid\n",
+      "source": "claude_agent_batch_034_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

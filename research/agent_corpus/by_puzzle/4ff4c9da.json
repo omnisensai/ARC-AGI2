@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "4ff4c9da",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find separator rows/cols (uniform value)\n    sep_rows = set()\n    for r in range(H):\n        if len(set(grid[r])) == 1:\n            sep_rows.add(r)\n    sep_cols = set()\n    for c in range(W):\n        if len(set(grid[r][c] for r in range(H))) == 1:\n            sep_cols.add(c)\n\n    def build_segs(N, seps):\n        segs = []\n        cur = []\n        for i in range(N):\n            if i in seps:\n                if cur:\n                    segs.append(cur)\n                    cur = []\n            else:\n                cur.append(i)\n        if cur:\n            segs.append(cur)\n        return segs\n\n    row_segs = build_segs(H, sep_rows)\n    col_segs = build_segs(W, sep_cols)\n\n    row_info = {}\n    for si, seg in enumerate(row_segs):\n        for off, r in enumerate(seg):\n            row_info[r] = (si, off)\n    col_info = {}\n    for si, seg in enumerate(col_segs):\n        for off, c in enumerate(seg):\n            col_info[c] = (si, off)\n\n    # Group 8s by macro\n    from collections import defaultdict\n    macro_eights = defaultdict(list)\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 8 and r in row_info and c in col_info:\n                rsi, roff = row_info[r]\n                csi, coff = col_info[c]\n                macro_eights[(rsi, csi)].append((roff, coff))\n\n    def shape_signature(cells):\n        # Normalize by min row and col\n        if not cells:\n            return frozenset()\n        mr = min(r for r, c in cells)\n        mc = min(c for r, c in cells)\n        return frozenset((r - mr, c - mc) for r, c in cells)\n\n    def get_x_cells(rseg, cseg, x):\n        # Get cells in macro with value == x (treating 8 as x if in source)\n        cells = []\n        for ro, r in enumerate(rseg):\n            for co, c in enumerate(cseg):\n                v = grid[r][c]\n                if v == x or v == 8:\n                    cells.append((ro, co))\n        return cells\n\n    def get_x_cells_strict(rseg, cseg, x):\n        cells = []\n        for ro, r in enumerate(rseg):\n            for co, c in enumerate(cseg):\n                if grid[r][c] == x:\n                    cells.append((ro, co))\n        return cells\n\n    for (src_rsi, src_csi), offsets in macro_eights.items():\n        src_rseg = row_segs[src_rsi]\n        src_cseg = col_segs[src_csi]\n        rseg_size = len(src_rseg)\n        cseg_size = len(src_cseg)\n        offset_set = set(offsets)\n\n        # Determine X: the color the 8s replaced.\n        # X must satisfy: in source macro, all X-cells are exactly the 8-cells.\n        # Pick X yielding most matching target macros.\n        src_shape = shape_signature(offsets)\n        best_X = None\n        best_count = -1\n        for x in range(10):\n            if x == 8:\n                continue\n            # No other cells with value x in source macro\n            has_other = False\n            for ro, r in enumerate(src_rseg):\n                for co, c in enumerate(src_cseg):\n                    if (ro, co) not in offset_set and grid[r][c] == x:\n                        has_other = True\n                        break\n                if has_other:\n                    break\n            if has_other:\n                continue\n            # Count matches\n            count = 0\n            for tgt_rsi, tgt_rseg in enumerate(row_segs):\n                if len(tgt_rseg) != rseg_size:\n                    continue\n                for tgt_csi, tgt_cseg in enumerate(col_segs):\n                    if len(tgt_cseg) != cseg_size:\n                        continue\n                    cells = []\n                    for ro, r in enumerate(tgt_rseg):\n                        for co, c in enumerate(tgt_cseg):\n                            v = grid[r][c]\n                            if v == x or v == 8:\n                                cells.append((ro, co))\n                    if shape_signature(cells) == src_shape:\n                        count += 1\n            if count > best_count:\n                best_count = count\n                best_X = x\n\n        if best_X is None:\n            continue\n\n        x = best_X\n\n        # Find all matching macros\n        for tgt_rsi, tgt_rseg in enumerate(row_segs):\n            if len(tgt_rseg) != rseg_size:\n                continue\n            for tgt_csi, tgt_cseg in enumerate(col_segs):\n                if len(tgt_cseg) != cseg_size:\n                    continue\n                # Get X-cells (treat 8 as X in case target also has 8s from other groups)\n                cells = []\n                for ro, r in enumerate(tgt_rseg):\n                    for co, c in enumerate(tgt_cseg):\n                        v = grid[r][c]\n                        if v == x:\n                            cells.append((ro, co))\n                if shape_signature(cells) == src_shape:\n                    for (ro, co) in cells:\n                        grid[tgt_rseg[ro]][tgt_cseg[co]] = 8\n\n    return grid\n",
+      "source": "claude_agent_batch_033_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
