@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "50846271",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    H = len(grid)\n    W = len(grid[0])\n\n    twos = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 2]\n\n    if not twos:\n        return grid\n\n    THRESHOLD = 4\n\n    parent = list(range(len(twos)))\n\n    def find(x):\n        while parent[x] != x:\n            parent[x] = parent[parent[x]]\n            x = parent[x]\n        return x\n\n    def union(x, y):\n        px, py = find(x), find(y)\n        if px != py:\n            parent[px] = py\n\n    for i in range(len(twos)):\n        for j in range(i + 1, len(twos)):\n            r1, c1 = twos[i]\n            r2, c2 = twos[j]\n            if abs(r1 - r2) + abs(c1 - c2) <= THRESHOLD:\n                union(i, j)\n\n    clusters = {}\n    for i in range(len(twos)):\n        clusters.setdefault(find(i), []).append(twos[i])\n\n    centers = []\n    for cluster in clusters.values():\n        row_counts = {}\n        col_counts = {}\n        for r, c in cluster:\n            row_counts[r] = row_counts.get(r, 0) + 1\n            col_counts[c] = col_counts.get(c, 0) + 1\n        max_rc = max(row_counts.values())\n        max_cc = max(col_counts.values())\n\n        if max_rc == 1:\n            rows = [r for r, c in cluster]\n            R = (min(rows) + max(rows)) // 2\n        else:\n            cand_rows = [r for r, cnt in row_counts.items() if cnt == max_rc]\n            R = cand_rows[0]\n\n        if max_cc == 1:\n            cols = [c for r, c in cluster]\n            C = (min(cols) + max(cols)) // 2\n        else:\n            cand_cols = [c for c, cnt in col_counts.items() if cnt == max_cc]\n            C = cand_cols[0]\n\n        if max_rc >= 2 and max_cc >= 2:\n            cand_rows = [r for r, cnt in row_counts.items() if cnt == max_rc]\n            cand_cols = [c for c, cnt in col_counts.items() if cnt == max_cc]\n            cluster_set = set(cluster)\n            found = False\n            for r in cand_rows:\n                for c in cand_cols:\n                    if (r, c) in cluster_set:\n                        R, C = r, c\n                        found = True\n                        break\n                if found:\n                    break\n\n        centers.append((R, C, cluster))\n\n    max_arm = 0\n    for R, C, cluster in centers:\n        for r, c in cluster:\n            if r == R:\n                if abs(c - C) > max_arm:\n                    max_arm = abs(c - C)\n            elif c == C:\n                if abs(r - R) > max_arm:\n                    max_arm = abs(r - R)\n\n    for R, C, cluster in centers:\n        if 0 <= R < H and 0 <= C < W and grid[R][C] == 5:\n            grid[R][C] = 8\n        for d in range(1, max_arm + 1):\n            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                nr, nc = R + dr * d, C + dc * d\n                if 0 <= nr < H and 0 <= nc < W:\n                    if grid[nr][nc] == 5:\n                        grid[nr][nc] = 8\n\n    return grid\n",
+      "source": "claude_agent_batch_053_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

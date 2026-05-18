@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "e21a174a",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Group cells by color\n    color_cells = {}\n    for i in range(H):\n        for j in range(W):\n            v = input_grid[i][j]\n            if v != 0:\n                color_cells.setdefault(v, []).append((i, j))\n\n    components = [{'color': c, 'cells': cells} for c, cells in color_cells.items()]\n\n    # Sort components by top row\n    components.sort(key=lambda c: min(y for y, x in c['cells']))\n\n    # Compute each component's row span\n    spans = []\n    for c in components:\n        ys = [y for y, x in c['cells']]\n        spans.append((min(ys), max(ys)))\n\n    # Build output by placing components in reverse order\n    # The first component's top row in the original determines the starting row\n    output = [[0]*W for _ in range(H)]\n\n    # Find global top row\n    if not components:\n        return [row[:] for row in input_grid]\n\n    global_top = min(s[0] for s in spans)\n\n    # Place components in reverse order, stacked\n    current_top = global_top\n    for c, (top, bot) in reversed(list(zip(components, spans))):\n        height = bot - top + 1\n        offset = current_top - top\n        for y, x in c['cells']:\n            ny = y + offset\n            output[ny][x] = c['color']\n        current_top += height\n\n    return output\n",
+      "source": "claude_agent_batch_054_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

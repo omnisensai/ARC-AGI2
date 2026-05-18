@@ -1,0 +1,67 @@
+{
+  "puzzle_id": "b942fd60",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 5,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 6,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import deque\n\n\ndef solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    r2, c2 = None, None\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 2:\n                r2, c2 = r, c\n                break\n        if r2 is not None:\n            break\n\n    if c2 == 0:\n        d0 = (0, 1)\n    elif c2 == W - 1:\n        d0 = (0, -1)\n    elif r2 == 0:\n        d0 = (1, 0)\n    else:\n        d0 = (-1, 0)\n\n    queue = deque()\n    queue.append((r2, c2, d0[0], d0[1], 0))\n    visited_rays = set()\n    visited_rays.add((r2, c2, d0[0], d0[1]))\n    obstacle_hit_level = {}\n\n    while queue:\n        sr, sc, dr, dc, level = queue.popleft()\n        r, c = sr + dr, sc + dc\n        stop_r, stop_c = sr, sc\n        hit_obstacle = False\n        obs_r, obs_c = -1, -1\n        while 0 <= r < H and 0 <= c < W:\n            if input_grid[r][c] != 0:\n                stop_r, stop_c = r - dr, c - dc\n                hit_obstacle = True\n                obs_r, obs_c = r, c\n                break\n            else:\n                grid[r][c] = 2\n                stop_r, stop_c = r, c\n                r += dr\n                c += dc\n\n        if not hit_obstacle:\n            continue\n\n        if (obs_r, obs_c) not in obstacle_hit_level:\n            obstacle_hit_level[(obs_r, obs_c)] = level\n\n        if dr == 0:\n            new_dirs = [(-1, 0), (1, 0)]\n        else:\n            new_dirs = [(0, -1), (0, 1)]\n\n        adj_2 = False\n        for ndr, ndc in new_dirs:\n            ar, ac = stop_r + ndr, stop_c + ndc\n            if 0 <= ar < H and 0 <= ac < W and grid[ar][ac] == 2:\n                adj_2 = True\n                break\n        if adj_2:\n            continue\n\n        same_level_obstacle = False\n        for ndr, ndc in new_dirs:\n            rr, cc = stop_r + ndr, stop_c + ndc\n            while 0 <= rr < H and 0 <= cc < W:\n                if input_grid[rr][cc] != 0:\n                    if (rr, cc) in obstacle_hit_level and obstacle_hit_level[(rr, cc)] == level:\n                        same_level_obstacle = True\n                    break\n                rr += ndr\n                cc += ndc\n            if same_level_obstacle:\n                break\n        if same_level_obstacle:\n            continue\n\n        for ndr, ndc in new_dirs:\n            key = (stop_r, stop_c, ndr, ndc)\n            if key not in visited_rays:\n                visited_rays.add(key)\n                queue.append((stop_r, stop_c, ndr, ndc, level + 1))\n\n    return grid\n",
+      "source": "claude_agent_batch_050_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
