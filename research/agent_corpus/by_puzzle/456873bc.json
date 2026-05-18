@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "456873bc",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    g = [row[:] for row in input_grid]\n\n    threes = [(r, c) for r in range(H) for c in range(W) if g[r][c] == 3]\n    rs = sorted(set(r for r, c in threes))\n    cs = sorted(set(c for r, c in threes))\n    horizontal_band = (len(cs) == W)\n\n    if horizontal_band:\n        sh = len(rs)\n        sw = _find_other_dim(g, H, W, sh, 'horizontal')\n    else:\n        sw = len(cs)\n        sh = _find_other_dim(g, H, W, sw, 'vertical')\n\n    stride_r = sh + 1\n    stride_c = sw + 1\n\n    nr = (H + 1) // stride_r\n    nc = (W + 1) // stride_c\n\n    shape_pattern = None\n    for i in range(nr):\n        for j in range(nc):\n            r0, c0 = i * stride_r, j * stride_c\n            if any(g[r0 + dr][c0 + dc] == 3 for dr in range(sh) for dc in range(sw)\n                   if r0 + dr < H and c0 + dc < W):\n                continue\n            cells = set((dr, dc) for dr in range(sh) for dc in range(sw)\n                        if r0 + dr < H and c0 + dc < W and g[r0 + dr][c0 + dc] == 2)\n            if cells:\n                if shape_pattern is None or len(cells) > len(shape_pattern):\n                    shape_pattern = cells\n\n    for r in range(H):\n        for c in range(W):\n            if g[r][c] == 3:\n                g[r][c] = 0\n\n    for (sr, sc) in shape_pattern:\n        if sr >= nr or sc >= nc:\n            continue\n        r0, c0 = sr * stride_r, sc * stride_c\n        for (dr, dc) in shape_pattern:\n            if r0 + dr < H and c0 + dc < W:\n                g[r0 + dr][c0 + dc] = 2\n        if sr < sh and sc < sw and r0 + sr < H and c0 + sc < W:\n            g[r0 + sr][c0 + sc] = 8\n\n    return g\n\n\ndef _find_other_dim(g, H, W, known_dim, axis):\n    if axis == 'horizontal':\n        stride_r = known_dim + 1\n        cols2 = [c for c in range(W) if any(g[r][c] == 2 for r in range(known_dim))]\n        if not cols2:\n            for ly in range(1, H // stride_r):\n                r0 = ly * stride_r\n                cols2 = [c for c in range(W)\n                         if any(g[r0 + dr][c] == 2 for dr in range(known_dim) if r0 + dr < H)]\n                if cols2:\n                    break\n        for sw_try in range(1, W):\n            stride_c = sw_try + 1\n            valid = True\n            for cc in cols2:\n                if cc % stride_c >= sw_try:\n                    valid = False\n                    break\n            if valid:\n                used_last = any(cc % stride_c == sw_try - 1 for cc in cols2)\n                if used_last:\n                    return sw_try\n        return cols2[-1] - cols2[0] + 1\n    else:\n        stride_c = known_dim + 1\n        rows2 = [r for r in range(H) if any(g[r][c] == 2 for c in range(known_dim))]\n        if not rows2:\n            for lx in range(1, W // stride_c):\n                c0 = lx * stride_c\n                rows2 = [r for r in range(H)\n                         if any(g[r][c0 + dc] == 2 for dc in range(known_dim) if c0 + dc < W)]\n                if rows2:\n                    break\n        for sh_try in range(1, H):\n            stride_r = sh_try + 1\n            valid = True\n            for rr in rows2:\n                if rr % stride_r >= sh_try:\n                    valid = False\n                    break\n            if valid:\n                used_last = any(rr % stride_r == sh_try - 1 for rr in rows2)\n                if used_last:\n                    return sh_try\n        return rows2[-1] - rows2[0] + 1\n",
+      "source": "claude_agent_batch_025_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "673ef223",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find vertical bars of 2s on left (col 0) or right (col W-1) edges\n    bars = []\n    for side_col in [0, W - 1]:\n        r = 0\n        while r < H:\n            if grid[r][side_col] == 2:\n                start = r\n                while r < H and grid[r][side_col] == 2:\n                    r += 1\n                end = r - 1\n                bars.append({'col': side_col, 'start': start, 'end': end,\n                             'side': 'left' if side_col == 0 else 'right'})\n            else:\n                r += 1\n\n    # For each bar, find any 8s located in the rows spanning the bar\n    # (and in the columns away from the bar) - call this the \"marker bar\"\n    bar_with_8s = None\n    bar_without_8s = None\n    marker_positions = []  # list of (row_index_within_bar, col_of_8)\n\n    for bar in bars:\n        positions = []\n        for rr in range(bar['start'], bar['end'] + 1):\n            for cc in range(W):\n                if cc == bar['col']:\n                    continue\n                if grid[rr][cc] == 8:\n                    positions.append((rr - bar['start'], cc))\n        if positions:\n            bar_with_8s = bar\n            marker_positions = positions\n        else:\n            bar_without_8s = bar\n\n    # Draw lines for the bar WITH 8s: from the bar to the 8, replacing 8 with 4\n    if bar_with_8s is not None:\n        for (idx, col_of_8) in marker_positions:\n            row = bar_with_8s['start'] + idx\n            if bar_with_8s['side'] == 'left':\n                # bar at col 0, 8 to the right\n                for c in range(1, col_of_8):\n                    grid[row][c] = 8\n                grid[row][col_of_8] = 4\n            else:\n                # bar at col W-1, 8 to the left\n                for c in range(col_of_8 + 1, W - 1):\n                    grid[row][c] = 8\n                grid[row][col_of_8] = 4\n\n    # Draw full lines for the bar WITHOUT 8s, at the same row-indices\n    if bar_without_8s is not None and marker_positions:\n        for (idx, _) in marker_positions:\n            row = bar_without_8s['start'] + idx\n            if bar_without_8s['side'] == 'left':\n                for c in range(1, W):\n                    grid[row][c] = 8\n            else:\n                for c in range(0, W - 1):\n                    grid[row][c] = 8\n\n    return grid\n",
+      "source": "claude_agent_batch_025_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

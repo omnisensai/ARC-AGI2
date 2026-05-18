@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "7d1f7ee8",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    visited = [[False]*W for _ in range(H)]\n    rects = []\n\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != 0 and not visited[r][c]:\n                color = grid[r][c]\n                stack = [(r, c)]\n                cells = []\n                while stack:\n                    y, x = stack.pop()\n                    if y < 0 or y >= H or x < 0 or x >= W:\n                        continue\n                    if visited[y][x]:\n                        continue\n                    if grid[y][x] != color:\n                        continue\n                    visited[y][x] = True\n                    cells.append((y, x))\n                    for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        stack.append((y+dy, x+dx))\n                rs = [y for y, x in cells]\n                cs = [x for y, x in cells]\n                r1, r2 = min(rs), max(rs)\n                c1, c2 = min(cs), max(cs)\n                expected = set()\n                for cc in range(c1, c2+1):\n                    expected.add((r1, cc))\n                    expected.add((r2, cc))\n                for rr in range(r1, r2+1):\n                    expected.add((rr, c1))\n                    expected.add((rr, c2))\n                if set(cells) == expected:\n                    rects.append((color, r1, c1, r2, c2))\n\n    def contains(outer, inner):\n        if outer == inner:\n            return False\n        _, or1, oc1, or2, oc2 = outer\n        _, ir1, ic1, ir2, ic2 = inner\n        return or1 < ir1 and oc1 < ic1 and or2 > ir2 and oc2 > ic2\n\n    outermost_of = {}\n    for i, r in enumerate(rects):\n        containers = [o for o in rects if contains(o, r)]\n        if not containers:\n            outermost_of[i] = r\n        else:\n            for o in containers:\n                if not any(contains(o2, o) for o2 in containers if o2 != o):\n                    outermost_of[i] = o\n                    break\n\n    out = [row[:] for row in input_grid]\n    for i, r in enumerate(rects):\n        target_color = outermost_of[i][0]\n        _, r1, c1, r2, c2 = r\n        for cc in range(c1, c2+1):\n            out[r1][cc] = target_color\n            out[r2][cc] = target_color\n        for rr in range(r1, r2+1):\n            out[rr][c1] = target_color\n            out[rr][c2] = target_color\n\n    return out\n",
+      "source": "claude_agent_batch_025_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

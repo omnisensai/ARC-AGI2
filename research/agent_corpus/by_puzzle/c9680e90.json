@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "c9680e90",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find the divider row (all 9s)\n    div = None\n    for r in range(H):\n        if all(input_grid[r][c] == 9 for c in range(W)):\n            div = r\n            break\n\n    # Determine which side has the 2s (the \"arrow\" side) and which has 5s\n    top_has_5 = any(input_grid[r][c] == 5 for r in range(div) for c in range(W))\n    # Bottom side rows: div+1 .. H-1\n    # For each 2 on the arrow side, find adjacent 6 to determine direction,\n    # count consecutive 6s, then move 2 by that count.\n\n    # Identify arrow side region\n    if any(input_grid[r][c] == 2 for r in range(div + 1, H) for c in range(W)):\n        arrow_rows = range(div + 1, H)\n        mirror_side_rows = range(0, div)\n    else:\n        arrow_rows = range(0, div)\n        mirror_side_rows = range(div + 1, H)\n\n    # Find 2s in arrow region\n    twos = [(r, c) for r in arrow_rows for c in range(W) if input_grid[r][c] == 2]\n\n    new_two_positions = []\n    for (r, c) in twos:\n        # Find direction with 6 adjacent\n        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]\n        chosen = None\n        for dr, dc in directions:\n            nr, nc = r + dr, c + dc\n            if 0 <= nr < H and 0 <= nc < W and input_grid[nr][nc] == 6:\n                chosen = (dr, dc)\n                break\n        if chosen is None:\n            # No tail; 2 stays\n            new_two_positions.append((r, c))\n            continue\n        dr, dc = chosen\n        count = 0\n        nr, nc = r + dr, c + dc\n        while 0 <= nr < H and 0 <= nc < W and input_grid[nr][nc] == 6:\n            count += 1\n            nr += dr\n            nc += dc\n        new_r = r + dr * count\n        new_c = c + dc * count\n        new_two_positions.append((new_r, new_c))\n\n    # Build output: all 7s, except divider row stays 9s\n    output = [[7] * W for _ in range(H)]\n    for c in range(W):\n        output[div][c] = 9\n\n    # Place new 2s on arrow side\n    for (r, c) in new_two_positions:\n        output[r][c] = 2\n\n    # Mirror to other side as 5s\n    for (r, c) in new_two_positions:\n        mr = 2 * div - r\n        if 0 <= mr < H:\n            output[mr][c] = 5\n\n    return output\n",
+      "source": "claude_agent_batch_025_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

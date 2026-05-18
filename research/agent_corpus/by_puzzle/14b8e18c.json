@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "14b8e18c",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    bg = 7\n\n    # Find connected components (4-connectivity) of non-bg cells\n    visited = [[False] * W for _ in range(H)]\n    components = []\n    for i in range(H):\n        for j in range(W):\n            if grid[i][j] != bg and not visited[i][j]:\n                stack = [(i, j)]\n                comp = []\n                color = grid[i][j]\n                while stack:\n                    r, c = stack.pop()\n                    if r < 0 or r >= H or c < 0 or c >= W:\n                        continue\n                    if visited[r][c]:\n                        continue\n                    if grid[r][c] != color:\n                        continue\n                    visited[r][c] = True\n                    comp.append((r, c))\n                    stack.extend([(r + 1, c), (r - 1, c), (r, c + 1), (r, c - 1)])\n                components.append(comp)\n\n    out = [row[:] for row in grid]\n    for comp in components:\n        rs = [r for r, c in comp]\n        cs = [c for r, c in comp]\n        r1, r2 = min(rs), max(rs)\n        c1, c2 = min(cs), max(cs)\n        height = r2 - r1 + 1\n        width = c2 - c1 + 1\n        if height != width:\n            continue\n        if height < 2:\n            continue\n        # Check if it's a valid square shape: either filled bbox or hollow perimeter\n        cells = set(comp)\n        bbox_cells = {(r, c) for r in range(r1, r2 + 1) for c in range(c1, c2 + 1)}\n        perimeter_cells = {(r, c) for (r, c) in bbox_cells\n                           if r == r1 or r == r2 or c == c1 or c == c2}\n        is_filled = cells == bbox_cells\n        is_hollow = cells == perimeter_cells\n        if not (is_filled or is_hollow):\n            continue\n        # Place 2s at the 8 positions around the corners\n        marks = [\n            (r1 - 1, c1), (r1 - 1, c2),\n            (r2 + 1, c1), (r2 + 1, c2),\n            (r1, c1 - 1), (r1, c2 + 1),\n            (r2, c1 - 1), (r2, c2 + 1),\n        ]\n        for r, c in marks:\n            if 0 <= r < H and 0 <= c < W:\n                if out[r][c] == bg:\n                    out[r][c] = 2\n\n    return out\n",
+      "source": "claude_agent_batch_025_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

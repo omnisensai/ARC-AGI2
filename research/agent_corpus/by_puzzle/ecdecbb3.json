@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "ecdecbb3",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    h_barriers = set()  # row indices that are fully 8\n    for r in range(H):\n        if all(input_grid[r][c] == 8 for c in range(W)):\n            h_barriers.add(r)\n    v_barriers = set()  # col indices fully 8\n    for c in range(W):\n        if all(input_grid[r][c] == 8 for r in range(H)):\n            v_barriers.add(c)\n\n    twos = []\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 2:\n                twos.append((r, c))\n\n    def draw_box(cr, cc):\n        for dr in (-1, 0, 1):\n            for dc in (-1, 0, 1):\n                rr, cc2 = cr + dr, cc + dc\n                if 0 <= rr < H and 0 <= cc2 < W:\n                    grid[rr][cc2] = 8\n        grid[cr][cc] = 2\n\n    for (r, c) in twos:\n        # Find nearest h_barrier above\n        above = [br for br in h_barriers if br < r]\n        below = [br for br in h_barriers if br > r]\n        left = [bc for bc in v_barriers if bc < c]\n        right = [bc for bc in v_barriers if bc > c]\n\n        targets_h = []\n        if above:\n            targets_h.append(max(above))\n        if below:\n            targets_h.append(min(below))\n        targets_v = []\n        if left:\n            targets_v.append(max(left))\n        if right:\n            targets_v.append(min(right))\n\n        for br in targets_h:\n            if br > r:\n                for rr in range(r, br):\n                    grid[rr][c] = 2\n            else:\n                for rr in range(br + 1, r + 1):\n                    grid[rr][c] = 2\n            draw_box(br, c)\n        for bc in targets_v:\n            if bc > c:\n                for cc in range(c, bc):\n                    grid[r][cc] = 2\n            else:\n                for cc in range(bc + 1, c + 1):\n                    grid[r][cc] = 2\n            draw_box(r, bc)\n\n    return grid\n",
+      "source": "claude_agent_batch_025_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

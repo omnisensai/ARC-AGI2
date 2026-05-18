@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "447fd412",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import deque\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find connected components of non-zero cells (4-connectivity)\n    seen = [[False]*W for _ in range(H)]\n    components = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != 0 and not seen[r][c]:\n                q = deque([(r, c)])\n                seen[r][c] = True\n                cells = []\n                while q:\n                    y, x = q.popleft()\n                    cells.append((y, x))\n                    for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        ny, nx = y + dy, x + dx\n                        if 0 <= ny < H and 0 <= nx < W and not seen[ny][nx] and grid[ny][nx] != 0:\n                            seen[ny][nx] = True\n                            q.append((ny, nx))\n                components.append(cells)\n\n    # Template = component containing 1s\n    template = None\n    others = []\n    for comp in components:\n        vals = set(grid[r][c] for r, c in comp)\n        if 1 in vals:\n            template = comp\n        else:\n            others.append(comp)\n\n    template_2s = [(r, c) for r, c in template if grid[r][c] == 2]\n    template_1s = [(r, c) for r, c in template if grid[r][c] == 1]\n\n    # Each \"other\" component is a single rectangular block of 2s\n    other_blocks = []  # (min_r, min_c, max_r, max_c)\n    for comp in others:\n        rows = [r for r, c in comp]\n        cols = [c for r, c in comp]\n        other_blocks.append((min(rows), min(cols), max(rows), max(cols)))\n\n    n_template_2s = len(template_2s)\n    tr_2s = sorted(template_2s)\n\n    # Group other_blocks into groups whose relative positions match template 2s\n    if n_template_2s == 1:\n        groups = [[b] for b in other_blocks]\n    else:\n        t0 = tr_2s[0]\n        t_rel = [(r - t0[0], c - t0[1]) for r, c in tr_2s]\n        groups = []\n        used = [False] * len(other_blocks)\n        # Try each block as potential anchor (first in sorted order)\n        order = sorted(range(len(other_blocks)), key=lambda i: (other_blocks[i][0], other_blocks[i][1]))\n        for i in order:\n            if used[i]:\n                continue\n            bi = other_blocks[i]\n            sz = bi[2] - bi[0] + 1\n            anchor = (bi[0], bi[1])\n            expected = [(anchor[0] + dr * sz, anchor[1] + dc * sz) for dr, dc in t_rel]\n            match_indices = []\n            ok = True\n            for exp in expected:\n                found = -1\n                for j, bj in enumerate(other_blocks):\n                    if used[j] or j in match_indices:\n                        continue\n                    if (bj[0], bj[1]) == exp and (bj[2] - bj[0] + 1) == sz:\n                        found = j\n                        break\n                if found == -1:\n                    ok = False\n                    break\n                match_indices.append(found)\n            if ok:\n                for j in match_indices:\n                    used[j] = True\n                groups.append([other_blocks[j] for j in match_indices])\n\n    out = [row[:] for row in input_grid]\n\n    for group in groups:\n        group_sorted = sorted(group, key=lambda b: (b[0], b[1]))\n        sz = group_sorted[0][2] - group_sorted[0][0] + 1\n        t_anchor = tr_2s[0]\n        g_anchor = (group_sorted[0][0], group_sorted[0][1])\n\n        for tr, tc in template_1s:\n            dr = tr - t_anchor[0]\n            dc = tc - t_anchor[1]\n            br = g_anchor[0] + dr * sz\n            bc = g_anchor[1] + dc * sz\n            for y in range(br, br + sz):\n                for x in range(bc, bc + sz):\n                    if 0 <= y < H and 0 <= x < W:\n                        if out[y][x] == 0:\n                            out[y][x] = 1\n\n    return out\n",
+      "source": "claude_agent_batch_024_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

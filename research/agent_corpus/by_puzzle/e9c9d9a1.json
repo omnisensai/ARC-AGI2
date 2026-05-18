@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "e9c9d9a1",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    H = len(grid)\n    W = len(grid[0])\n\n    # Find divider rows (all 3s)\n    div_rows = [r for r in range(H) if all(grid[r][c] == 3 for c in range(W))]\n    div_cols = [c for c in range(W) if all(grid[r][c] == 3 for r in range(H))]\n\n    # Build row bands\n    row_bands = []\n    prev = 0\n    for dr in div_rows:\n        if dr > prev:\n            row_bands.append((prev, dr - 1))\n        prev = dr + 1\n    if prev <= H - 1:\n        row_bands.append((prev, H - 1))\n\n    # Build col bands\n    col_bands = []\n    prev = 0\n    for dc in div_cols:\n        if dc > prev:\n            col_bands.append((prev, dc - 1))\n        prev = dc + 1\n    if prev <= W - 1:\n        col_bands.append((prev, W - 1))\n\n    R = len(row_bands)\n    C = len(col_bands)\n\n    def fill(r_band, c_band, val):\n        r0, r1 = r_band\n        c0, c1 = c_band\n        for r in range(r0, r1 + 1):\n            for c in range(c0, c1 + 1):\n                grid[r][c] = val\n\n    for ri in range(R):\n        for ci in range(C):\n            if ri == 0 and ci == 0:\n                fill(row_bands[ri], col_bands[ci], 2)\n            elif ri == 0 and ci == C - 1:\n                fill(row_bands[ri], col_bands[ci], 4)\n            elif ri == R - 1 and ci == 0:\n                fill(row_bands[ri], col_bands[ci], 1)\n            elif ri == R - 1 and ci == C - 1:\n                fill(row_bands[ri], col_bands[ci], 8)\n            elif 0 < ri < R - 1 and 0 < ci < C - 1:\n                fill(row_bands[ri], col_bands[ci], 7)\n\n    return grid\n",
+      "source": "claude_agent_batch_025_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
