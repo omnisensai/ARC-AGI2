@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "7df24a62",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find template: a rectangular block of 1s.\n    ones = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 1]\n    if not ones:\n        return grid\n    r0 = min(r for r, c in ones)\n    r1 = max(r for r, c in ones)\n    c0 = min(c for r, c in ones)\n    c1 = max(c for r, c in ones)\n    T_h = r1 - r0 + 1\n    T_w = c1 - c0 + 1\n    # Inner region: (r0+1..r1-1, c0+1..c1-1)\n    # Get 4-positions inside the inner region\n    inner_fours = []\n    for rr in range(r0 + 1, r1):\n        for cc in range(c0 + 1, c1):\n            if grid[rr][cc] == 4:\n                inner_fours.append((rr, cc))\n    if not inner_fours:\n        return grid\n    fr0 = min(p[0] for p in inner_fours)\n    fr1 = max(p[0] for p in inner_fours)\n    fc0 = min(p[1] for p in inner_fours)\n    fc1 = max(p[1] for p in inner_fours)\n    pattern = sorted((p[0] - fr0, p[1] - fc0) for p in inner_fours)\n\n    def normalize(pts):\n        if not pts:\n            return tuple()\n        mr = min(p[0] for p in pts)\n        mc = min(p[1] for p in pts)\n        return tuple(sorted((p[0] - mr, p[1] - mc) for p in pts))\n\n    def rot90(pts):\n        return [(c, -r) for r, c in pts]\n\n    def flip_h(pts):\n        return [(r, -c) for r, c in pts]\n\n    syms_set = set()\n    cur = list(pattern)\n    for _ in range(4):\n        syms_set.add(normalize(cur))\n        syms_set.add(normalize(flip_h(cur)))\n        cur = rot90(cur)\n    syms = [list(s) for s in syms_set]\n\n    # The original template bbox (to skip it as a candidate)\n    template_bbox = (r0, c0, r1, c1)\n\n    # For each symmetry, find all valid placements\n    new_boxes = []\n    for sym in syms:\n        sh = max(p[0] for p in sym) + 1\n        sw = max(p[1] for p in sym) + 1\n        sym_set = set(sym)\n        for pr in range(0, H - sh + 1):\n            for pc in range(0, W - sw + 1):\n                # Pattern absolute positions\n                pat_abs = set((pr + p[0], pc + p[1]) for p in sym)\n                # Check: all pattern positions are 4\n                if not all(grid[r][c] == 4 for r, c in pat_abs):\n                    continue\n                # Check: in the \"frame\" region (bbox expanded by 1, clipped),\n                # there are no 4s outside the pattern.\n                fbr0 = max(0, pr - 1)\n                fbc0 = max(0, pc - 1)\n                fbr1 = min(H - 1, pr + sh)\n                fbc1 = min(W - 1, pc + sw)\n                bad = False\n                for rr in range(fbr0, fbr1 + 1):\n                    for cc in range(fbc0, fbc1 + 1):\n                        if (rr, cc) in pat_abs:\n                            continue\n                        if grid[rr][cc] == 4:\n                            bad = True\n                            break\n                        # Also: must not be 1 unless from template\n                        # (we allow 1s only if they're in template \u2014 for overlap)\n                        if grid[rr][cc] == 1:\n                            # Allow if it's part of template\n                            if not (r0 <= rr <= r1 and c0 <= cc <= c1):\n                                bad = True\n                                break\n                    if bad:\n                        break\n                if bad:\n                    continue\n                # Skip if this exact bbox matches the template (we don't redraw the template)\n                # The template's inner pattern position is (fr0, fc0) with size (fr1-fr0+1)x(fc1-fc0+1).\n                # If pr == fr0 and pc == fc0 and sh == (fr1-fr0+1) and sw == (fc1-fc0+1), it's the template.\n                if (pr, pc) == (fr0, fc0) and sh == (fr1 - fr0 + 1) and sw == (fc1 - fc0 + 1):\n                    continue\n                new_boxes.append((fbr0, fbc0, fbr1, fbc1, pat_abs))\n\n    # Apply new boxes\n    out = [row[:] for row in grid]\n    for fbr0, fbc0, fbr1, fbc1, pat_abs in new_boxes:\n        for rr in range(fbr0, fbr1 + 1):\n            for cc in range(fbc0, fbc1 + 1):\n                if (rr, cc) in pat_abs:\n                    out[rr][cc] = 4\n                else:\n                    if out[rr][cc] != 4:\n                        out[rr][cc] = 1\n    return out\n",
+      "source": "claude_agent_batch_044_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

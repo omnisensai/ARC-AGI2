@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "5a5a2103",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find divider color: it's the value that fills entire rows/columns\n    divider = None\n    for r in range(H):\n        vals = set(input_grid[r])\n        if len(vals) == 1:\n            divider = next(iter(vals))\n            break\n\n    # Find divider row indices and column indices\n    div_rows = [r for r in range(H) if all(input_grid[r][c] == divider for c in range(W))]\n    div_cols = [c for c in range(W) if all(input_grid[r][c] == divider for r in range(H))]\n\n    # Determine cell boundaries (each cell is 4x4)\n    # Row boundaries: between dividers\n    row_bounds = []\n    prev = 0\n    for dr in div_rows:\n        row_bounds.append((prev, dr))\n        prev = dr + 1\n    row_bounds.append((prev, H))\n\n    col_bounds = []\n    prev = 0\n    for dc in div_cols:\n        col_bounds.append((prev, dc))\n        prev = dc + 1\n    col_bounds.append((prev, W))\n\n    n_rows = len(row_bounds)\n    n_cols = len(col_bounds)\n\n    # Extract each cell as a 4x4 sub-grid\n    def get_cell(ri, ci):\n        r0, r1 = row_bounds[ri]\n        c0, c1 = col_bounds[ci]\n        return [input_grid[r][c0:c1] for r in range(r0, r1)]\n\n    # Find the \"key\" cell: it has a pattern that is not just a simple 2x2 block\n    # A simple 2x2 block has exactly 4 non-zero cells in a 2x2 arrangement\n    # The key cell has more non-zero cells, or non-2x2 arrangement\n    key_pattern = None\n    key_color = None\n    row_colors = {}  # ri -> color of the 2x2 block in that row\n\n    for ri in range(n_rows):\n        for ci in range(n_cols):\n            cell = get_cell(ri, ci)\n            nonzero = [(r, c, cell[r][c]) for r in range(len(cell)) for c in range(len(cell[0])) if cell[r][c] != 0]\n            if not nonzero:\n                continue\n            colors = set(v for _, _, v in nonzero)\n            # Check if it's a simple 2x2 block\n            if len(nonzero) == 4:\n                rs = [r for r, _, _ in nonzero]\n                cs = [c for _, c, _ in nonzero]\n                if max(rs) - min(rs) == 1 and max(cs) - min(cs) == 1 and len(colors) == 1:\n                    # simple 2x2 block\n                    color = next(iter(colors))\n                    if ri not in row_colors:\n                        row_colors[ri] = color\n                    continue\n            # otherwise, it's the key pattern\n            color = next(iter(colors))\n            key_pattern = [[1 if cell[r][c] != 0 else 0 for c in range(len(cell[0]))] for r in range(len(cell))]\n            key_color = color\n            # Also record this row's color (since the row's color is what's in 2x2 block in column 0)\n            # The key cell may not be in column 0; the row's color is determined by its 2x2 in some other cell\n\n    # Build output\n    output = [row[:] for row in input_grid]\n    cell_h = row_bounds[0][1] - row_bounds[0][0]\n    cell_w = col_bounds[0][1] - col_bounds[0][0]\n\n    for ri in range(n_rows):\n        color = row_colors.get(ri)\n        if color is None:\n            # might be the row containing the key pattern - find its 2x2\n            for ci in range(n_cols):\n                cell = get_cell(ri, ci)\n                nonzero = [(r, c, cell[r][c]) for r in range(len(cell)) for c in range(len(cell[0])) if cell[r][c] != 0]\n                if len(nonzero) == 4:\n                    rs = [r for r, _, _ in nonzero]\n                    cs = [c for _, c, _ in nonzero]\n                    colors = set(v for _, _, v in nonzero)\n                    if max(rs) - min(rs) == 1 and max(cs) - min(cs) == 1 and len(colors) == 1:\n                        color = next(iter(colors))\n                        break\n        if color is None:\n            continue\n        r0, r1 = row_bounds[ri]\n        for ci in range(n_cols):\n            c0, c1 = col_bounds[ci]\n            for rr in range(cell_h):\n                for cc in range(cell_w):\n                    output[r0 + rr][c0 + cc] = color if key_pattern[rr][cc] else 0\n\n    return output\n",
+      "source": "claude_agent_batch_045_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

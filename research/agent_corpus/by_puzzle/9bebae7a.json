@@ -1,0 +1,60 @@
+{
+  "puzzle_id": "9bebae7a",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 5,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    fours = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 4]\n    sixes = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 6]\n\n    six_set = set(sixes)\n    # Find center of 6-shape: cell with most 6-neighbors\n    def neighbors(r, c):\n        return [(r-1, c), (r+1, c), (r, c-1), (r, c+1)]\n\n    best_count = -1\n    center = sixes[0]\n    for cell in sixes:\n        cnt = sum(1 for n in neighbors(*cell) if n in six_set)\n        if cnt > best_count:\n            best_count = cnt\n            center = cell\n\n    cr, cc = center\n    # Determine arm lengths in each direction\n    def arm_len(dr, dc):\n        n = 0\n        r, c = cr + dr, cc + dc\n        while (r, c) in six_set:\n            n += 1\n            r += dr\n            c += dc\n        return n\n\n    arms = {\n        'up': arm_len(-1, 0),\n        'down': arm_len(1, 0),\n        'left': arm_len(0, -1),\n        'right': arm_len(0, 1),\n    }\n    long_dir = max(arms, key=lambda k: arms[k])\n\n    # Direction mapping: long arm dir -> reflection dir (90\u00b0 CCW in screen coords)\n    refl_map = {\n        'left': 'down',\n        'down': 'right',\n        'right': 'up',\n        'up': 'left',\n    }\n    refl_dir = refl_map[long_dir]\n\n    # Build output: copy input but remove 6s\n    output = [[0 if input_grid[r][c] == 6 else input_grid[r][c] for c in range(W)] for r in range(H)]\n\n    # Find bounding box edges of 4-shape\n    min_r = min(r for r, c in fours)\n    max_r = max(r for r, c in fours)\n    min_c = min(c for r, c in fours)\n    max_c = max(c for r, c in fours)\n\n    # Reflect 4s\n    for (r, c) in fours:\n        if refl_dir == 'down':\n            # mirror at row max_r + 0.5\n            nr = 2 * max_r + 1 - r\n            nc = c\n        elif refl_dir == 'up':\n            nr = 2 * min_r - 1 - r\n            nc = c\n        elif refl_dir == 'right':\n            nr = r\n            nc = 2 * max_c + 1 - c\n        elif refl_dir == 'left':\n            nr = r\n            nc = 2 * min_c - 1 - c\n        if 0 <= nr < H and 0 <= nc < W:\n            output[nr][nc] = 4\n\n    return output\n",
+      "source": "claude_agent_batch_045_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

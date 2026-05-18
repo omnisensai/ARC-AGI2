@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "551d5bf1",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    out = [row[:] for row in input_grid]\n\n    # Find connected components of 1s (4-connectivity).\n    visited = [[False]*W for _ in range(H)]\n    components = []\n    for i in range(H):\n        for j in range(W):\n            if grid[i][j] == 1 and not visited[i][j]:\n                stack = [(i,j)]\n                comp = []\n                visited[i][j] = True\n                while stack:\n                    y,x = stack.pop()\n                    comp.append((y,x))\n                    for dy,dx in [(-1,0),(1,0),(0,-1),(0,1)]:\n                        ny,nx = y+dy, x+dx\n                        if 0<=ny<H and 0<=nx<W and not visited[ny][nx] and grid[ny][nx]==1:\n                            visited[ny][nx] = True\n                            stack.append((ny,nx))\n                components.append(comp)\n\n    for comp in components:\n        ys = [c[0] for c in comp]\n        xs = [c[1] for c in comp]\n        y0, y1 = min(ys), max(ys)\n        x0, x1 = min(xs), max(xs)\n\n        if y1 - y0 < 2 or x1 - x0 < 2:\n            continue\n\n        # Fill interior with 8s.\n        for y in range(y0+1, y1):\n            for x in range(x0+1, x1):\n                out[y][x] = 8\n\n        # Find gap on the bounding box border.\n        border_cells = []\n        for x in range(x0, x1+1):\n            border_cells.append((y0, x, 'top'))\n            border_cells.append((y1, x, 'bottom'))\n        for y in range(y0+1, y1):\n            border_cells.append((y, x0, 'left'))\n            border_cells.append((y, x1, 'right'))\n\n        gaps = [(y,x,side) for (y,x,side) in border_cells if grid[y][x] == 0]\n        if len(gaps) >= 1:\n            gy, gx, side = gaps[0]\n            out[gy][gx] = 8\n            if side == 'top':\n                for y in range(gy-1, -1, -1):\n                    out[y][gx] = 8\n            elif side == 'bottom':\n                for y in range(gy+1, H):\n                    out[y][gx] = 8\n            elif side == 'left':\n                for x in range(gx-1, -1, -1):\n                    out[gy][x] = 8\n            elif side == 'right':\n                for x in range(gx+1, W):\n                    out[gy][x] = 8\n\n    return out\n",
+      "source": "claude_agent_batch_045_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
