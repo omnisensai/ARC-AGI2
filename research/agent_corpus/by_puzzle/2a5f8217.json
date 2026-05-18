@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "2a5f8217",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    visited = [[False] * W for _ in range(H)]\n    components = []  # list of (color, list of (r,c))\n\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != 0 and not visited[r][c]:\n                color = grid[r][c]\n                stack = [(r, c)]\n                cells = []\n                while stack:\n                    y, x = stack.pop()\n                    if y < 0 or y >= H or x < 0 or x >= W:\n                        continue\n                    if visited[y][x]:\n                        continue\n                    if grid[y][x] != color:\n                        continue\n                    visited[y][x] = True\n                    cells.append((y, x))\n                    for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        stack.append((y + dy, x + dx))\n                components.append((color, cells))\n\n    def normalize(cells):\n        minr = min(c[0] for c in cells)\n        minc = min(c[1] for c in cells)\n        return frozenset((r - minr, c - minc) for r, c in cells)\n\n    ones = [comp for comp in components if comp[0] == 1]\n    others = [comp for comp in components if comp[0] != 1]\n\n    out = [row[:] for row in input_grid]\n\n    for color, cells in ones:\n        shape = normalize(cells)\n        match_color = None\n        for oc, ocells in others:\n            if normalize(ocells) == shape:\n                match_color = oc\n                break\n        if match_color is not None:\n            for r, c in cells:\n                out[r][c] = match_color\n\n    return out\n",
+      "source": "claude_agent_batch_043_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

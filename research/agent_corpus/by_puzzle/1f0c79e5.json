@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "1f0c79e5",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find the 2x2 block: locate cells that are non-zero\n    cells = [(r, c, input_grid[r][c]) for r in range(H) for c in range(W) if input_grid[r][c] != 0]\n    # Determine the 2x2 bounding box\n    rs = [r for r, c, v in cells]\n    cs = [c for r, c, v in cells]\n    r0, r1 = min(rs), max(rs)\n    c0, c1 = min(cs), max(cs)\n    # color C is the non-2 value\n    C = None\n    for r, c, v in cells:\n        if v != 2:\n            C = v\n            break\n    # Find positions of 2 within the 2x2; each 2 indicates a diagonal direction\n    directions = []\n    for r in (r0, r1):\n        for c in (c0, c1):\n            if input_grid[r][c] == 2:\n                dr = -1 if r == r0 else 1\n                dc = -1 if c == c0 else 1\n                directions.append((dr, dc))\n\n    out = [[0] * W for _ in range(H)]\n\n    def place(br, bc):\n        # place 2x2 of C at top-left (br, bc)\n        for dr2 in range(2):\n            for dc2 in range(2):\n                rr, cc = br + dr2, bc + dc2\n                if 0 <= rr < H and 0 <= cc < W:\n                    out[rr][cc] = C\n\n    # Base placement\n    place(r0, c0)\n    # Propagate in each direction\n    for dr, dc in directions:\n        br, bc = r0, c0\n        while True:\n            br += dr\n            bc += dc\n            # Stop only when the entire 2x2 is fully outside the grid\n            if br + 1 < 0 or br >= H or bc + 1 < 0 or bc >= W:\n                break\n            place(br, bc)\n\n    return out\n",
+      "source": "claude_agent_batch_043_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

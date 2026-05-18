@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "0e206a2e",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import Counter\n\n\ndef solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find connected components using 8-connectivity.\n    seen = [[False] * W for _ in range(H)]\n    comps = []\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] != 0 and not seen[r][c]:\n                stack = [(r, c)]\n                cells = []\n                seen[r][c] = True\n                while stack:\n                    cr, cc = stack.pop()\n                    cells.append((cr, cc, input_grid[cr][cc]))\n                    for dr in (-1, 0, 1):\n                        for dc in (-1, 0, 1):\n                            if dr == 0 and dc == 0:\n                                continue\n                            nr, nc = cr + dr, cc + dc\n                            if (0 <= nr < H and 0 <= nc < W\n                                    and not seen[nr][nc]\n                                    and input_grid[nr][nc] != 0):\n                                seen[nr][nc] = True\n                                stack.append((nr, nc))\n                comps.append(cells)\n\n    # A template has at least one color appearing 2+ times (the \"fill\" color).\n    templates = []\n    skel_comps = []\n    for cells in comps:\n        cnt = Counter(v for _, _, v in cells)\n        col, freq = cnt.most_common(1)[0]\n        if freq >= 2:\n            templates.append((cells, col))\n        else:\n            skel_comps.append(cells)\n\n    # Collect all isolated marker cells (skeleton cells may be disconnected).\n    all_skel_cells = []\n    for cells in skel_comps:\n        all_skel_cells.extend(cells)\n\n    transforms = [\n        lambda r, c: (r, c),\n        lambda r, c: (-r, c),\n        lambda r, c: (r, -c),\n        lambda r, c: (-r, -c),\n        lambda r, c: (c, r),\n        lambda r, c: (-c, r),\n        lambda r, c: (c, -r),\n        lambda r, c: (-c, -r),\n    ]\n\n    output = [[0] * W for _ in range(H)]\n    remaining = list(range(len(all_skel_cells)))\n\n    while remaining:\n        found = False\n        for tpl_cells, fill in templates:\n            tpl_markers = [(r, c, v) for r, c, v in tpl_cells if v != fill]\n            for t in transforms:\n                tpl_transformed = [(t(r, c), v) for r, c, v in tpl_markers]\n                anchor_pos, anchor_v = tpl_transformed[0]\n                for idx in remaining:\n                    cr, cc, cv = all_skel_cells[idx]\n                    if cv != anchor_v:\n                        continue\n                    dr = cr - anchor_pos[0]\n                    dc = cc - anchor_pos[1]\n                    expected = set((tr + dr, tc + dc, v)\n                                   for (tr, tc), v in tpl_transformed)\n                    avail = {\n                        (all_skel_cells[i][0], all_skel_cells[i][1],\n                         all_skel_cells[i][2]): i\n                        for i in remaining\n                    }\n                    if all(e in avail for e in expected):\n                        used_idx = set(avail[e] for e in expected)\n                        remaining = [i for i in remaining if i not in used_idx]\n                        for r, c, v in tpl_cells:\n                            tr, tc = t(r, c)\n                            nr, nc = tr + dr, tc + dc\n                            if 0 <= nr < H and 0 <= nc < W:\n                                output[nr][nc] = v\n                        found = True\n                        break\n                if found:\n                    break\n            if found:\n                break\n        if not found:\n            break\n\n    return output\n",
+      "source": "claude_agent_batch_042_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "bd5af378",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find the L-corner: a corner where the full row and full column are the same color.\n    corners = [(0, 0), (0, W - 1), (H - 1, 0), (H - 1, W - 1)]\n    L_corner = None\n    L_color = None\n    for (r, c) in corners:\n        col_val = input_grid[r][c]\n        row_full = all(input_grid[r][j] == col_val for j in range(W))\n        col_full = all(input_grid[i][c] == col_val for i in range(H))\n        if row_full and col_full:\n            L_corner = (r, c)\n            L_color = col_val\n            break\n    r0, c0 = L_corner\n    # Interior color: any cell not on the L row/col.\n    interior_color = None\n    for i in range(H):\n        for j in range(W):\n            if i != r0 and j != c0:\n                interior_color = input_grid[i][j]\n                break\n        if interior_color is not None:\n            break\n    # Direction pointing into the interior.\n    dr = -1 if r0 == H - 1 else 1\n    dc = -1 if c0 == W - 1 else 1\n    # New L corner is shifted one step into the interior.\n    r1, c1 = r0 + dr, c0 + dc\n    # Initialize output with 8s.\n    out = [[8] * W for _ in range(H)]\n    # The old L row and column become interior color, except the old corner which becomes 8.\n    for j in range(W):\n        out[r0][j] = interior_color\n    for i in range(H):\n        out[i][c0] = interior_color\n    out[r0][c0] = 8\n    # The new L row spans from the new corner outward (away from the old L col).\n    if dc == 1:\n        col_start, col_end = c1 + 1, W\n    else:\n        col_start, col_end = 0, c1\n    for j in range(col_start, col_end):\n        out[r1][j] = L_color\n    # The new L column spans from the new corner outward (away from the old L row).\n    if dr == 1:\n        row_start, row_end = r1 + 1, H\n    else:\n        row_start, row_end = 0, r1\n    for i in range(row_start, row_end):\n        out[i][c1] = L_color\n    # New L corner is 8.\n    out[r1][c1] = 8\n    # Diagonal of interior color emanating from the new corner, going further into the interior.\n    i, j = r1 + dr, c1 + dc\n    while 0 <= i < H and 0 <= j < W:\n        if i == r0 or j == c0:\n            break\n        out[i][j] = interior_color\n        i += dr\n        j += dc\n    return out\n",
+      "source": "claude_agent_batch_043_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

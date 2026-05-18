@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "137f0df0",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Classify each row: 'five' if it contains any 5, else 'gap'\n    row_has5 = [any(input_grid[r][c] == 5 for c in range(W)) for r in range(H)]\n    col_has5 = [any(input_grid[r][c] == 5 for r in range(H)) for c in range(W)]\n\n    # For gap rows: 'between' if there exists a five-row before AND after, else 'edge'\n    def classify(has5):\n        n = len(has5)\n        result = []\n        for i in range(n):\n            if has5[i]:\n                result.append('five')\n            else:\n                before = any(has5[j] for j in range(0, i))\n                after = any(has5[j] for j in range(i + 1, n))\n                if before and after:\n                    result.append('between')\n                else:\n                    result.append('edge')\n        return result\n\n    row_type = classify(row_has5)\n    col_type = classify(col_has5)\n\n    out = [[0] * W for _ in range(H)]\n    for r in range(H):\n        for c in range(W):\n            rt = row_type[r]\n            ct = col_type[c]\n            if rt == 'five' and ct == 'five':\n                out[r][c] = input_grid[r][c]  # 5 or 0 depending on original\n            elif rt == 'five' and ct == 'between':\n                out[r][c] = 2\n            elif rt == 'five' and ct == 'edge':\n                out[r][c] = input_grid[r][c]\n            elif rt == 'between' and ct == 'five':\n                out[r][c] = 2\n            elif rt == 'between' and ct == 'between':\n                out[r][c] = 2\n            elif rt == 'between' and ct == 'edge':\n                out[r][c] = 1\n            elif rt == 'edge' and ct == 'five':\n                out[r][c] = 0\n            elif rt == 'edge' and ct == 'between':\n                out[r][c] = 1\n            elif rt == 'edge' and ct == 'edge':\n                out[r][c] = 0\n    return out\n",
+      "source": "claude_agent_batch_043_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

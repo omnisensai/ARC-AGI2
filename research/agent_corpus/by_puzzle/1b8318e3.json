@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "1b8318e3",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    h = len(input_grid)\n    w = len(input_grid[0])\n    # Find 2x2 blocks of 5s\n    blocks = []\n    block_cells = set()\n    for r in range(h - 1):\n        for c in range(w - 1):\n            if (input_grid[r][c] == 5 and input_grid[r][c+1] == 5\n                    and input_grid[r+1][c] == 5 and input_grid[r+1][c+1] == 5):\n                blocks.append((r, c))\n                for dr in range(2):\n                    for dc in range(2):\n                        block_cells.add((r+dr, c+dc))\n    # Find non-zero non-5 pixels\n    pixels = []\n    pixel_positions = set()\n    for r in range(h):\n        for c in range(w):\n            v = input_grid[r][c]\n            if v != 0 and v != 5:\n                pixels.append((r, c, v))\n                pixel_positions.add((r, c))\n\n    def perim_box(b):\n        br, bc = b\n        return (br - 1, br + 2, bc - 1, bc + 2)\n\n    def is_perim(r, c, b):\n        rmin, rmax, cmin, cmax = perim_box(b)\n        if not (rmin <= r <= rmax and cmin <= c <= cmax):\n            return False\n        # exclude block cells\n        if (r, c) in block_cells:\n            # only the block cells of THIS block matter\n            br, bc = b\n            if br <= r <= br + 1 and bc <= c <= bc + 1:\n                return False\n        return True\n\n    def is_this_block_cell(r, c, b):\n        br, bc = b\n        return br <= r <= br + 1 and bc <= c <= bc + 1\n\n    def snap_direction(dr, dc):\n        \"\"\"Snap a vector to one of 8 directions.\"\"\"\n        if dr == 0 and dc == 0:\n            return (0, 0)\n        adr = abs(dr)\n        adc = abs(dc)\n        # Use threshold: if larger is more than 1.5x smaller, cardinal; else diagonal\n        sr = 0 if dr == 0 else (1 if dr > 0 else -1)\n        sc = 0 if dc == 0 else (1 if dc > 0 else -1)\n        if adr == 0:\n            return (0, sc)\n        if adc == 0:\n            return (sr, 0)\n        if adr > 1.5 * adc:\n            return (sr, 0)\n        if adc > 1.5 * adr:\n            return (0, sc)\n        return (sr, sc)\n\n    def slide_to_perim(start_r, start_c, b, occupied_perim, blocked_pixels):\n        \"\"\"Slide from (start_r, start_c) in snap-direction toward block b.\n        Returns (perim_cell, steps) or None if doesn't reach a free perim cell.\n        Path is blocked by pixels in blocked_pixels (other pixel positions).\n        \"\"\"\n        br, bc = b\n        center_r = br + 0.5\n        center_c = bc + 0.5\n        dr = center_r - start_r\n        dc = center_c - start_c\n        sr, sc = snap_direction(dr, dc)\n        if sr == 0 and sc == 0:\n            return None\n        r, c = start_r, start_c\n        steps = 0\n        max_steps = h + w\n        while steps < max_steps:\n            r += sr\n            c += sc\n            steps += 1\n            if not (0 <= r < h and 0 <= c < w):\n                return None\n            # If hits another pixel, blocked\n            if (r, c) in blocked_pixels:\n                return None\n            # If hits block cell of this block, blocked\n            if is_this_block_cell(r, c, b):\n                return None\n            # If hits another block's cell, blocked\n            if (r, c) in block_cells:\n                return None\n            # Check if this is a perim cell of block b\n            if is_perim(r, c, b):\n                if (r, c) not in occupied_perim:\n                    return ((r, c), steps)\n                else:\n                    # Perim taken; can continue past?\n                    # Actually, return as \"found but taken\"\n                    return ((r, c), steps)  # caller handles\n        return None\n\n    # For each pixel, determine target\n    # We need to handle conflicts (multiple pixels wanting same perim cell)\n    # Use iterative process: find slide candidates, pick shortest, resolve conflicts\n\n    # First pass: each pixel computes its preferred destination\n    # Block any pixel that is itself a pixel in input from being a path\n    other_pixels = set(pixel_positions)\n\n    pixel_results = []\n    for (pr, pc, v) in pixels:\n        # Check if already on a perim cell of some block \u2014 if so, it stays\n        # Actually for (1,11)=9 in test, it stays at (1,11). Let me check.\n        # Let's not have a special case; just compute slides.\n        # Other pixels (excluding self) block paths\n        others = other_pixels - {(pr, pc)}\n\n        candidates = []  # list of (steps, perim_cell, block, is_taken)\n        for b in blocks:\n            res = slide_to_perim(pr, pc, b, set(), others)\n            if res is not None:\n                cell, steps = res\n                candidates.append((steps, cell, b))\n        # Also consider: pixel already on perim of some block (stays put)\n        for b in blocks:\n            if is_perim(pr, pc, b):\n                candidates.append((0, (pr, pc), b))\n\n        if not candidates:\n            # No valid slide; keep pixel in place\n            pixel_results.append((pr, pc, v, (pr, pc), None))\n            continue\n        # Pick shortest, prefer cardinal on tie\n        def cardinal_priority(cell, block):\n            # cardinal slide if pixel on same row or col as cell\n            cr, cc = cell\n            if cr == pr or cc == pc:\n                return 0\n            return 1\n        candidates.sort(key=lambda x: (x[0], cardinal_priority(x[1], x[2])))\n        steps, cell, b = candidates[0]\n        pixel_results.append((pr, pc, v, cell, b))\n\n    # Resolve conflicts: if multiple pixels target same cell, resolve\n    # Build occupied tracking, processing pixels in slide-distance order\n    pixel_results.sort(key=lambda x: 0)  # We'll sort more carefully below\n\n    # Recompute with conflict resolution\n    occupied_perim = {}\n    final_targets = {}\n    # Process pixels by their slide distance (shortest first to claim their spots)\n    pixel_results_indexed = []\n    for i, (pr, pc, v, cell, b) in enumerate(pixel_results):\n        # Compute distance as Chebyshev from pixel to cell\n        d = max(abs(pr - cell[0]), abs(pc - cell[1]))\n        pixel_results_indexed.append((d, i, pr, pc, v, cell, b))\n    pixel_results_indexed.sort(key=lambda x: x[0])\n\n    for d, i, pr, pc, v, cell, b in pixel_results_indexed:\n        if cell not in occupied_perim:\n            occupied_perim[cell] = v\n            final_targets[i] = cell\n        else:\n            # Conflict: need to find alternative\n            # Try other blocks/slides\n            others = other_pixels - {(pr, pc)}\n            alt_candidates = []\n            for b2 in blocks:\n                res = slide_to_perim(pr, pc, b2, set(occupied_perim.keys()), others)\n                if res is not None:\n                    c2, steps2 = res\n                    if c2 not in occupied_perim:\n                        alt_candidates.append((steps2, c2, b2))\n            # Also consider adjacent perim cells of b\n            if b is not None:\n                # find perim cells of b that are free\n                rmin, rmax, cmin, cmax = perim_box(b)\n                for rr in range(rmin, rmax + 1):\n                    for cc in range(cmin, cmax + 1):\n                        if (rr, cc) in occupied_perim:\n                            continue\n                        if not is_perim(rr, cc, b):\n                            continue\n                        if (rr, cc) in block_cells:\n                            continue\n                        # Chebyshev from original pixel\n                        d2 = max(abs(pr - rr), abs(pc - cc))\n                        alt_candidates.append((d2, (rr, cc), b))\n            alt_candidates.sort(key=lambda x: x[0])\n            if alt_candidates:\n                _, c3, _ = alt_candidates[0]\n                occupied_perim[c3] = v\n                final_targets[i] = c3\n            else:\n                # Stay in place\n                final_targets[i] = (pr, pc)\n\n    # Build output\n    out = [[0]*w for _ in range(h)]\n    for (br, bc) in blocks:\n        out[br][bc] = 5\n        out[br][bc+1] = 5\n        out[br+1][bc] = 5\n        out[br+1][bc+1] = 5\n    for i, (pr, pc, v, cell, b) in enumerate(pixel_results):\n        tgt = final_targets[i]\n        out[tgt[0]][tgt[1]] = v\n\n    return out\n",
+      "source": "claude_agent_batch_038_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

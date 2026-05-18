@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "a834deea",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0]) if H else 0\n    out = [row[:] for row in input_grid]\n\n    # Color map for 3x3 interior positions (row offset, col offset) -> color\n    # center is 0\n    color_map = {\n        (0, 0): 1, (0, 1): 7, (0, 2): 6,\n        (1, 0): 4, (1, 1): 0, (1, 2): 5,\n        (2, 0): 2, (2, 1): 9, (2, 2): 3,\n    }\n\n    # Find every 5x5 rectangle whose 0-border encloses a 3x3 interior.\n    # A 5x5 rectangle has top-left corner (r, c) with border = 0s and interior in {0, 8}.\n    found = []\n    for r in range(H - 4):\n        for c in range(W - 4):\n            # Check border all 0\n            ok = True\n            for j in range(5):\n                if input_grid[r][c + j] != 0 or input_grid[r + 4][c + j] != 0:\n                    ok = False\n                    break\n            if not ok:\n                continue\n            for i in range(5):\n                if input_grid[r + i][c] != 0 or input_grid[r + i][c + 4] != 0:\n                    ok = False\n                    break\n            if not ok:\n                continue\n            # Check interior all in {0, 8}\n            for i in range(1, 4):\n                for j in range(1, 4):\n                    if input_grid[r + i][c + j] not in (0, 8):\n                        ok = False\n                        break\n                if not ok:\n                    break\n            if not ok:\n                continue\n            found.append((r, c))\n\n    for (r, c) in found:\n        # Extract interior 3x3\n        interior = [[input_grid[r + 1 + i][c + 1 + j] for j in range(3)] for i in range(3)]\n        # Determine if center should become 0:\n        # - if input center == 0: output 0 (matches color_map center)\n        # - if input center == 8: keep 8 UNLESS all 4 interior corners are 8 (quincunx pattern)\n        corners_all_8 = (interior[0][0] == 8 and interior[0][2] == 8 and\n                          interior[2][0] == 8 and interior[2][2] == 8)\n        for i in range(3):\n            for j in range(3):\n                val = interior[i][j]\n                if i == 1 and j == 1:\n                    # center\n                    if val == 0:\n                        out[r + 1 + i][c + 1 + j] = 0\n                    else:\n                        # val == 8\n                        if corners_all_8:\n                            out[r + 1 + i][c + 1 + j] = 0\n                        else:\n                            out[r + 1 + i][c + 1 + j] = 8\n                else:\n                    if val == 0:\n                        out[r + 1 + i][c + 1 + j] = color_map[(i, j)]\n                    else:\n                        out[r + 1 + i][c + 1 + j] = 8\n\n    return out\n",
+      "source": "claude_agent_batch_042_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
