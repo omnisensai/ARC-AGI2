@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "15663ba9",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    out = [row[:] for row in input_grid]\n\n    visited = [[False] * W for _ in range(H)]\n\n    def neighbors4(r, c):\n        result = []\n        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n            nr, nc = r + dr, c + dc\n            if 0 <= nr < H and 0 <= nc < W and grid[nr][nc] != 0:\n                result.append((nr, nc))\n        return result\n\n    for sr in range(H):\n        for sc in range(W):\n            if grid[sr][sc] != 0 and not visited[sr][sc]:\n                comp = []\n                stack = [(sr, sc)]\n                visited[sr][sc] = True\n                while stack:\n                    r, c = stack.pop()\n                    comp.append((r, c))\n                    for nr, nc in neighbors4(r, c):\n                        if not visited[nr][nc]:\n                            visited[nr][nc] = True\n                            stack.append((nr, nc))\n\n                comp.sort()\n                start = comp[0]\n\n                # Top-leftmost cell of polygon is convex top-left corner.\n                # It has neighbors right and down. Start walking right (clockwise).\n                cr, cc = start\n                if cc + 1 < W and grid[cr][cc + 1] != 0:\n                    next_cell = (cr, cc + 1)\n                elif cr + 1 < H and grid[cr + 1][cc] != 0:\n                    next_cell = (cr + 1, cc)\n                else:\n                    continue\n\n                path = [start]\n                prev_pos = start\n                cur_pos = next_cell\n                while cur_pos != start:\n                    path.append(cur_pos)\n                    r, c = cur_pos\n                    nxt = None\n                    for nr, nc in neighbors4(r, c):\n                        if (nr, nc) != prev_pos:\n                            nxt = (nr, nc)\n                            break\n                    if nxt is None:\n                        break\n                    prev_pos = cur_pos\n                    cur_pos = nxt\n\n                n = len(path)\n                for i in range(n):\n                    prev_c = path[(i - 1) % n]\n                    cur_c = path[i]\n                    next_c = path[(i + 1) % n]\n\n                    d_in = (cur_c[0] - prev_c[0], cur_c[1] - prev_c[1])\n                    d_out = (next_c[0] - cur_c[0], next_c[1] - cur_c[1])\n\n                    if d_in == d_out:\n                        continue\n\n                    # Clockwise walk in y-down coords: convex = right turn (cross < 0)\n                    cross = d_in[0] * d_out[1] - d_in[1] * d_out[0]\n                    if cross < 0:\n                        out[cur_c[0]][cur_c[1]] = 4\n                    else:\n                        out[cur_c[0]][cur_c[1]] = 2\n\n    return out\n",
+      "source": "claude_agent_batch_052_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

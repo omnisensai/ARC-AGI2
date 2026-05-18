@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "776ffc46",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find connected components of 5s, check which form a complete rectangular frame\n    visited5 = [[False] * W for _ in range(H)]\n\n    def bfs_color(r, c, color):\n        cells = []\n        stack = [(r, c)]\n        visited5[r][c] = True\n        while stack:\n            cr, cc = stack.pop()\n            cells.append((cr, cc))\n            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                nr, nc = cr + dr, cc + dc\n                if 0 <= nr < H and 0 <= nc < W and not visited5[nr][nc] and grid[nr][nc] == color:\n                    visited5[nr][nc] = True\n                    stack.append((nr, nc))\n        return cells\n\n    templates = []  # list of (color, shape_set) for closed-box templates\n\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 5 and not visited5[r][c]:\n                cells = bfs_color(r, c, 5)\n                # Check if these cells form a complete rectangle frame\n                rs = [x[0] for x in cells]\n                cs = [x[1] for x in cells]\n                rmin, rmax = min(rs), max(rs)\n                cmin, cmax = min(cs), max(cs)\n                if rmax - rmin < 2 or cmax - cmin < 2:\n                    continue\n                # Expected frame cells\n                expected = set()\n                for cc1 in range(cmin, cmax + 1):\n                    expected.add((rmin, cc1))\n                    expected.add((rmax, cc1))\n                for rr1 in range(rmin, rmax + 1):\n                    expected.add((rr1, cmin))\n                    expected.add((rr1, cmax))\n                if set(cells) == expected:\n                    # Closed box - find the colored shape inside\n                    inside_cells = []\n                    inside_color = None\n                    for rr in range(rmin + 1, rmax):\n                        for cc in range(cmin + 1, cmax):\n                            v = grid[rr][cc]\n                            if v != 0 and v != 5:\n                                inside_cells.append((rr, cc))\n                                inside_color = v\n                    if inside_cells and inside_color is not None:\n                        # Normalize shape\n                        irs = [x[0] for x in inside_cells]\n                        ics = [x[1] for x in inside_cells]\n                        ir_min, ic_min = min(irs), min(ics)\n                        shape = frozenset((rr - ir_min, cc - ic_min) for rr, cc in inside_cells)\n                        templates.append((inside_color, shape))\n\n    # Find connected components of 1s and check shape match\n    visited1 = [[False] * W for _ in range(H)]\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 1 and not visited1[r][c]:\n                cells = []\n                stack = [(r, c)]\n                visited1[r][c] = True\n                while stack:\n                    cr, cc = stack.pop()\n                    cells.append((cr, cc))\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        nr, nc = cr + dr, cc + dc\n                        if 0 <= nr < H and 0 <= nc < W and not visited1[nr][nc] and grid[nr][nc] == 1:\n                            visited1[nr][nc] = True\n                            stack.append((nr, nc))\n                irs = [x[0] for x in cells]\n                ics = [x[1] for x in cells]\n                ir_min, ic_min = min(irs), min(ics)\n                shape = frozenset((rr - ir_min, cc - ic_min) for rr, cc in cells)\n                # Match against templates\n                for tcolor, tshape in templates:\n                    if shape == tshape:\n                        for rr, cc in cells:\n                            grid[rr][cc] = tcolor\n                        break\n\n    return grid\n",
+      "source": "claude_agent_batch_052_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

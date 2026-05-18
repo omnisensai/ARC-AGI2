@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "692cd3b6",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    H = len(grid)\n    W = len(grid[0])\n\n    shapes = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 5:\n                opening = None\n                d = None\n                if r - 1 >= 0 and grid[r - 1][c] == 0:\n                    opening = (r - 1, c)\n                    d = 'UP'\n                elif r + 1 < H and grid[r + 1][c] == 0:\n                    opening = (r + 1, c)\n                    d = 'DOWN'\n                elif c - 1 >= 0 and grid[r][c - 1] == 0:\n                    opening = (r, c - 1)\n                    d = 'LEFT'\n                elif c + 1 < W and grid[r][c + 1] == 0:\n                    opening = (r, c + 1)\n                    d = 'RIGHT'\n                shapes.append({\n                    'center': (r, c),\n                    'opening': opening,\n                    'dir': d,\n                    'top': r - 1,\n                    'bottom': r + 1,\n                    'left': c - 1,\n                    'right': c + 1,\n                })\n\n    A, B = shapes[0], shapes[1]\n\n    def get_edges(S, other):\n        d = S['dir']\n        op_r, op_c = S['opening']\n        Sr, Sc = S['center']\n        Or, Oc = other['center']\n\n        toward = ((d == 'UP' and Or < Sr) or\n                  (d == 'DOWN' and Or > Sr) or\n                  (d == 'LEFT' and Oc < Sc) or\n                  (d == 'RIGHT' and Oc > Sc))\n\n        edges = {}\n\n        if d == 'UP':\n            past_row = op_r - 1\n            if toward:\n                edges['bottom'] = past_row\n            else:\n                edges['top'] = past_row\n        elif d == 'DOWN':\n            past_row = op_r + 1\n            if toward:\n                edges['top'] = past_row\n            else:\n                edges['bottom'] = past_row\n        elif d == 'LEFT':\n            past_col = op_c - 1\n            if toward:\n                edges['right'] = past_col\n            else:\n                edges['left'] = past_col\n        elif d == 'RIGHT':\n            past_col = op_c + 1\n            if toward:\n                edges['left'] = past_col\n            else:\n                edges['right'] = past_col\n\n        if toward:\n            if d in ('UP', 'DOWN'):\n                if Oc > Sc:\n                    edges['left'] = op_c\n                else:\n                    edges['right'] = op_c\n            else:\n                if Or > Sr:\n                    edges['top'] = op_r\n                else:\n                    edges['bottom'] = op_r\n        else:\n            if d in ('UP', 'DOWN'):\n                if Oc > Sc:\n                    edges['left'] = S['right'] + 1\n                else:\n                    edges['right'] = S['left'] - 1\n            else:\n                if Or > Sr:\n                    edges['top'] = S['bottom'] + 1\n                else:\n                    edges['bottom'] = S['top'] - 1\n\n        return edges\n\n    edges_A = get_edges(A, B)\n    edges_B = get_edges(B, A)\n\n    rect = {}\n    rect.update(edges_A)\n    rect.update(edges_B)\n\n    top, bottom = rect['top'], rect['bottom']\n    left, right = rect['left'], rect['right']\n\n    for r in range(top, bottom + 1):\n        for c in range(left, right + 1):\n            if 0 <= r < H and 0 <= c < W and grid[r][c] == 0:\n                grid[r][c] = 4\n\n    def fill_stub(S, other):\n        d = S['dir']\n        op_r, op_c = S['opening']\n        Sr, Sc = S['center']\n        Or, Oc = other['center']\n\n        toward = ((d == 'UP' and Or < Sr) or\n                  (d == 'DOWN' and Or > Sr) or\n                  (d == 'LEFT' and Oc < Sc) or\n                  (d == 'RIGHT' and Oc > Sc))\n\n        grid[op_r][op_c] = 4\n\n        if d == 'UP':\n            past = (op_r - 1, op_c)\n        elif d == 'DOWN':\n            past = (op_r + 1, op_c)\n        elif d == 'LEFT':\n            past = (op_r, op_c - 1)\n        elif d == 'RIGHT':\n            past = (op_r, op_c + 1)\n\n        pr, pc = past\n        if 0 <= pr < H and 0 <= pc < W and grid[pr][pc] == 0:\n            grid[pr][pc] = 4\n\n        if not toward:\n            if d in ('UP', 'DOWN'):\n                if pc < left:\n                    for cc in range(pc + 1, left):\n                        if 0 <= cc < W and grid[pr][cc] == 0:\n                            grid[pr][cc] = 4\n                elif pc > right:\n                    for cc in range(right + 1, pc):\n                        if 0 <= cc < W and grid[pr][cc] == 0:\n                            grid[pr][cc] = 4\n            else:\n                if pr < top:\n                    for rr in range(pr + 1, top):\n                        if 0 <= rr < H and grid[rr][pc] == 0:\n                            grid[rr][pc] = 4\n                elif pr > bottom:\n                    for rr in range(bottom + 1, pr):\n                        if 0 <= rr < H and grid[rr][pc] == 0:\n                            grid[rr][pc] = 4\n\n    fill_stub(A, B)\n    fill_stub(B, A)\n\n    return grid\n",
+      "source": "claude_agent_batch_050_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

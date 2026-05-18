@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "b20f7c8b",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find the 8-region: columns where 8 appears (a 6-col-wide block).\n    # The rest is the 0-region with 5x5 boxes.\n    col_has_8 = [any(grid[r][c] == 8 for r in range(H)) for c in range(W)]\n    # Find contiguous run of columns containing 8 (length 6)\n    eight_start = None\n    for c in range(W):\n        if col_has_8[c]:\n            # Check 6 consecutive\n            if all(c + k < W and col_has_8[c + k] for k in range(6)):\n                eight_start = c\n                break\n    # Fallback search\n    if eight_start is None:\n        for c in range(W):\n            if col_has_8[c]:\n                eight_start = c\n                break\n\n    # Extract 8-region: columns eight_start..eight_start+5\n    er_c0 = eight_start\n    er_c1 = eight_start + 6\n\n    # Find shapes in 8-region.\n    # Each shape is a connected blob of one color != 8 within a 3x3 bounding box.\n    shapes = {}  # color -> 3x3 binary pattern (1=set)\n    visited = [[False] * W for _ in range(H)]\n    from collections import deque\n    for r in range(H):\n        for c in range(er_c0, er_c1):\n            if not visited[r][c] and grid[r][c] != 8:\n                color = grid[r][c]\n                # BFS all cells of this color in the 8-region that are \"nearby\"\n                # Actually: collect ALL cells of this color in 8-region\n                cells = []\n                for rr in range(H):\n                    for cc in range(er_c0, er_c1):\n                        if grid[rr][cc] == color:\n                            cells.append((rr, cc))\n                            visited[rr][cc] = True\n                if not cells:\n                    continue\n                rs = [x[0] for x in cells]\n                cs = [x[1] for x in cells]\n                r_min, r_max = min(rs), max(rs)\n                c_min, c_max = min(cs), max(cs)\n                # Should fit in 3x3\n                # Build 3x3 pattern (assume bounding box is at most 3x3; if smaller pad)\n                h = r_max - r_min + 1\n                w = c_max - c_min + 1\n                # Make 3x3, place at top-left of bounding box\n                pat = [[0] * 3 for _ in range(3)]\n                for (rr, cc) in cells:\n                    pat[rr - r_min][cc - c_min] = 1\n                shapes[color] = pat\n\n    # Generate all 8 D4 transformations of a 3x3 pattern\n    def rot90(p):\n        n = len(p)\n        return [[p[n - 1 - j][i] for j in range(n)] for i in range(n)]\n\n    def flip(p):\n        return [row[::-1] for row in p]\n\n    def all_transforms(p):\n        result = []\n        cur = p\n        for _ in range(4):\n            result.append(cur)\n            cur = rot90(cur)\n        cur = flip(p)\n        for _ in range(4):\n            result.append(cur)\n            cur = rot90(cur)\n        return result\n\n    def pat_eq(a, b):\n        return all(a[i][j] == b[i][j] for i in range(3) for j in range(3))\n\n    def matches_any_transform(pat, shape):\n        for t in all_transforms(shape):\n            if pat_eq(pat, t):\n                return True\n        return False\n\n    # Find 5x5 boxes in the 0-region (columns outside er_c0..er_c1)\n    # A 5x5 box has a recognizable structure: all cells non-zero\n    boxes = []  # list of (r0, c0)\n    for r in range(H - 4):\n        for c in range(W - 4):\n            # Skip if inside 8-region\n            if not (c + 4 < er_c0 or c >= er_c1):\n                continue\n            # Check 5x5 all non-zero\n            ok = True\n            for dr in range(5):\n                for dc in range(5):\n                    if grid[r + dr][c + dc] == 0:\n                        ok = False\n                        break\n                if not ok:\n                    break\n            if not ok:\n                continue\n            # Check surrounding cells are 0 (so it's exactly a 5x5 box)\n            # Check the border around it\n            is_box = True\n            # Above\n            if r > 0:\n                for dc in range(5):\n                    if grid[r - 1][c + dc] != 0:\n                        is_box = False\n                        break\n            # Below\n            if is_box and r + 5 < H:\n                for dc in range(5):\n                    if grid[r + 5][c + dc] != 0:\n                        is_box = False\n                        break\n            # Left\n            if is_box and c > 0:\n                for dr in range(5):\n                    if grid[r + dr][c - 1] != 0:\n                        is_box = False\n                        break\n            # Right\n            if is_box and c + 5 < W:\n                for dr in range(5):\n                    if grid[r + dr][c + 5] != 0:\n                        is_box = False\n                        break\n            if is_box:\n                boxes.append((r, c))\n\n    # Process each box\n    for (r0, c0) in boxes:\n        # Determine if pattern box or solid box\n        # Pattern box: frame is 2, inside contains 1s and 2s\n        # Solid box: all cells same color\n        vals = set()\n        for dr in range(5):\n            for dc in range(5):\n                vals.add(grid[r0 + dr][c0 + dc])\n        if len(vals) == 1:\n            # Solid box of color C -> turn into pattern box\n            C = vals.pop()\n            shape = shapes.get(C)\n            if shape is None:\n                continue\n            # Frame with 2, inner 3x3 with 1s where shape is set, 2 otherwise\n            for dr in range(5):\n                for dc in range(5):\n                    if dr == 0 or dr == 4 or dc == 0 or dc == 4:\n                        grid[r0 + dr][c0 + dc] = 2\n                    else:\n                        if shape[dr - 1][dc - 1] == 1:\n                            grid[r0 + dr][c0 + dc] = 1\n                        else:\n                            grid[r0 + dr][c0 + dc] = 2\n        else:\n            # Pattern box (frame=2, inner has 1s)\n            # Extract 3x3 inner pattern\n            pat = [[0] * 3 for _ in range(3)]\n            for dr in range(3):\n                for dc in range(3):\n                    if grid[r0 + 1 + dr][c0 + 1 + dc] == 1:\n                        pat[dr][dc] = 1\n            # Find matching shape\n            matched_color = None\n            for color, shape in shapes.items():\n                if matches_any_transform(pat, shape):\n                    matched_color = color\n                    break\n            if matched_color is None:\n                continue\n            # Replace box with solid color\n            for dr in range(5):\n                for dc in range(5):\n                    grid[r0 + dr][c0 + dc] = matched_color\n\n    return grid\n",
+      "source": "claude_agent_batch_052_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
