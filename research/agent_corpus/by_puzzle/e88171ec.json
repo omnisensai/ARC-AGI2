@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "e88171ec",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find the largest solid rectangle of zeros\n    best = None\n    best_area = 0\n    # For efficiency, use histogram method\n    heights = [0] * W\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 0:\n                heights[c] += 1\n            else:\n                heights[c] = 0\n        # For each column, find max rectangle ending at this row\n        # Simple O(W^2) per row: for each starting column, extend right\n        for c1 in range(W):\n            min_h = heights[c1]\n            for c2 in range(c1, W):\n                min_h = min(min_h, heights[c2])\n                if min_h == 0:\n                    break\n                area = min_h * (c2 - c1 + 1)\n                if area > best_area:\n                    best_area = area\n                    # rectangle: rows [r - min_h + 1, r], cols [c1, c2]\n                    best = (r - min_h + 1, c1, r, c2)\n    # Output: copy input, fill the interior (shrunk by 1 on each side) with 8s\n    out = [row[:] for row in input_grid]\n    if best is not None:\n        r1, c1, r2, c2 = best\n        for r in range(r1 + 1, r2):\n            for c in range(c1 + 1, c2):\n                out[r][c] = 8\n    return out\n",
+      "source": "claude_agent_batch_023_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

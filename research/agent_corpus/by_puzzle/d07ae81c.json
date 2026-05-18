@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "d07ae81c",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    from collections import Counter\n\n    row_colors = [set(grid[r]) for r in range(H)]\n    col_colors = [set(grid[r][c] for r in range(H)) for c in range(W)]\n\n    # Channel color: a color that fills entire rows or columns\n    channel_color = None\n    for r in range(H):\n        if len(row_colors[r]) == 1:\n            channel_color = next(iter(row_colors[r]))\n            break\n    if channel_color is None:\n        for c in range(W):\n            if len(col_colors[c]) == 1:\n                channel_color = next(iter(col_colors[c]))\n                break\n\n    # Channel rows/cols: rows/cols where all cells are channel_color (allow up to 1 marker)\n    channel_rows = set()\n    for r in range(H):\n        non_chan = sum(1 for c in range(W) if grid[r][c] != channel_color)\n        if non_chan <= 1 and channel_color in row_colors[r]:\n            channel_rows.add(r)\n\n    channel_cols = set()\n    for c in range(W):\n        non_chan = sum(1 for r in range(H) if grid[r][c] != channel_color)\n        if non_chan <= 1 and channel_color in col_colors[c]:\n            channel_cols.add(c)\n\n    # Block color: most common color outside channels\n    cnt = Counter()\n    for r in range(H):\n        for c in range(W):\n            if r not in channel_rows and c not in channel_cols:\n                cnt[grid[r][c]] += 1\n    block_color = cnt.most_common(1)[0][0]\n\n    # Find markers (anomalies) and classify by region\n    markers = []\n    for r in range(H):\n        for c in range(W):\n            v = grid[r][c]\n            in_channel = (r in channel_rows) or (c in channel_cols)\n            if in_channel:\n                if v != channel_color:\n                    markers.append((r, c, v, 'channel'))\n            else:\n                if v != block_color:\n                    markers.append((r, c, v, 'block'))\n\n    channel_marker_color = None\n    block_marker_color = None\n    for r, c, v, region in markers:\n        if region == 'channel':\n            channel_marker_color = v\n        else:\n            block_marker_color = v\n\n    out = [row[:] for row in grid]\n\n    def cell_in_channel(r, c):\n        return (r in channel_rows) or (c in channel_cols)\n\n    # Each marker emits 4 diagonal rays; each painted cell takes\n    # channel_marker_color if it's in a channel, else block_marker_color.\n    for r0, c0, v, region in markers:\n        for dr, dc in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:\n            r, c = r0 + dr, c0 + dc\n            while 0 <= r < H and 0 <= c < W:\n                if cell_in_channel(r, c):\n                    if channel_marker_color is not None:\n                        out[r][c] = channel_marker_color\n                else:\n                    if block_marker_color is not None:\n                        out[r][c] = block_marker_color\n                r += dr\n                c += dc\n\n    return out\n",
+      "source": "claude_agent_batch_022_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "1d0a4b61",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    def find_period(axis):\n        size = H if axis == 0 else W\n        for p in range(1, size):\n            ok = True\n            for r in range(H):\n                for c in range(W):\n                    if grid[r][c] == 0:\n                        continue\n                    if axis == 0:\n                        r2 = r + p\n                        if r2 < H and grid[r2][c] != 0 and grid[r2][c] != grid[r][c]:\n                            ok = False\n                            break\n                    else:\n                        c2 = c + p\n                        if c2 < W and grid[r][c2] != 0 and grid[r][c2] != grid[r][c]:\n                            ok = False\n                            break\n                if not ok:\n                    break\n            if ok:\n                return p\n        return 1\n\n    pr = find_period(0)\n    pc = find_period(1)\n\n    # Build multiples-of-period offset lists\n    def offsets(size, p):\n        offs = [0]\n        k = 1\n        while k * p <= size + p:\n            offs.append(k * p)\n            offs.append(-k * p)\n            k += 1\n        return offs\n\n    drs = offsets(H, pr)\n    dcs = offsets(W, pc)\n\n    result = [row[:] for row in grid]\n    for r in range(H):\n        for c in range(W):\n            if result[r][c] == 0:\n                found = None\n                for dr in drs:\n                    for dc in dcs:\n                        rr = r + dr\n                        cc = c + dc\n                        if 0 <= rr < H and 0 <= cc < W and grid[rr][cc] != 0:\n                            found = grid[rr][cc]\n                            break\n                    if found is not None:\n                        break\n                if found is not None:\n                    result[r][c] = found\n    return result\n",
+      "source": "claude_agent_batch_023_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

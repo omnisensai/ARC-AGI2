@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "a09f6c25",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import deque, Counter\n\n\ndef solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # background = most common color\n    counts = Counter()\n    for row in input_grid:\n        for v in row:\n            counts[v] += 1\n    bg = counts.most_common(1)[0][0]\n\n    # Find connected components (4-connected) of non-background cells\n    seen = [[False] * W for _ in range(H)]\n    comps = []\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] != bg and not seen[r][c]:\n                q = deque([(r, c)])\n                seen[r][c] = True\n                cells = []\n                while q:\n                    rr, cc = q.popleft()\n                    cells.append((rr, cc))\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        nr, nc = rr + dr, cc + dc\n                        if 0 <= nr < H and 0 <= nc < W and not seen[nr][nc] and input_grid[nr][nc] != bg:\n                            seen[nr][nc] = True\n                            q.append((nr, nc))\n                comps.append(cells)\n\n    # Build output\n    out = [[bg] * W for _ in range(H)]\n\n    for cells in comps:\n        if len(cells) == 1:\n            # isolated single cell - removed (stays as background)\n            continue\n        rs = [r for r, _ in cells]\n        cs = [c for _, c in cells]\n        rmin, rmax = min(rs), max(rs)\n        cmin, cmax = min(cs), max(cs)\n        cellset = set(cells)\n        sym_h = all((r, cmax + cmin - c) in cellset for r, c in cells)\n        sym_v = all((rmax + rmin - r, c) in cellset for r, c in cells)\n\n        if sym_v and not sym_h:\n            color = 1\n        elif sym_h and not sym_v:\n            color = 3\n        else:\n            # neither (or both - but both shouldn't happen for size>1 here)\n            color = 6\n\n        for r, c in cells:\n            out[r][c] = color\n\n    return out\n",
+      "source": "claude_agent_batch_023_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
