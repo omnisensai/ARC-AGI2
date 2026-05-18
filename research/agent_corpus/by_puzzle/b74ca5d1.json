@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "b74ca5d1",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    \n    # Determine background color (most common)\n    counts = Counter()\n    for row in input_grid:\n        for v in row:\n            counts[v] += 1\n    bg = counts.most_common(1)[0][0]\n    \n    # Identify corner markers\n    corners = {\n        (0, 0): input_grid[0][0],\n        (0, W-1): input_grid[0][W-1],\n        (H-1, 0): input_grid[H-1][0],\n        (H-1, W-1): input_grid[H-1][W-1],\n    }\n    # Corner color set (those that differ from bg)\n    corner_colors = {pos: c for pos, c in corners.items() if c != bg}\n    color_to_corner = {c: pos for pos, c in corner_colors.items()}\n    \n    # Find all key cells: non-bg cells with a corner color, EXCLUDING the corner cells themselves\n    corner_positions = set(corner_colors.keys())\n    keys = []\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != bg and v in color_to_corner and (r, c) not in corner_positions:\n                keys.append((r, c))\n\n    # Assign each non-bg, non-corner cell to its nearest key (Chebyshev distance)\n    components = [[] for _ in keys]\n\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == bg:\n                continue\n            if (r, c) in corner_positions:\n                continue\n            best_i = -1\n            best_d = None\n            for i, (kr, kc) in enumerate(keys):\n                d = max(abs(r - kr), abs(c - kc))\n                if best_d is None or d < best_d:\n                    best_d = d\n                    best_i = i\n            components[best_i].append((r, c))\n    \n    # Prepare output: copy of input\n    output = [row[:] for row in input_grid]\n    \n    # First pass: gather info about all shapes\n    shapes_info = []\n    for cells in components:\n        cell_colors = [input_grid[r][c] for r, c in cells]\n        key_cells = [(r, c) for r, c in cells if input_grid[r][c] in color_to_corner]\n        if not key_cells:\n            continue\n        kr, kc = key_cells[0]\n        key_color = input_grid[kr][kc]\n        other_colors = [col for col in cell_colors if col != key_color]\n        if not other_colors:\n            continue\n        shape_color = Counter(other_colors).most_common(1)[0][0]\n        corner_color = key_color\n        corner_pos = color_to_corner[corner_color]\n        shapes_info.append({\n            'cells': cells,\n            'key': (kr, kc),\n            'key_color': key_color,\n            'shape_color': shape_color,\n            'corner_pos': corner_pos,\n        })\n\n    # Helper: compute bbox info for each shape\n    for info in shapes_info:\n        cells = info['cells']\n        rs = [r for r, c in cells]\n        cs = [c for r, c in cells]\n        info['bbox'] = (min(rs), max(rs), min(cs), max(cs))\n\n    for info in shapes_info:\n        cells = info['cells']\n        kr, kc = info['key']\n        key_color = info['key_color']\n        shape_color = info['shape_color']\n        corner_color = info['key_color']\n        corner_pos = info['corner_pos']\n        r_min0, r_max0, c_min0, c_max0 = info['bbox']\n\n        # Determine the \"key replacement\" color. By default = shape_color.\n        key_replacement = shape_color\n        gr, gc = corner_pos\n        key_brel_r = kr - r_min0\n        key_brel_c = kc - c_min0\n        bbox_h = r_max0 - r_min0\n        bbox_w = c_max0 - c_min0\n\n        # Determine if key is on an \"aligned edge\" of the bbox (edge that maps to the\n        # grid edge containing the grid corner).\n        # Aligned edges: for gr=0 \u2192 row 0 (top); for gr=H-1 \u2192 row bbox_h (bottom).\n        #                for gc=0 \u2192 col 0 (left); for gc=W-1 \u2192 col bbox_w (right).\n        on_aligned_row_edge = (gr == 0 and key_brel_r == 0) or (gr != 0 and key_brel_r == bbox_h)\n        on_aligned_col_edge = (gc == 0 and key_brel_c == 0) or (gc != 0 and key_brel_c == bbox_w)\n\n        if on_aligned_row_edge or on_aligned_col_edge:\n            # Compute the stamp position of this key.\n            # Determine bbox offset to corner.\n            if gr == 0:\n                dr_self = 0 - r_min0\n            else:\n                dr_self = (H - 1) - r_max0\n            if gc == 0:\n                dc_self = 0 - c_min0\n            else:\n                dc_self = (W - 1) - c_max0\n            stamp_r = kr + dr_self\n            stamp_c = kc + dc_self\n\n            # Find what other shapes contribute at this stamp position.\n            other_body_color = None\n            other_key_count = 0\n            other_body_count = 0\n            for other in shapes_info:\n                if other is info:\n                    continue\n                if other['corner_pos'] != corner_pos:\n                    continue\n                other_r_min, other_r_max, other_c_min, other_c_max = other['bbox']\n                if gr == 0:\n                    dr_o = 0 - other_r_min\n                else:\n                    dr_o = (H - 1) - other_r_max\n                if gc == 0:\n                    dc_o = 0 - other_c_min\n                else:\n                    dc_o = (W - 1) - other_c_max\n                # Inverse: what cell in OTHER maps to (stamp_r, stamp_c)?\n                or_ = stamp_r - dr_o\n                oc_ = stamp_c - dc_o\n                if 0 <= or_ < H and 0 <= oc_ < W:\n                    val = input_grid[or_][oc_]\n                    if val == bg:\n                        continue\n                    if (or_, oc_) == other['key']:\n                        other_key_count += 1\n                    else:\n                        other_body_count += 1\n                        other_body_color = val\n\n            if other_body_count == 1 and other_key_count == 0:\n                key_replacement = other_body_color\n\n        # Determine which cells to use for bbox and stamping.\n        # If the shape has cells that form a \"tail\" attached to the key under 4-connectivity\n        # (where tail = small group of cells that share an edge with the key but with no\n        # 4-adjacent neighbor in the rest of the body), exclude them from stamp.\n        body_cells = set((r, c) for r, c in cells if (r, c) != (kr, kc))\n\n        # Compute 4-connected components of body cells (without using key as bridge)\n        comp_map = {}\n        comp_id = 0\n        for cell in body_cells:\n            if cell in comp_map:\n                continue\n            stack = [cell]\n            comp_map[cell] = comp_id\n            while stack:\n                cr, cc = stack.pop()\n                for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):\n                    nr, nc = cr + dr, cc + dc\n                    if (nr, nc) in body_cells and (nr, nc) not in comp_map:\n                        comp_map[(nr, nc)] = comp_id\n                        stack.append((nr, nc))\n            comp_id += 1\n        comp_groups = {}\n        for cell, cid in comp_map.items():\n            comp_groups.setdefault(cid, []).append(cell)\n\n        # Identify \"tail\" components: small components (size <= 2) attached to the key,\n        # but only exclude them when the shape has a clearly-larger main component\n        # (largest component size >= 5x the tail size).\n        tail_cells = set()\n        if len(comp_groups) > 1:\n            largest_size = max(len(g) for g in comp_groups.values())\n            for cid, group in comp_groups.items():\n                if len(group) > 2:\n                    continue\n                if largest_size < len(group) * 5:\n                    continue\n                # Check that this component is \"attached\" to the key by 4-adjacency\n                attached = False\n                for (r, c) in group:\n                    if abs(r - kr) + abs(c - kc) == 1:\n                        attached = True\n                        break\n                if not attached:\n                    continue\n                tail_cells.update(group)\n\n        effective_cells = [(r, c) for r, c in cells if (r, c) not in tail_cells]\n\n        # Step 1: recolor in original location (ALL cells, even tail)\n        for r, c in cells:\n            if input_grid[r][c] == key_color:\n                output[r][c] = key_replacement\n            else:\n                output[r][c] = corner_color\n\n        # Step 2: stamp at corner (use effective cells)\n        rs = [r for r, c in effective_cells]\n        cs = [c for r, c in effective_cells]\n        r_min, r_max = min(rs), max(rs)\n        c_min, c_max = min(cs), max(cs)\n\n        gr, gc = corner_pos\n        if gr == 0:\n            dr = 0 - r_min\n        else:\n            dr = (H - 1) - r_max\n        if gc == 0:\n            dc = 0 - c_min\n        else:\n            dc = (W - 1) - c_max\n\n        for r, c in effective_cells:\n            nr, nc = r + dr, c + dc\n            if 0 <= nr < H and 0 <= nc < W:\n                output[nr][nc] = corner_color\n\n    return output\n",
+      "source": "claude_agent_batch_054_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "1acc24af",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find the ground line: the row where the 1s span the widest (leftmost to rightmost extent),\n    # i.e., the row that contains a 1 at both the leftmost and rightmost 1-columns in the upper region.\n    # Heuristic: ground row has 1 at column 0 or W-1 (extends to the edge), or has the maximum span.\n    best_row = -1\n    best_span = -1\n    for r in range(H):\n        ones = [c for c in range(W) if grid[r][c] == 1]\n        if not ones:\n            continue\n        span = ones[-1] - ones[0] + 1\n        # Prefer rows that extend further; tiebreak by lower row (closer to bottom of bump area)\n        if span > best_span or (span == best_span and r > best_row):\n            best_span = span\n            best_row = r\n    ground_row = best_row\n\n    # Find gaps in the ground line (consecutive 0s)\n    gaps = []  # list of (gap_start_col, gap_end_col) inclusive\n    c = 0\n    while c < W:\n        if grid[ground_row][c] == 0:\n            # Check it's between 1s (not at edges where line doesn't exist)\n            # Find extent of zero run\n            start = c\n            while c < W and grid[ground_row][c] == 0:\n                c += 1\n            end = c - 1\n            # Check if there's a 1 to the left and right\n            has_left = any(grid[ground_row][cc] == 1 for cc in range(0, start))\n            has_right = any(grid[ground_row][cc] == 1 for cc in range(end + 1, W))\n            if has_left and has_right:\n                gaps.append((start, end))\n        else:\n            c += 1\n\n    # For each gap, find the bump's interior pattern (the enclosed 0 cells above the ground line)\n    # The interior includes cells above ground at the gap columns, connected to the gap.\n    bumps = []  # list of dicts: {'gap': (start, end), 'interior_cells': set of (r,c), 'pattern': 2D list, 'is_rect': bool}\n\n    for gap_start, gap_end in gaps:\n        # BFS to find interior cells (0s connected to the gap, but bounded by 1s)\n        # Start from gap cells in ground row, expand upward through 0s, bounded by 1s.\n        # The interior is the set of 0s in rows \u2264 ground_row that are connected to the gap cells\n        # and enclosed by 1s on top and sides.\n\n        interior = set()\n        # Start with the gap cells in ground row, plus all 0 cells directly above them at any level\n        # bounded by 1s.\n        # We'll do BFS upward only (since below ground is open).\n        from collections import deque\n        queue = deque()\n        for cc in range(gap_start, gap_end + 1):\n            queue.append((ground_row, cc))\n            interior.add((ground_row, cc))\n\n        while queue:\n            r, c0 = queue.popleft()\n            # Expand up, left, right (within rows above ground)\n            for dr, dc in [(-1, 0), (0, -1), (0, 1)]:\n                nr, nc = r + dr, c0 + dc\n                if nr < 0 or nr > ground_row or nc < 0 or nc >= W:\n                    continue\n                if (nr, nc) in interior:\n                    continue\n                if grid[nr][nc] == 0:\n                    # Check it's enclosed: must have 1-cells eventually bounding it\n                    # For BFS, we'll just include all 0s reachable upward, then verify they're enclosed\n                    interior.add((nr, nc))\n                    queue.append((nr, nc))\n\n        # Now check enclosure: the interior cells should be \"above the ground line\"\n        # but might extend outside via gaps. We need to ensure they're truly enclosed.\n        # Actually our BFS expands too aggressively. Let me restrict:\n        # An interior cell is one where moving in any direction (up, left, right, possibly diagonally)\n        # eventually hits a 1, not the grid boundary.\n        # For simplicity: a cell is interior if it's 0 and going UP it hits a 1, going LEFT it hits a 1,\n        # going RIGHT it hits a 1.\n        # And we should only include cells in rows above ground_row + 1, OR the ground row gap itself.\n\n        # Filter: only keep cells that are properly enclosed\n        true_interior = set()\n        for r, c0 in interior:\n            if r > ground_row:\n                continue  # below ground, not interior\n            # Going up from (r,c0), hits a 1?\n            up_hit = any(grid[rr][c0] == 1 for rr in range(0, r))\n            # Going left from (r,c0) in same row, hits 1?\n            left_hit = any(grid[r][cc] == 1 for cc in range(0, c0))\n            # Going right, hits 1?\n            right_hit = any(grid[r][cc] == 1 for cc in range(c0 + 1, W))\n            if up_hit and left_hit and right_hit:\n                true_interior.add((r, c0))\n\n        if not true_interior:\n            continue\n\n        # Compute the bbox of true_interior\n        rs = [r for r, c in true_interior]\n        cs = [c for r, c in true_interior]\n        min_r, max_r = min(rs), max(rs)\n        min_c, max_c = min(cs), max(cs)\n        h = max_r - min_r + 1\n        w = max_c - min_c + 1\n\n        # Build the pattern: 1 for interior cell, 0 otherwise\n        pattern = [[0] * w for _ in range(h)]\n        for r, c0 in true_interior:\n            pattern[r - min_r][c0 - min_c] = 1\n\n        # Is it rectangular (all 1s in bbox)?\n        is_rect = all(pattern[i][j] == 1 for i in range(h) for j in range(w))\n\n        bumps.append({\n            'gap': (gap_start, gap_end),\n            'pattern': pattern,\n            'h': h,\n            'w': w,\n            'is_rect': is_rect,\n        })\n\n    # Find connected components of 5s (4-connectivity)\n    visited = [[False] * W for _ in range(H)]\n    components = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 5 and not visited[r][c]:\n                comp = []\n                stack = [(r, c)]\n                while stack:\n                    cr, cc = stack.pop()\n                    if cr < 0 or cr >= H or cc < 0 or cc >= W:\n                        continue\n                    if visited[cr][cc] or grid[cr][cc] != 5:\n                        continue\n                    visited[cr][cc] = True\n                    comp.append((cr, cc))\n                    stack.extend([(cr + 1, cc), (cr - 1, cc), (cr, cc + 1), (cr, cc - 1)])\n                if comp:\n                    components.append(comp)\n\n    def shape_bbox_pattern(comp):\n        rs = [r for r, c in comp]\n        cs = [c for r, c in comp]\n        min_r, max_r = min(rs), max(rs)\n        min_c, max_c = min(cs), max(cs)\n        h = max_r - min_r + 1\n        w = max_c - min_c + 1\n        pat = [[0] * w for _ in range(h)]\n        for r, c in comp:\n            pat[r - min_r][c - min_c] = 1\n        return pat, h, w, min_r, min_c\n\n    def contains_pattern_exact(shape_pat, sh, sw, bump_pat, bh, bw):\n        \"\"\"Check if bump pattern appears as exact subarray in shape pattern.\"\"\"\n        if bh > sh or bw > sw:\n            return False\n        for i in range(sh - bh + 1):\n            for j in range(sw - bw + 1):\n                ok = True\n                for ii in range(bh):\n                    for jj in range(bw):\n                        if shape_pat[i + ii][j + jj] != bump_pat[ii][jj]:\n                            ok = False\n                            break\n                    if not ok:\n                        break\n                if ok:\n                    return True\n        return False\n\n    # For each component, determine if it should be recolored to 2\n    for comp in components:\n        cols_used = set(c for r, c in comp)\n        shape_pat, sh, sw, _, _ = shape_bbox_pattern(comp)\n\n        # Determine paired bump: shape's cols overlap with some bump's gap cols\n        paired_bump = None\n        for bump in bumps:\n            gap_cols = set(range(bump['gap'][0], bump['gap'][1] + 1))\n            if cols_used & gap_cols:\n                paired_bump = bump\n                break\n\n        recolor = False\n        if paired_bump is not None:\n            bump_pat = paired_bump['pattern']\n            bh = paired_bump['h']\n            bw = paired_bump['w']\n            if paired_bump['is_rect']:\n                # Shape must EQUAL bump bbox (same dimensions, all 5s)\n                if sh == bh and sw == bw:\n                    # Check all shape cells are 5 (in bbox they should be all 1 in shape_pat)\n                    if all(shape_pat[i][j] == 1 for i in range(sh) for j in range(sw)):\n                        recolor = True\n            else:\n                # Shape must CONTAIN bump pattern as exact subarray\n                if contains_pattern_exact(shape_pat, sh, sw, bump_pat, bh, bw):\n                    recolor = True\n        else:\n            # Non-paired: check if shape contains any bump pattern as exact subarray\n            for bump in bumps:\n                if contains_pattern_exact(shape_pat, sh, sw, bump['pattern'], bump['h'], bump['w']):\n                    recolor = True\n                    break\n\n        if recolor:\n            for r, c in comp:\n                grid[r][c] = 2\n\n    return grid\n",
+      "source": "claude_agent_batch_058_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

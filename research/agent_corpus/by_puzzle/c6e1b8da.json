@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "c6e1b8da",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find connected components (4-connectivity) of each non-zero color.\n    visited = [[False] * W for _ in range(H)]\n    shapes = []  # list of dicts: {color, cells}\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != 0 and not visited[r][c]:\n                color = grid[r][c]\n                stack = [(r, c)]\n                cells = []\n                visited[r][c] = True\n                while stack:\n                    cr, cc = stack.pop()\n                    cells.append((cr, cc))\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        nr, nc = cr + dr, cc + dc\n                        if 0 <= nr < H and 0 <= nc < W and not visited[nr][nc] and grid[nr][nc] == color:\n                            visited[nr][nc] = True\n                            stack.append((nr, nc))\n                shapes.append({'color': color, 'cells': cells})\n\n    # For each shape, determine main rectangle and optional tail.\n    processed = []\n    for s in shapes:\n        color = s['color']\n        cells = s['cells']\n        rs = [c[0] for c in cells]\n        cs = [c[1] for c in cells]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        # Check if bbox has zero cells\n        has_zero_in_bbox = False\n        for rr in range(r0, r1 + 1):\n            for cc in range(c0, c1 + 1):\n                if grid[rr][cc] == 0:\n                    has_zero_in_bbox = True\n                    break\n            if has_zero_in_bbox:\n                break\n\n        if not has_zero_in_bbox:\n            # Full rectangle, no tail, no shift\n            processed.append({\n                'color': color,\n                'rect': (r0, r1, c0, c1),\n                'moves': False\n            })\n        else:\n            # Find the largest filled rectangle of color C within bbox.\n            cell_set = set(cells)\n            best = None\n            best_area = 0\n            for rr0 in range(r0, r1 + 1):\n                for rr1 in range(rr0, r1 + 1):\n                    for cc0 in range(c0, c1 + 1):\n                        for cc1 in range(cc0, c1 + 1):\n                            # Check rect is fully filled with color\n                            ok = True\n                            for x in range(rr0, rr1 + 1):\n                                for y in range(cc0, cc1 + 1):\n                                    if (x, y) not in cell_set:\n                                        ok = False\n                                        break\n                                if not ok:\n                                    break\n                            if ok:\n                                area = (rr1 - rr0 + 1) * (cc1 - cc0 + 1)\n                                if area > best_area:\n                                    best_area = area\n                                    best = (rr0, rr1, cc0, cc1)\n            mr0, mr1, mc0, mc1 = best\n            # Tail cells = cells not in main rect\n            tail_cells = [(x, y) for (x, y) in cells if not (mr0 <= x <= mr1 and mc0 <= y <= mc1)]\n            # Determine tail direction\n            tail_rs = [c[0] for c in tail_cells]\n            tail_cs = [c[1] for c in tail_cells]\n            if min(tail_rs) < mr0:\n                # Tail is above\n                length = mr0 - min(tail_rs)\n                dr, dc = -length, 0\n            elif max(tail_rs) > mr1:\n                # Tail is below\n                length = max(tail_rs) - mr1\n                dr, dc = length, 0\n            elif min(tail_cs) < mc0:\n                # Tail is left\n                length = mc0 - min(tail_cs)\n                dr, dc = 0, -length\n            elif max(tail_cs) > mc1:\n                # Tail is right\n                length = max(tail_cs) - mc1\n                dr, dc = 0, length\n            else:\n                dr, dc = 0, 0\n            new_rect = (mr0 + dr, mr1 + dr, mc0 + dc, mc1 + dc)\n            processed.append({\n                'color': color,\n                'rect': new_rect,\n                'moves': True\n            })\n\n    # Render: blank grid first, then stationary shapes, then movers on top.\n    out = [[0] * W for _ in range(H)]\n    for p in processed:\n        if not p['moves']:\n            r0, r1, c0, c1 = p['rect']\n            for rr in range(r0, r1 + 1):\n                for cc in range(c0, c1 + 1):\n                    if 0 <= rr < H and 0 <= cc < W:\n                        out[rr][cc] = p['color']\n    for p in processed:\n        if p['moves']:\n            r0, r1, c0, c1 = p['rect']\n            for rr in range(r0, r1 + 1):\n                for cc in range(c0, c1 + 1):\n                    if 0 <= rr < H and 0 <= cc < W:\n                        out[rr][cc] = p['color']\n    return out\n",
+      "source": "claude_agent_batch_060_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

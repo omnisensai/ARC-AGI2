@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "6a1e5592",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import deque\n\n\ndef solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    H = len(grid)\n    W = len(grid[0])\n\n    # Determine the divider row: row of all 0s separating top (2-region) from bottom (5-region)\n    # Look for full-0 row that lies between top 2-region and bottom 5-region.\n    # Simpler: top region = rows with any 2 in them.\n    top_max = -1\n    for r in range(H):\n        if 2 in grid[r]:\n            top_max = r\n    # rows 0..top_max are \"top region\"\n\n    # Find top 0-shapes: connected 0 components confined to rows 0..top_max\n    def find_components(cells_predicate):\n        seen = [[False] * W for _ in range(H)]\n        comps = []\n        for r in range(H):\n            for c in range(W):\n                if cells_predicate(r, c) and not seen[r][c]:\n                    q = deque([(r, c)])\n                    seen[r][c] = True\n                    comp = set([(r, c)])\n                    while q:\n                        x, y = q.popleft()\n                        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                            nx, ny = x + dx, y + dy\n                            if 0 <= nx < H and 0 <= ny < W and cells_predicate(nx, ny) and not seen[nx][ny]:\n                                seen[nx][ny] = True\n                                q.append((nx, ny))\n                                comp.add((nx, ny))\n                    comps.append(comp)\n        return comps\n\n    # Top shapes: 0s in rows 0..top_max\n    top_shapes = find_components(lambda r, c: r <= top_max and grid[r][c] == 0)\n\n    # Bottom shapes: 5s anywhere (they are below top region by design)\n    bot_shapes = find_components(lambda r, c: grid[r][c] == 5)\n\n    # For each shape, compute a local set and bbox\n    def to_local(comp):\n        rs = [r for r, _ in comp]\n        cs = [c for _, c in comp]\n        r0, c0 = min(rs), min(cs)\n        local = frozenset((r - r0, c - c0) for r, c in comp)\n        return r0, c0, local\n\n    top_info = [to_local(t) for t in top_shapes]\n    bot_info = [to_local(b) for b in bot_shapes]\n\n    # For each top shape, find a bottom shape such that the top shape's local cells\n    # equal the bottom shape's top-K rows (where K = top shape's row span)\n    # Try every possible (row_offset, col_offset) alignment of top onto bottom.\n    # Actually simpler: top's local cells should be a \"prefix\" of bottom's local cells\n    # under some col offset, where the prefix is the top K rows of bottom.\n\n    out = [row[:] for row in input_grid]\n\n    # First, remove all 5s -> 0\n    for r in range(H):\n        for c in range(W):\n            if out[r][c] == 5:\n                out[r][c] = 0\n\n    # Build candidate matches: list of (top_idx, bot_idx, dx) where top's local cells == bottom's top-K rows shifted\n    candidates = []\n    for ti, (tr0, tc0, tlocal) in enumerate(top_info):\n        K = max(r for r, _ in tlocal) + 1\n        for bi, (br0, bc0, blocal) in enumerate(bot_info):\n            bot_top_k = frozenset((r, c) for r, c in blocal if r < K)\n            for dx in range(-W, W + 1):\n                shifted_top = frozenset((r, c + dx) for r, c in tlocal)\n                if shifted_top == bot_top_k:\n                    candidates.append((ti, bi, dx))\n                    break\n\n    # Find one-to-one matching of top shapes to bottom shapes using backtracking\n    n_top = len(top_info)\n    n_bot = len(bot_info)\n    assignment = [None] * n_top  # assignment[ti] = (bi, dx)\n\n    # Group candidates by top\n    cands_by_top = [[] for _ in range(n_top)]\n    for ti, bi, dx in candidates:\n        cands_by_top[ti].append((bi, dx))\n\n    used_bot = set()\n\n    def backtrack(ti):\n        if ti == n_top:\n            return True\n        for bi, dx in cands_by_top[ti]:\n            if bi in used_bot:\n                continue\n            assignment[ti] = (bi, dx)\n            used_bot.add(bi)\n            if backtrack(ti + 1):\n                return True\n            used_bot.discard(bi)\n            assignment[ti] = None\n        return False\n\n    backtrack(0)\n\n    for ti in range(n_top):\n        if assignment[ti] is None:\n            continue\n        tr0, tc0, tlocal = top_info[ti]\n        bi, dx = assignment[ti]\n        br0, bc0, blocal = bot_info[bi]\n        for br, bc in blocal:\n            ar = tr0 + br\n            ac = tc0 + bc - dx\n            if 0 <= ar < H and 0 <= ac < W:\n                out[ar][ac] = 1\n\n    return out\n",
+      "source": "claude_agent_batch_060_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

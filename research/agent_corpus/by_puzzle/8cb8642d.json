@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "8cb8642d",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    out = [row[:] for row in input_grid]\n\n    visited = [[False]*W for _ in range(H)]\n\n    def neighbors(r, c):\n        for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:\n            nr, nc = r+dr, c+dc\n            if 0 <= nr < H and 0 <= nc < W:\n                yield nr, nc\n\n    components = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != 0 and not visited[r][c]:\n                stack = [(r, c)]\n                visited[r][c] = True\n                cells = []\n                while stack:\n                    cr, cc = stack.pop()\n                    cells.append((cr, cc))\n                    for nr, nc in neighbors(cr, cc):\n                        if not visited[nr][nc] and grid[nr][nc] != 0:\n                            visited[nr][nc] = True\n                            stack.append((nr, nc))\n                components.append(cells)\n\n    for cells in components:\n        rs = [p[0] for p in cells]\n        cs = [p[1] for p in cells]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        colors = Counter(grid[r][c] for r, c in cells)\n        # rectangle color is the most common; marker is the other\n        rect_color = colors.most_common(1)[0][0]\n        marker_color = None\n        for col, _ in colors.items():\n            if col != rect_color:\n                marker_color = col\n                break\n        if marker_color is None:\n            continue\n\n        # Interior is inside the border (one cell in)\n        ir0, ir1 = r0 + 1, r1 - 1\n        ic0, ic1 = c0 + 1, c1 - 1\n        Hi = ir1 - ir0 + 1\n        Wi = ic1 - ic0 + 1\n        if Hi <= 0 or Wi <= 0:\n            continue\n        A = (Hi - 1) // 2\n        B = (Wi - 1) // 2\n\n        # Fill border with rect_color, interior per rule\n        for rr in range(r0, r1 + 1):\n            for cc in range(c0, c1 + 1):\n                if rr == r0 or rr == r1 or cc == c0 or cc == c1:\n                    out[rr][cc] = rect_color\n                else:\n                    ir = rr - ir0\n                    ic = cc - ic0\n                    a = min(ir, Hi - 1 - ir)\n                    b = min(ic, Wi - 1 - ic)\n                    on_x = (a == b) or (a == A and b >= A) or (b == B and a >= B)\n                    out[rr][cc] = marker_color if on_x else 0\n\n    return out\n",
+      "source": "claude_agent_batch_060_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

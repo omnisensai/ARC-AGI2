@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "1b59e163",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    BG = 4\n    NOISE = 5\n    out = [[BG] * W for _ in range(H)]\n\n    # Find connected components for each non-background, non-noise color (8-conn).\n    visited = [[False] * W for _ in range(H)]\n    components = []  # (color, list of (r,c))\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v == BG or v == NOISE or visited[r][c]:\n                continue\n            stack = [(r, c)]\n            comp = []\n            visited[r][c] = True\n            while stack:\n                y, x = stack.pop()\n                comp.append((y, x))\n                for dy in (-1, 0, 1):\n                    for dx in (-1, 0, 1):\n                        if dy == 0 and dx == 0:\n                            continue\n                        ny, nx = y + dy, x + dx\n                        if 0 <= ny < H and 0 <= nx < W and not visited[ny][nx]:\n                            nv = input_grid[ny][nx]\n                            if nv == v:\n                                visited[ny][nx] = True\n                                stack.append((ny, nx))\n            components.append((v, comp))\n\n    # A \"template\" is a component with > 1 cells (the frame). It also must have\n    # an adjacent single-cell different color (the marker).\n    # For each frame component, find the adjacent marker color/position.\n    templates = []  # (frame_color, marker_color, marker_r, marker_c, list of frame cells)\n    marker_template_positions = set()\n    for (color, cells) in components:\n        if len(cells) < 2:\n            continue\n        cell_set = set(cells)\n        # find adjacent cells of a different non-bg, non-noise color\n        adjacent_markers = {}  # color -> set of positions\n        for (y, x) in cells:\n            for dy in (-1, 0, 1):\n                for dx in (-1, 0, 1):\n                    if dy == 0 and dx == 0:\n                        continue\n                    ny, nx = y + dy, x + dx\n                    if 0 <= ny < H and 0 <= nx < W:\n                        nv = input_grid[ny][nx]\n                        if nv != BG and nv != NOISE and nv != color and (ny, nx) not in cell_set:\n                            adjacent_markers.setdefault(nv, set()).add((ny, nx))\n        if not adjacent_markers:\n            continue\n        # Pick the marker color (usually only one). If multiple, pick one with single adjacent cell.\n        marker_color = None\n        marker_pos = None\n        for mc, positions in adjacent_markers.items():\n            # The marker is the one inside the template (or directly attached)\n            # Take the first one\n            marker_color = mc\n            marker_pos = next(iter(positions))\n            break\n        templates.append((color, marker_color, marker_pos[0], marker_pos[1], cells))\n        marker_template_positions.add((marker_pos[0], marker_pos[1]))\n\n    # Stamp each template at each other instance of its marker color\n    for (frame_color, marker_color, mr, mc, cells) in templates:\n        offsets = [(y - mr, x - mc) for (y, x) in cells]\n        for r in range(H):\n            for c in range(W):\n                if input_grid[r][c] == marker_color and (r, c) != (mr, mc):\n                    # Make sure this cell isn't itself a template's marker that's been claimed\n                    # Stamp here\n                    out[r][c] = marker_color\n                    for (dy, dx) in offsets:\n                        ny, nx = r + dy, c + dx\n                        if 0 <= ny < H and 0 <= nx < W:\n                            out[ny][nx] = frame_color\n\n    return out\n",
+      "source": "claude_agent_batch_060_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

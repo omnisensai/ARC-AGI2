@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "cb227835",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    H = len(grid)\n    W = len(grid[0])\n    eights = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 8]\n    (r1, c1), (r2, c2) = eights[0], eights[1]\n    dr = r2 - r1\n    dc = c2 - c1\n    sr = 1 if dr > 0 else (-1 if dr < 0 else 0)\n    sc = 1 if dc > 0 else (-1 if dc < 0 else 0)\n    ar = abs(dr)\n    ac = abs(dc)\n    max_d = max(ar, ac)\n    min_d = min(ar, ac)\n\n    if ar >= ac:\n        straight_dr, straight_dc = sr, 0\n    else:\n        straight_dr, straight_dc = 0, sc\n    diag_dr, diag_dc = sr, sc\n\n    # Path 1: starts cardinal-neighbor of 8_1; (max-min) straight cells then (min-1) diagonal cells.\n    p1_straight = max_d - min_d\n    p1_diag = min_d - 1\n    # Path 2: starts diagonal-neighbor of 8_1; (min) diagonal cells then (max-min-1) straight cells.\n    p2_diag = min_d\n    p2_straight = max_d - min_d - 1\n\n    cells = []\n\n    # Path 1\n    r, c = r1 + straight_dr, c1 + straight_dc\n    for i in range(p1_straight):\n        cells.append((r, c))\n        r += straight_dr\n        c += straight_dc\n    # After p1_straight straight steps, we're one straight beyond last straight cell.\n    # We need to back up one straight step and go diagonal instead.\n    # Simplest: recompute r,c as (last straight cell) + diag_step\n    if p1_straight > 0:\n        r = r1 + p1_straight * straight_dr + diag_dr\n        c = c1 + p1_straight * straight_dc + diag_dc\n    else:\n        r = r1 + diag_dr\n        c = c1 + diag_dc\n    for i in range(p1_diag):\n        cells.append((r, c))\n        r += diag_dr\n        c += diag_dc\n\n    # Path 2\n    r, c = r1 + diag_dr, c1 + diag_dc\n    for i in range(p2_diag):\n        cells.append((r, c))\n        r += diag_dr\n        c += diag_dc\n    # Last diag cell was at r1 + p2_diag * (diag_dr, diag_dc).\n    # Now do straight cells; next cell is last_diag + straight_step.\n    last_r = r1 + p2_diag * diag_dr\n    last_c = c1 + p2_diag * diag_dc\n    r = last_r + straight_dr\n    c = last_c + straight_dc\n    for i in range(p2_straight):\n        cells.append((r, c))\n        r += straight_dr\n        c += straight_dc\n\n    for (rr, cc) in cells:\n        if 0 <= rr < H and 0 <= cc < W and grid[rr][cc] != 8:\n            grid[rr][cc] = 3\n\n    return grid\n",
+      "source": "claude_agent_batch_060_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
