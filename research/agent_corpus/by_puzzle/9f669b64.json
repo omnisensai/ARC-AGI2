@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "9f669b64",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    bg = 7\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find shapes by color\n    shapes = {}\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != bg:\n                shapes.setdefault(v, []).append((r, c))\n    # For each shape compute bbox and centroid\n    info = {}\n    for color, cells in shapes.items():\n        rs = [c[0] for c in cells]\n        cs = [c[1] for c in cells]\n        info[color] = {\n            'cells': cells,\n            'rmin': min(rs), 'rmax': max(rs),\n            'cmin': min(cs), 'cmax': max(cs),\n            'height': max(rs) - min(rs) + 1,\n            'width': max(cs) - min(cs) + 1,\n            'n': len(cells),\n        }\n        info[color]['rectangular'] = (info[color]['height'] * info[color]['width'] == len(cells))\n        info[color]['rcenter'] = (info[color]['rmin'] + info[color]['rmax']) / 2.0\n        info[color]['ccenter'] = (info[color]['cmin'] + info[color]['cmax']) / 2.0\n\n    colors = list(info.keys())\n    # Determine orientation: pieces are arranged vertically or horizontally\n    # Compute spread of centers\n    rcs = [info[c]['rcenter'] for c in colors]\n    ccs = [info[c]['ccenter'] for c in colors]\n    if max(rcs) - min(rcs) > max(ccs) - min(ccs):\n        orientation = 'vertical'  # pieces stacked vertically (axis = vertical)\n    else:\n        orientation = 'horizontal'\n\n    # Find connector = middle piece spatially\n    if orientation == 'vertical':\n        sorted_by = sorted(colors, key=lambda c: info[c]['rcenter'])\n    else:\n        sorted_by = sorted(colors, key=lambda c: info[c]['ccenter'])\n    connector = sorted_by[1]\n    ends = [sorted_by[0], sorted_by[2]]\n\n    # Splitter: rectangular AND wider than connector in perpendicular axis\n    if orientation == 'vertical':\n        # perp axis = horizontal, so width matters\n        candidates = [c for c in ends if info[c]['rectangular'] and info[c]['width'] > info[connector]['width']]\n    else:\n        # perp axis = vertical, so height matters\n        candidates = [c for c in ends if info[c]['rectangular'] and info[c]['height'] > info[connector]['height']]\n    splitter = candidates[0]\n    other = [c for c in ends if c != splitter][0]\n\n    # Build output grid: start by copying non-changed pieces (other) and bg\n    out = [[bg] * W for _ in range(H)]\n    # Keep 'other' piece as-is\n    for (r, c) in info[other]['cells']:\n        out[r][c] = other\n\n    # Split the splitter and shift halves outward\n    s = info[splitter]\n    c_info = info[connector]\n    if orientation == 'vertical':\n        # Splitter has width W_s, perpendicular axis = horizontal\n        # Split along center horizontally (left/right halves)\n        cmin, cmax = s['cmin'], s['cmax']\n        width = s['width']\n        half = width // 2\n        # Left half: cols cmin .. cmin+half-1, shift left by connector_width/2\n        shift = c_info['width'] // 2\n        # The splitter's rows stay same\n        for r in range(s['rmin'], s['rmax'] + 1):\n            for c in range(cmin, cmin + half):\n                new_c = c - shift\n                if 0 <= new_c < W:\n                    out[r][new_c] = splitter\n            for c in range(cmin + half, cmax + 1):\n                new_c = c + shift\n                if 0 <= new_c < W:\n                    out[r][new_c] = splitter\n    else:\n        # Splitter has height H_s, perp axis = vertical\n        rmin, rmax = s['rmin'], s['rmax']\n        height = s['height']\n        half = height // 2\n        shift = c_info['height'] // 2\n        for c in range(s['cmin'], s['cmax'] + 1):\n            for r in range(rmin, rmin + half):\n                new_r = r - shift\n                if 0 <= new_r < H:\n                    out[new_r][c] = splitter\n            for r in range(rmin + half, rmax + 1):\n                new_r = r + shift\n                if 0 <= new_r < H:\n                    out[new_r][c] = splitter\n\n    # Now place the connector at the grid edge in direction from connector toward splitter\n    # Determine direction\n    if orientation == 'vertical':\n        # Compare row centers\n        if s['rcenter'] < c_info['rcenter']:\n            direction = 'up'\n        else:\n            direction = 'down'\n    else:\n        if s['ccenter'] < c_info['ccenter']:\n            direction = 'left'\n        else:\n            direction = 'right'\n\n    # Move connector cells to grid edge in that direction, preserving relative shape\n    conn_cells = c_info['cells']\n    if direction == 'up':\n        # Move so that topmost row of connector = 0\n        offset = -c_info['rmin']\n        for (r, c) in conn_cells:\n            out[r + offset][c] = connector\n    elif direction == 'down':\n        offset = (H - 1) - c_info['rmax']\n        for (r, c) in conn_cells:\n            out[r + offset][c] = connector\n    elif direction == 'left':\n        offset = -c_info['cmin']\n        for (r, c) in conn_cells:\n            out[r][c + offset] = connector\n    else:  # right\n        offset = (W - 1) - c_info['cmax']\n        for (r, c) in conn_cells:\n            out[r][c + offset] = connector\n\n    return out\n",
+      "source": "claude_agent_batch_027_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

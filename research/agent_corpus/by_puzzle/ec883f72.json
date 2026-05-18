@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "ec883f72",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find all non-zero colors and their cells\n    color_cells = {}\n    for r in range(H):\n        for c in range(W):\n            v = grid[r][c]\n            if v != 0:\n                color_cells.setdefault(v, []).append((r, c))\n\n    # Identify border color: the frame color has line endpoints \u2014 cells\n    # with exactly one same-color neighbor.\n    border_color = None\n    for color, cells in color_cells.items():\n        cset = set(cells)\n        has_endpoint = False\n        for (r, c) in cells:\n            n = sum(1 for (dr, dc) in [(-1, 0), (1, 0), (0, -1), (0, 1)]\n                    if (r + dr, c + dc) in cset)\n            if n == 1:\n                has_endpoint = True\n                break\n        if has_endpoint:\n            border_color = color\n            break\n\n    # Recompute corners precisely using border_color\n    cset = set(color_cells[border_color])\n    corners = []\n    for (r, c) in color_cells[border_color]:\n        has_left = (r, c - 1) in cset\n        has_right = (r, c + 1) in cset\n        has_up = (r - 1, c) in cset\n        has_down = (r + 1, c) in cset\n        if (has_left or has_right) and (has_up or has_down):\n            corners.append((r, c, has_left, has_right, has_up, has_down))\n\n    # Determine content color (the other non-zero color inside the frame)\n    content_color = None\n    for color in color_cells:\n        if color != border_color:\n            content_color = color\n            break\n    if content_color is None:\n        content_color = border_color\n\n    # For each corner, the outward diagonal direction is away from the border\n    # arms. The border arms extend in one horizontal direction (left or right)\n    # and one vertical direction (up or down). Outward = opposite of both.\n    for (r, c, hl, hr, hu, hd) in corners:\n        # arm goes left if hl, right if hr -> outward horizontally is opposite\n        if hl and not hr:\n            dc = 1\n        elif hr and not hl:\n            dc = -1\n        elif hl and hr:\n            # Both arms; shouldn't happen for true corner but skip\n            continue\n        else:\n            continue\n        if hu and not hd:\n            dr = 1\n        elif hd and not hu:\n            dr = -1\n        elif hu and hd:\n            continue\n        else:\n            continue\n\n        # Draw diagonal starting one step outside the corner\n        rr, cc = r + dr, c + dc\n        while 0 <= rr < H and 0 <= cc < W:\n            grid[rr][cc] = content_color\n            rr += dr\n            cc += dc\n\n    return grid\n",
+      "source": "claude_agent_batch_028_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

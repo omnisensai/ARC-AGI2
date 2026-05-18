@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "2546ccf6",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Identify the separator color: the color that fills entire rows/columns\n    sep_color = None\n    for r in range(H):\n        if len(set(grid[r])) == 1 and grid[r][0] != 0:\n            sep_color = grid[r][0]\n            break\n\n    # Find separator row and column indices\n    sep_rows = [r for r in range(H) if all(grid[r][c] == sep_color for c in range(W))]\n    sep_cols = [c for c in range(W) if all(grid[r][c] == sep_color for r in range(H))]\n\n    # Build cell boundaries: cells are between separators (and edges)\n    row_bounds = []\n    prev = 0\n    for sr in sep_rows:\n        if sr > prev:\n            row_bounds.append((prev, sr))\n        prev = sr + 1\n    if prev < H:\n        row_bounds.append((prev, H))\n\n    col_bounds = []\n    prev = 0\n    for sc in sep_cols:\n        if sc > prev:\n            col_bounds.append((prev, sc))\n        prev = sc + 1\n    if prev < W:\n        col_bounds.append((prev, W))\n\n    nR = len(row_bounds)\n    nC = len(col_bounds)\n\n    def cell(r, c):\n        r0, r1 = row_bounds[r]\n        c0, c1 = col_bounds[c]\n        return [[grid[i][j] for j in range(c0, c1)] for i in range(r0, r1)]\n\n    def cell_nonzero(r, c):\n        r0, r1 = row_bounds[r]\n        c0, c1 = col_bounds[c]\n        for i in range(r0, r1):\n            for j in range(c0, c1):\n                if grid[i][j] != 0 and grid[i][j] != sep_color:\n                    return True\n        return False\n\n    def cell_colors(r, c):\n        r0, r1 = row_bounds[r]\n        c0, c1 = col_bounds[c]\n        s = set()\n        for i in range(r0, r1):\n            for j in range(c0, c1):\n                v = grid[i][j]\n                if v != 0 and v != sep_color:\n                    s.add(v)\n        return s\n\n    def set_cell(r, c, data):\n        r0, r1 = row_bounds[r]\n        c0, c1 = col_bounds[c]\n        for i in range(r0, r1):\n            for j in range(c0, c1):\n                if data[i - r0][j - c0] != 0:\n                    grid[i][j] = data[i - r0][j - c0]\n\n    def flip_h(d):\n        return [row[::-1] for row in d]\n\n    def flip_v(d):\n        return d[::-1]\n\n    def flip_both(d):\n        return [row[::-1] for row in d[::-1]]\n\n    # For each color, find which cells contain that color\n    color_cells = {}\n    for r in range(nR):\n        for c in range(nC):\n            cols = cell_colors(r, c)\n            for col in cols:\n                color_cells.setdefault(col, []).append((r, c))\n\n    # For each color occupying 3 cells of a 2x2 block, fill the 4th\n    for color, cells_list in color_cells.items():\n        # Try to find 2x2 blocks where this color has exactly 3 cells\n        for r0 in range(nR - 1):\n            for c0 in range(nC - 1):\n                block = [(r0, c0), (r0, c0 + 1), (r0 + 1, c0), (r0 + 1, c0 + 1)]\n                occupied = [p for p in block if p in cells_list]\n                if len(occupied) == 3:\n                    missing = [p for p in block if p not in occupied][0]\n                    mr, mc = missing\n                    # Determine reflection: missing cell content =\n                    # horizontal flip of (mr, other_c) where other_c is the c in same row\n                    # diagonal opposite\n                    diag_r = r0 if mr == r0 + 1 else r0 + 1\n                    diag_c = c0 if mc == c0 + 1 else c0 + 1\n                    same_row_c = c0 if mc == c0 + 1 else c0 + 1\n                    same_col_r = r0 if mr == r0 + 1 else r0 + 1\n                    # Use horizontal flip of same-row neighbor\n                    source = cell(mr, same_row_c)\n                    # But only the part of that source belonging to this color\n                    source_color_only = [\n                        [v if v == color else 0 for v in row]\n                        for row in source\n                    ]\n                    flipped = flip_h(source_color_only)\n                    set_cell(mr, mc, flipped)\n\n    return grid\n",
+      "source": "claude_agent_batch_028_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
