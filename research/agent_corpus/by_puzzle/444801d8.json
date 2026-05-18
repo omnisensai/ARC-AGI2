@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "444801d8",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    out = [row[:] for row in input_grid]\n\n    # Find boxes: top row pattern [1,1,0,1,1], bottom row [1,1,1,1,1],\n    # variable height >= 3, width = 5. Left/right columns are 1s.\n    for br in range(H):\n        for bc in range(W - 4):\n            # Check top row pattern\n            if [input_grid[br][bc+j] for j in range(5)] != [1, 1, 0, 1, 1]:\n                continue\n            # Find bottom row: scan down for a row of [1,1,1,1,1]\n            for er in range(br + 2, H):\n                if input_grid[er][bc] != 1 or input_grid[er][bc+4] != 1:\n                    break\n                if [input_grid[er][bc+j] for j in range(5)] == [1, 1, 1, 1, 1]:\n                    # Verify all left/right columns are 1\n                    valid = True\n                    for i in range(br, er + 1):\n                        if input_grid[i][bc] != 1 or input_grid[i][bc+4] != 1:\n                            valid = False\n                            break\n                    if not valid:\n                        break\n                    # Find marker color inside interior\n                    color = None\n                    for i in range(br + 1, er):\n                        for j in range(bc + 1, bc + 4):\n                            v = input_grid[i][j]\n                            if v != 0 and v != 1:\n                                color = v\n                                break\n                        if color is not None:\n                            break\n                    if color is None:\n                        break\n                    # Fill interior with color\n                    for i in range(br + 1, er):\n                        for j in range(bc + 1, bc + 4):\n                            out[i][j] = color\n                    # Fill gap in top row\n                    out[br][bc + 2] = color\n                    # Fill row above with color across box width\n                    if br - 1 >= 0:\n                        for j in range(5):\n                            out[br - 1][bc + j] = color\n                    break\n    return out\n",
+      "source": "claude_agent_batch_040_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
