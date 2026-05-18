@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "321b1fc6",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import deque\n    h = len(input_grid)\n    w = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    def find_components(predicate):\n        seen = [[False]*w for _ in range(h)]\n        comps = []\n        for i in range(h):\n            for j in range(w):\n                if seen[i][j] or not predicate(grid[i][j]):\n                    continue\n                q = deque([(i,j)])\n                seen[i][j] = True\n                cells = []\n                while q:\n                    y,x = q.popleft()\n                    cells.append((y,x))\n                    for dy,dx in [(-1,0),(1,0),(0,-1),(0,1)]:\n                        ny,nx = y+dy, x+dx\n                        if 0<=ny<h and 0<=nx<w and not seen[ny][nx] and predicate(grid[ny][nx]):\n                            seen[ny][nx] = True\n                            q.append((ny,nx))\n                comps.append(cells)\n        return comps\n\n    # Template: connected component of non-zero, non-8 cells\n    templates = find_components(lambda v: v != 0 and v != 8)\n    # Pick the largest (or only) template\n    template_cells = max(templates, key=len)\n    tys = [c[0] for c in template_cells]\n    txs = [c[1] for c in template_cells]\n    tmin_y, tmin_x = min(tys), min(txs)\n    # Build relative pattern: dict (dy,dx) -> value\n    template_pattern = {}\n    for (y,x) in template_cells:\n        template_pattern[(y-tmin_y, x-tmin_x)] = grid[y][x]\n\n    # Find 8-components\n    eights = find_components(lambda v: v == 8)\n\n    # Build output: start with input, clear template, clear all 8 shapes, then stamp template at each 8 location\n    output = [row[:] for row in input_grid]\n    # Clear template\n    for (y,x) in template_cells:\n        output[y][x] = 0\n    # For each 8 component, find its bounding origin (min y, min x) and stamp\n    for comp in eights:\n        ys = [c[0] for c in comp]\n        xs = [c[1] for c in comp]\n        miny, minx = min(ys), min(xs)\n        # Clear the 8s\n        for (y,x) in comp:\n            output[y][x] = 0\n        # Stamp template\n        for (dy,dx), val in template_pattern.items():\n            ny, nx = miny+dy, minx+dx\n            if 0 <= ny < h and 0 <= nx < w:\n                output[ny][nx] = val\n\n    return output\n",
+      "source": "claude_agent_batch_065_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

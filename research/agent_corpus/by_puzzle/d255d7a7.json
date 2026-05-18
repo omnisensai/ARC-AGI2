@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "d255d7a7",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find all 3x3 boxes. A box has 4 corners = 0 in input.\n    # Then it has a line of 0s extending from one side.\n    # We identify boxes by finding 3x3 windows where all 4 corners are 0\n    # AND the middle of one side connects to a line of 0s extending outward.\n\n    boxes = []  # list of (r_top, c_left, direction) where direction is the line direction\n    used = [[False] * W for _ in range(H)]  # mark cells that are part of a box\n\n    def is_box_at(r, c):\n        # Check 3x3 starting at (r,c). Returns direction of line, or None.\n        if r < 0 or c < 0 or r + 2 >= H or c + 2 >= W:\n            return None\n        # 4 corners must be 0\n        corners = [(r, c), (r, c+2), (r+2, c), (r+2, c+2)]\n        for (rr, cc) in corners:\n            if grid[rr][cc] != 0:\n                return None\n        # Check each direction for a line of at least 1 cell of 0 extending beyond\n        # The middle cells of each side:\n        #   top middle: (r, c+1)\n        #   bottom middle: (r+2, c+1)\n        #   left middle: (r+1, c)\n        #   right middle: (r+1, c+2)\n        # The opposite of where the line is = \"open\" side (or could be 9, or could be 0 too)\n        # Line direction: the side which is 0 AND the cell beyond is also 0.\n        candidates = []\n        # Up: top middle 0, and (r-1, c+1) = 0\n        if grid[r][c+1] == 0 and r - 1 >= 0 and grid[r-1][c+1] == 0:\n            candidates.append('U')\n        # Down\n        if grid[r+2][c+1] == 0 and r + 3 < H and grid[r+3][c+1] == 0:\n            candidates.append('D')\n        # Left\n        if grid[r+1][c] == 0 and c - 1 >= 0 and grid[r+1][c-1] == 0:\n            candidates.append('L')\n        # Right\n        if grid[r+1][c+2] == 0 and c + 3 < W and grid[r+1][c+3] == 0:\n            candidates.append('R')\n        if len(candidates) == 1:\n            return candidates[0]\n        return None\n\n    # Find all candidate boxes\n    candidate_boxes = []\n    for r in range(H - 2):\n        for c in range(W - 2):\n            d = is_box_at(r, c)\n            if d is not None:\n                candidate_boxes.append((r, c, d))\n\n    # Filter overlapping candidate boxes (a 3x3 might be detected from multiple corners\n    # but here we check by (r,c) which is unique top-left)\n    # Actually we need to handle the case where the line itself contains multiple\n    # \"0 0 0\" patterns. Need to verify each box has a proper structure.\n\n    # Let me check: the box's middle row/col should have NO line going perpendicular.\n    # E.g., if line goes right, middle-left cell (r+1, c) should NOT have 0 extending left.\n    valid_boxes = []\n    for (r, c, d) in candidate_boxes:\n        # Determine line length in direction d\n        line_cells = []\n        if d == 'U':\n            # line is column c+1, rows above r\n            rr = r - 1\n            while rr >= 0 and grid[rr][c+1] == 0:\n                line_cells.append((rr, c+1))\n                rr -= 1\n        elif d == 'D':\n            rr = r + 3\n            while rr < H and grid[rr][c+1] == 0:\n                line_cells.append((rr, c+1))\n                rr += 1\n        elif d == 'L':\n            cc = c - 1\n            while cc >= 0 and grid[r+1][cc] == 0:\n                line_cells.append((r+1, cc))\n                cc -= 1\n        elif d == 'R':\n            cc = c + 3\n            while cc < W and grid[r+1][cc] == 0:\n                line_cells.append((r+1, cc))\n                cc += 1\n        valid_boxes.append((r, c, d, line_cells))\n\n    # Now for each box, compute new location: at end of line\n    # The box new top-left:\n    #   If d == 'U', box moves up. Line end is the highest row. New box top-left row = line_end_row, col = c\n    #   If d == 'D', box moves down. Line end is lowest row. New box top-left row = line_end_row - 2, col = c\n    #   If d == 'L', box moves left. New box top-left col = line_end_col, row = r\n    #   If d == 'R', box moves right. New box top-left col = line_end_col - 2, row = r\n\n    # Build output: start with input, then for each box, clear box cells + line cells to 7, then write box at new location\n    out = [row[:] for row in grid]\n\n    # First pass: clear original box cells and line cells\n    for (r, c, d, line_cells) in valid_boxes:\n        for dr in range(3):\n            for dc in range(3):\n                out[r+dr][c+dc] = 7\n        for (lr, lc) in line_cells:\n            out[lr][lc] = 7\n\n    # Second pass: write boxes at new locations\n    for (r, c, d, line_cells) in valid_boxes:\n        if not line_cells:\n            new_r, new_c = r, c\n        else:\n            if d == 'U':\n                end_r = min(lr for (lr, lc) in line_cells)\n                new_r, new_c = end_r, c\n            elif d == 'D':\n                end_r = max(lr for (lr, lc) in line_cells)\n                new_r, new_c = end_r - 2, c\n            elif d == 'L':\n                end_c = min(lc for (lr, lc) in line_cells)\n                new_r, new_c = r, end_c\n            elif d == 'R':\n                end_c = max(lc for (lr, lc) in line_cells)\n                new_r, new_c = r, end_c - 2\n        for dr in range(3):\n            for dc in range(3):\n                val = grid[r+dr][c+dc]\n                out[new_r+dr][new_c+dc] = val\n\n    return out\n",
+      "source": "claude_agent_batch_065_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

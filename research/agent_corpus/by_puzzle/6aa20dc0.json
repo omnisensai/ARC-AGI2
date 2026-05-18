@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "6aa20dc0",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    from itertools import permutations, product as iproduct\n\n    H = len(input_grid)\n    W = len(input_grid[0])\n    cnt = Counter()\n    for row in input_grid:\n        for v in row:\n            cnt[v] += 1\n    bg = cnt.most_common(1)[0][0]\n\n    visited = [[False] * W for _ in range(H)]\n\n    def neighbors8(r, c):\n        for dr in (-1, 0, 1):\n            for dc in (-1, 0, 1):\n                if dr == 0 and dc == 0:\n                    continue\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < H and 0 <= nc < W:\n                    yield nr, nc\n\n    components = []\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] != bg and not visited[r][c]:\n                comp = []\n                stack = [(r, c)]\n                visited[r][c] = True\n                while stack:\n                    cr, cc = stack.pop()\n                    comp.append((cr, cc, input_grid[cr][cc]))\n                    for nr, nc in neighbors8(cr, cc):\n                        if not visited[nr][nc] and input_grid[nr][nc] != bg:\n                            visited[nr][nc] = True\n                            stack.append((nr, nc))\n                components.append(comp)\n\n    template_comp = None\n    other_comps = []\n    for comp in components:\n        colors = set(c for _, _, c in comp)\n        if len(colors) > 1:\n            template_comp = comp\n        else:\n            other_comps.append(comp)\n\n    rs = [r for r, _, _ in template_comp]\n    cs = [c for _, c, _ in template_comp]\n    tr0, tr1 = min(rs), max(rs)\n    tc0, tc1 = min(cs), max(cs)\n    tH = tr1 - tr0 + 1\n    tW = tc1 - tc0 + 1\n    template = [[bg] * tW for _ in range(tH)]\n    for r, c, v in template_comp:\n        template[r - tr0][c - tc0] = v\n\n    color_count_in_template = Counter()\n    for row in template:\n        for v in row:\n            if v != bg:\n                color_count_in_template[v] += 1\n    fill_color = color_count_in_template.most_common(1)[0][0]\n    anchor_colors = set(c for c in color_count_in_template if c != fill_color)\n\n    template_anchor_pos = {}\n    for r in range(tH):\n        for c in range(tW):\n            if template[r][c] in anchor_colors:\n                template_anchor_pos[template[r][c]] = (r, c)\n\n    other_info = []\n    for comp in other_comps:\n        rs = [r for r, _, _ in comp]\n        cs = [c for _, c, _ in comp]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        color = comp[0][2]\n        block_size = r1 - r0 + 1\n        other_info.append({\n            'color': color,\n            'r0': r0, 'r1': r1, 'c0': c0, 'c1': c1,\n            'size': block_size,\n        })\n\n    groups_by_size = {}\n    for info in other_info:\n        groups_by_size.setdefault(info['size'], []).append(info)\n\n    output = [row[:] for row in input_grid]\n\n    def apply_transform(r, c, t, h, w):\n        if t == 0:\n            return r, c, h, w\n        elif t == 1:\n            return c, h - 1 - r, w, h\n        elif t == 2:\n            return h - 1 - r, w - 1 - c, h, w\n        elif t == 3:\n            return w - 1 - c, r, w, h\n        elif t == 4:\n            return r, w - 1 - c, h, w\n        elif t == 5:\n            return c, r, w, h\n        elif t == 6:\n            return h - 1 - r, c, h, w\n        elif t == 7:\n            return w - 1 - c, h - 1 - r, w, h\n\n    for size, group in groups_by_size.items():\n        by_color = {}\n        for info in group:\n            by_color.setdefault(info['color'], []).append(info)\n\n        if all(len(v) == 1 for v in by_color.values()):\n            placements = [{color: by_color[color][0] for color in by_color}]\n        else:\n            colors_list = list(by_color.keys())\n            base = colors_list[0]\n            n_placements = max(len(v) for v in by_color.values())\n            perms_per_color = [list(permutations(range(len(by_color[c])))) for c in colors_list[1:]]\n            best_placements = None\n            best_score = float('inf')\n            for perm_combo in iproduct(*perms_per_color):\n                placements_try = []\n                for i in range(n_placements):\n                    p = {base: by_color[base][i]}\n                    for j, c in enumerate(colors_list[1:]):\n                        p[c] = by_color[c][perm_combo[j][i]]\n                    placements_try.append(p)\n                score = 0\n                for p in placements_try:\n                    centers = [((info['r0'] + info['r1']) / 2, (info['c0'] + info['c1']) / 2) for info in p.values()]\n                    for i in range(len(centers)):\n                        for j in range(i + 1, len(centers)):\n                            score += abs(centers[i][0] - centers[j][0]) + abs(centers[i][1] - centers[j][1])\n                if score < best_score:\n                    best_score = score\n                    best_placements = placements_try\n            placements = best_placements\n\n        for placement in placements:\n            found_transform = None\n            found_origin = None\n            for t in range(8):\n                trans_anchors = {}\n                for color, (ar, ac) in template_anchor_pos.items():\n                    nr, nc, _, _ = apply_transform(ar, ac, t, tH, tW)\n                    trans_anchors[color] = (nr, nc)\n                origins = set()\n                valid = True\n                for color, info in placement.items():\n                    if color not in trans_anchors:\n                        valid = False\n                        break\n                    nr, nc = trans_anchors[color]\n                    origin_r = info['r0'] - nr * size\n                    origin_c = info['c0'] - nc * size\n                    origins.add((origin_r, origin_c))\n                if not valid:\n                    continue\n                if len(origins) == 1:\n                    found_transform = t\n                    found_origin = origins.pop()\n                    break\n\n            if found_transform is None:\n                continue\n\n            t = found_transform\n            or_, oc_ = found_origin\n            _, _, new_h, new_w = apply_transform(0, 0, t, tH, tW)\n\n            trans_template = [[bg] * new_w for _ in range(new_h)]\n            for r in range(tH):\n                for c in range(tW):\n                    nr, nc, _, _ = apply_transform(r, c, t, tH, tW)\n                    trans_template[nr][nc] = template[r][c]\n\n            for r in range(new_h):\n                for c in range(new_w):\n                    val = trans_template[r][c]\n                    if val == bg:\n                        continue\n                    for dr in range(size):\n                        for dc in range(size):\n                            R = or_ + r * size + dr\n                            C = oc_ + c * size + dc\n                            if 0 <= R < H and 0 <= C < W:\n                                output[R][C] = val\n\n    return output\n",
+      "source": "claude_agent_batch_065_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
