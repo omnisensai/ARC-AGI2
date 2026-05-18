@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "891232d6",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    def is_pocket(r, c):\n        if r < 0 or r >= H or c < 0 or c >= W:\n            return False\n        if input_grid[r][c] != 0:\n            return False\n        above_is_7 = (r > 0 and input_grid[r-1][c] == 7)\n        left_is_7 = (c > 0 and input_grid[r][c-1] == 7)\n        right_is_7 = (c < W-1 and input_grid[r][c+1] == 7)\n        return above_is_7 and left_is_7 and right_is_7\n\n    sixes = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 6]\n\n    for (r6, c6) in sixes:\n        col = c6\n        row = r6 - 1\n\n        terminated = False\n        while not terminated:\n            r = row\n            hit_line_row = None\n            while r >= 0:\n                if input_grid[r][col] == 7:\n                    hit_line_row = r\n                    break\n                if is_pocket(r, col):\n                    grid[r][col] = 6\n                    terminated = True\n                    break\n                grid[r][col] = 2\n                r -= 1\n\n            if terminated:\n                break\n\n            if hit_line_row is None:\n                grid[0][col] = 6\n                terminated = True\n                break\n\n            right_end = col\n            while right_end + 1 < W and input_grid[hit_line_row][right_end + 1] == 7:\n                right_end += 1\n\n            grid[hit_line_row][col] = 8\n            new_col = right_end + 1\n\n            if hit_line_row + 1 < H:\n                grid[hit_line_row + 1][col] = 4\n                for cc in range(col + 1, right_end + 1):\n                    grid[hit_line_row + 1][cc] = 2\n                if new_col < W:\n                    grid[hit_line_row + 1][new_col] = 3\n\n            if new_col >= W:\n                terminated = True\n                break\n\n            if is_pocket(hit_line_row, new_col):\n                grid[hit_line_row][new_col] = 6\n                terminated = True\n                break\n\n            grid[hit_line_row][new_col] = 2\n            col = new_col\n            row = hit_line_row - 1\n\n    return grid\n",
+      "source": "claude_agent_batch_041_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

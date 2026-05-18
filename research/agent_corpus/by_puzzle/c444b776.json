@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "c444b776",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find horizontal divider rows: rows that are entirely 4s\n    h_dividers = [r for r in range(H) if all(input_grid[r][c] == 4 for c in range(W))]\n    # Find vertical divider cols: cols that are entirely 4s\n    v_dividers = [c for c in range(W) if all(input_grid[r][c] == 4 for r in range(H))]\n\n    # Row boundaries for sub-grids\n    row_bounds = []\n    prev = 0\n    for d in h_dividers:\n        row_bounds.append((prev, d))\n        prev = d + 1\n    row_bounds.append((prev, H))\n\n    # Col boundaries\n    col_bounds = []\n    prev = 0\n    for d in v_dividers:\n        col_bounds.append((prev, d))\n        prev = d + 1\n    col_bounds.append((prev, W))\n\n    # Extract sub-grids and find non-empty source\n    source = None\n    for (r0, r1) in row_bounds:\n        for (c0, c1) in col_bounds:\n            has_content = False\n            for r in range(r0, r1):\n                for c in range(c0, c1):\n                    if input_grid[r][c] != 0 and input_grid[r][c] != 4:\n                        has_content = True\n                        break\n                if has_content:\n                    break\n            if has_content:\n                # Extract pattern\n                pat = [[input_grid[r][c] for c in range(c0, c1)] for r in range(r0, r1)]\n                source = (pat, r1 - r0, c1 - c0)\n                break\n        if source:\n            break\n\n    # Build output\n    output = [row[:] for row in input_grid]\n    if source is None:\n        return output\n\n    pat, ph, pw = source\n\n    # Copy pattern to every sub-grid region (sizes should all match)\n    for (r0, r1) in row_bounds:\n        for (c0, c1) in col_bounds:\n            if (r1 - r0) == ph and (c1 - c0) == pw:\n                for i in range(ph):\n                    for j in range(pw):\n                        output[r0 + i][c0 + j] = pat[i][j]\n\n    return output\n",
+      "source": "claude_agent_batch_042_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
