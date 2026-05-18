@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "470c91de",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    BG = 7\n    # Find all non-bg, non-8 colors and their cells\n    from collections import defaultdict\n    color_cells = defaultdict(list)\n    eights = []\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v == BG:\n                continue\n            if v == 8:\n                eights.append((r, c))\n            else:\n                color_cells[v].append((r, c))\n\n    # For each color, compute bbox of (cells + any 8 that's at a corner)\n    # Approach: bbox of color cells, then find which 8 is at a corner of the\n    # extended bbox (one of the four corners equals the 8 position).\n    shapes = []  # list of (color, cells_set, 8_pos, bbox)\n    used_eights = set()\n    for color, cells in color_cells.items():\n        rs = [r for r, c in cells]\n        cs = [c for r, c in cells]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        # Find an 8 such that including it, bbox corners match \u2014 i.e. 8 is at\n        # one of the corners of bbox (possibly extending it by 1).\n        chosen = None\n        # Try each 8: check if including it forms a rectangle filled with color+8\n        for e in eights:\n            if e in used_eights:\n                continue\n            er, ec = e\n            nr0 = min(r0, er)\n            nr1 = max(r1, er)\n            nc0 = min(c0, ec)\n            nc1 = max(c1, ec)\n            # Check the rectangle nr0..nr1, nc0..nc1 is fully filled by color or 8\n            ok = True\n            cell_set = set(cells)\n            for rr in range(nr0, nr1 + 1):\n                for cc in range(nc0, nc1 + 1):\n                    if (rr, cc) == e:\n                        continue\n                    if (rr, cc) not in cell_set:\n                        ok = False\n                        break\n                if not ok:\n                    break\n            if ok:\n                chosen = e\n                break\n        if chosen is None:\n            # fallback: nearest 8\n            for e in eights:\n                if e in used_eights:\n                    continue\n                chosen = e\n                break\n        used_eights.add(chosen)\n        er, ec = chosen\n        nr0 = min(r0, er)\n        nr1 = max(r1, er)\n        nc0 = min(c0, ec)\n        nc1 = max(c1, ec)\n        shapes.append((color, set(cells), chosen, (nr0, nr1, nc0, nc1)))\n\n    # Build output: fill with BG, then place shifted shapes\n    out = [[BG] * W for _ in range(H)]\n    for color, cells, eight, bbox in shapes:\n        r0, r1, c0, c1 = bbox\n        er, ec = eight\n        # Determine which corner the 8 is at\n        # dr = +1 if 8 at bottom edge (er == r1), -1 if top edge (er == r0)\n        # dc = +1 if 8 at right edge (ec == c1), -1 if left edge (ec == c0)\n        dr = 1 if er == r1 else -1\n        dc = 1 if ec == c1 else -1\n        # Shift bbox by (dr, dc)\n        new_r0, new_r1 = r0 + dr, r1 + dr\n        new_c0, new_c1 = c0 + dc, c1 + dc\n        # Fill entire new bbox rectangle with color\n        for rr in range(new_r0, new_r1 + 1):\n            for cc in range(new_c0, new_c1 + 1):\n                if 0 <= rr < H and 0 <= cc < W:\n                    out[rr][cc] = color\n    return out\n",
+      "source": "claude_agent_batch_022_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

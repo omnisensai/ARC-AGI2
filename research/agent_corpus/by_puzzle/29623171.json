@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "29623171",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find divider rows/cols (all 5s)\n    div_rows = [r for r in range(H) if all(input_grid[r][c] == 5 for c in range(W))]\n    div_cols = [c for c in range(W) if all(input_grid[r][c] == 5 for r in range(H))]\n\n    # Build row segments\n    row_segs = []\n    prev = 0\n    for dr in div_rows:\n        if dr > prev:\n            row_segs.append((prev, dr))\n        prev = dr + 1\n    if prev < H:\n        row_segs.append((prev, H))\n\n    col_segs = []\n    prev = 0\n    for dc in div_cols:\n        if dc > prev:\n            col_segs.append((prev, dc))\n        prev = dc + 1\n    if prev < W:\n        col_segs.append((prev, W))\n\n    # Count non-zero, non-5 values per cell and identify the color\n    counts = {}\n    color = 0\n    for i, (r0, r1) in enumerate(row_segs):\n        for j, (c0, c1) in enumerate(col_segs):\n            cnt = 0\n            for r in range(r0, r1):\n                for c in range(c0, c1):\n                    v = input_grid[r][c]\n                    if v != 0 and v != 5:\n                        cnt += 1\n                        color = v\n            counts[(i, j)] = cnt\n\n    max_count = max(counts.values())\n\n    # Build output: zero out everything except dividers, then fill max cells\n    output = [row[:] for row in input_grid]\n    for i, (r0, r1) in enumerate(row_segs):\n        for j, (c0, c1) in enumerate(col_segs):\n            fill = color if counts[(i, j)] == max_count else 0\n            for r in range(r0, r1):\n                for c in range(c0, c1):\n                    output[r][c] = fill\n\n    return output\n",
+      "source": "claude_agent_batch_022_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

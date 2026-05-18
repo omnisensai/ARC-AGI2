@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "c87289bb",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find the row containing 2s\n    two_row = None\n    for r in range(H):\n        if any(grid[r][c] == 2 for c in range(W)):\n            two_row = r\n            break\n\n    # Find pillar columns: columns that have 8s in the rows above two_row\n    pillar_cols = set()\n    for c in range(W):\n        for r in range(two_row):\n            if grid[r][c] == 8:\n                pillar_cols.add(c)\n                break\n\n    # Find contiguous 2-segments in the two_row\n    segments = []\n    c = 0\n    while c < W:\n        if grid[two_row][c] == 2:\n            start = c\n            while c < W and grid[two_row][c] == 2:\n                c += 1\n            end = c - 1\n            segments.append((start, end))\n        else:\n            c += 1\n\n    # For each segment, determine new walls and inside pillars\n    new_walls = set()\n    seg_info = []  # list of (start, end, inside_pillars, new_walls_for_seg)\n    for (s, e) in segments:\n        inside_pillars = sorted([p for p in pillar_cols if s <= p <= e])\n        walls_for_seg = []\n        if len(inside_pillars) == 2:\n            # Add walls on both outer sides\n            walls_for_seg.append(s - 1)\n            walls_for_seg.append(e + 1)\n        elif len(inside_pillars) == 1:\n            p = inside_pillars[0]\n            if p == s and p != e:\n                # Pillar at left end, 2s extend right -> wall on left\n                walls_for_seg.append(s - 1)\n            elif p == e and p != s:\n                # Pillar at right end -> wall on right\n                walls_for_seg.append(e + 1)\n            else:\n                # Pillar in middle (or single cell) -> wall on right\n                walls_for_seg.append(e + 1)\n        else:\n            # No pillars - default: walls on both sides\n            walls_for_seg.append(s - 1)\n            walls_for_seg.append(e + 1)\n        for w in walls_for_seg:\n            new_walls.add(w)\n        seg_info.append((s, e, inside_pillars, walls_for_seg))\n\n    # Identify pillars inside any segment\n    pillars_inside = set()\n    for (s, e, ips, _) in seg_info:\n        for p in ips:\n            pillars_inside.add(p)\n\n    pillars_outside = pillar_cols - pillars_inside\n\n    # Draw output\n    # 1. New walls: 8 at two_row and below (from two_row to H-1)\n    for w in new_walls:\n        if 0 <= w < W:\n            for r in range(two_row, H):\n                if grid[r][w] != 2:\n                    grid[r][w] = 8\n\n    # 2. Top row (two_row - 1): all original pillars get 8 (extension by 1)\n    top_r = two_row - 1\n    if top_r >= 0:\n        for p in pillar_cols:\n            grid[top_r][p] = 8\n        # Also new walls top\n        for w in new_walls:\n            if 0 <= w < W:\n                grid[top_r][w] = 8\n        # Fill between inside pillar and its adjacent new wall\n        for (s, e, ips, walls_for_seg) in seg_info:\n            for w in walls_for_seg:\n                # Find nearest inside pillar\n                if not ips:\n                    continue\n                # Pair wall with nearest inside pillar\n                if w < s:  # left wall\n                    # Nearest inside pillar is leftmost\n                    p = ips[0]\n                    for col in range(w, p + 1):\n                        if 0 <= col < W:\n                            grid[top_r][col] = 8\n                else:  # right wall (w > e)\n                    p = ips[-1]\n                    for col in range(p, w + 1):\n                        if 0 <= col < W:\n                            grid[top_r][col] = 8\n\n    # 3. Pillars outside segments: extend all the way down\n    for p in pillars_outside:\n        for r in range(H):\n            if grid[r][p] != 2:\n                grid[r][p] = 8\n\n    # 4. Pillars inside segments: leave as is below top row (they should remain 0 below)\n    # Already done since we only extended top_r for them.\n\n    return grid\n",
+      "source": "claude_agent_batch_021_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

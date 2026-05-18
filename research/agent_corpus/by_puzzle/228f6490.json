@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "228f6490",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    g = [row[:] for row in input_grid]\n\n    def neighbors4(r, c):\n        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n            nr, nc = r + dr, c + dc\n            if 0 <= nr < H and 0 <= nc < W:\n                yield nr, nc\n\n    # Find boxes: connected components of 5s whose bounding-box border is all 5s,\n    # with at least one interior 0 forming the \"hole\" pattern.\n    boxes = []\n    seen = [[False] * W for _ in range(H)]\n    for r in range(H):\n        for c in range(W):\n            if g[r][c] == 5 and not seen[r][c]:\n                stack = [(r, c)]\n                comp = []\n                seen[r][c] = True\n                while stack:\n                    cr, cc = stack.pop()\n                    comp.append((cr, cc))\n                    for nr, nc in neighbors4(cr, cc):\n                        if not seen[nr][nc] and g[nr][nc] == 5:\n                            seen[nr][nc] = True\n                            stack.append((nr, nc))\n                rs = [p[0] for p in comp]\n                cs = [p[1] for p in comp]\n                r1, r2 = min(rs), max(rs)\n                c1, c2 = min(cs), max(cs)\n                is_box = True\n                if r2 - r1 < 2 or c2 - c1 < 2:\n                    is_box = False\n                else:\n                    for cc in range(c1, c2 + 1):\n                        if g[r1][cc] != 5 or g[r2][cc] != 5:\n                            is_box = False\n                            break\n                    if is_box:\n                        for rr in range(r1, r2 + 1):\n                            if g[rr][c1] != 5 or g[rr][c2] != 5:\n                                is_box = False\n                                break\n                if is_box:\n                    holes = []\n                    for rr in range(r1 + 1, r2):\n                        for cc in range(c1 + 1, c2):\n                            if g[rr][cc] == 0:\n                                holes.append((rr, cc))\n                    if holes:\n                        mr = min(p[0] for p in holes)\n                        mc = min(p[1] for p in holes)\n                        shape = frozenset((p[0] - mr, p[1] - mc) for p in holes)\n                        boxes.append({'holes': holes, 'shape': shape})\n\n    # Find free-standing colored shapes: 4-connected same-color components\n    # of cells not in {0, 5}.\n    seen2 = [[False] * W for _ in range(H)]\n    components = []\n    for r in range(H):\n        for c in range(W):\n            if g[r][c] not in (0, 5) and not seen2[r][c]:\n                color = g[r][c]\n                stack = [(r, c)]\n                seen2[r][c] = True\n                comp = []\n                while stack:\n                    cr, cc = stack.pop()\n                    comp.append((cr, cc))\n                    for nr, nc in neighbors4(cr, cc):\n                        if not seen2[nr][nc] and g[nr][nc] == color:\n                            seen2[nr][nc] = True\n                            stack.append((nr, nc))\n                mr = min(p[0] for p in comp)\n                mc = min(p[1] for p in comp)\n                shape = frozenset((p[0] - mr, p[1] - mc) for p in comp)\n                components.append({'cells': comp, 'color': color, 'shape': shape})\n\n    # Only colors that occur in exactly one connected component are movable\n    # (others are scattered noise that must stay in place).\n    color_count = Counter(c['color'] for c in components)\n    movable = [c for c in components if color_count[c['color']] == 1]\n\n    used_boxes = set()\n    for comp in movable:\n        for i, box in enumerate(boxes):\n            if i in used_boxes:\n                continue\n            if comp['shape'] == box['shape']:\n                for (hr, hc) in box['holes']:\n                    g[hr][hc] = comp['color']\n                for (cr, cc) in comp['cells']:\n                    g[cr][cc] = 0\n                used_boxes.add(i)\n                break\n\n    return g\n",
+      "source": "claude_agent_batch_022_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
