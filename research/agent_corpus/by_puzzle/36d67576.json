@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "36d67576",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    H = len(grid); W = len(grid[0])\n\n    seen = [[False]*W for _ in range(H)]\n    comps = []\n    for i in range(H):\n        for j in range(W):\n            if grid[i][j] != 0 and not seen[i][j]:\n                stack = [(i, j)]\n                cells = []\n                while stack:\n                    y, x = stack.pop()\n                    if y < 0 or y >= H or x < 0 or x >= W:\n                        continue\n                    if seen[y][x] or grid[y][x] == 0:\n                        continue\n                    seen[y][x] = True\n                    cells.append((y, x))\n                    for dy in (-1, 0, 1):\n                        for dx in (-1, 0, 1):\n                            if dy == 0 and dx == 0:\n                                continue\n                            stack.append((y + dy, x + dx))\n                comps.append(cells)\n\n    def decorations(cells):\n        return [(y, x, grid[y][x]) for (y, x) in cells if grid[y][x] not in (0, 4)]\n\n    def fours_and_two(cells):\n        return [(y, x, grid[y][x]) for (y, x) in cells if grid[y][x] in (4, 2)]\n\n    template = None\n    best = -1\n    for c in comps:\n        decs = [d for d in decorations(c) if d[2] != 2]\n        if len(decs) > best:\n            best = len(decs)\n            template = c\n\n    if template is None:\n        return grid\n\n    template_ft = fours_and_two(template)\n    template_decs = [d for d in decorations(template) if d[2] != 2]\n\n    ops = [\n        (1, 0, 0, 1),\n        (0, -1, 1, 0),\n        (-1, 0, 0, -1),\n        (0, 1, -1, 0),\n        (1, 0, 0, -1),\n        (-1, 0, 0, 1),\n        (0, 1, 1, 0),\n        (0, -1, -1, 0),\n    ]\n\n    def transform(y, x, op):\n        a, b, c, d = op\n        return (a * y + b * x, c * y + d * x)\n\n    for comp in comps:\n        if comp is template:\n            continue\n        target_ft = fours_and_two(comp)\n        t_two = [(y, x) for (y, x, v) in template_ft if v == 2]\n        c_two = [(y, x) for (y, x, v) in target_ft if v == 2]\n        if not t_two or not c_two:\n            continue\n        ty, tx = t_two[0]\n        cy, cx = c_two[0]\n        target_set = set((y, x, v) for (y, x, v) in target_ft)\n\n        found_op = None\n        for op in ops:\n            ok = True\n            for (y, x, v) in template_ft:\n                ry, rx = y - ty, x - tx\n                ny, nx = transform(ry, rx, op)\n                fy, fx = ny + cy, nx + cx\n                if (fy, fx, v) not in target_set:\n                    ok = False\n                    break\n            if ok:\n                # also ensure target has no extras of 4/2\n                mapped = set()\n                for (y, x, v) in template_ft:\n                    ry, rx = y - ty, x - tx\n                    ny, nx = transform(ry, rx, op)\n                    mapped.add((ny + cy, nx + cx, v))\n                if mapped == target_set:\n                    found_op = op\n                    break\n\n        if found_op is None:\n            continue\n\n        for (y, x, v) in template_decs:\n            ry, rx = y - ty, x - tx\n            ny, nx = transform(ry, rx, found_op)\n            fy, fx = ny + cy, nx + cx\n            if 0 <= fy < H and 0 <= fx < W:\n                grid[fy][fx] = v\n\n    return grid\n",
+      "source": "claude_agent_batch_018_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

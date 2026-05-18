@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "5c2c9af4",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    h = len(input_grid)\n    w = len(input_grid[0])\n    out = [[0] * w for _ in range(h)]\n\n    # Find non-zero points and color\n    points = []\n    color = 0\n    for r in range(h):\n        for c in range(w):\n            v = input_grid[r][c]\n            if v != 0:\n                points.append((r, c))\n                color = v\n\n    if not points:\n        return out\n\n    # Determine center: middle point (sort by row+col or by row)\n    pts = sorted(points)\n    center = pts[len(pts) // 2]\n    cr, cc = center\n\n    # Determine step: distance from center to neighbor\n    if len(pts) >= 2:\n        # Use absolute distance to nearest other point\n        other = pts[0] if pts[0] != center else pts[1]\n        step = max(abs(other[0] - cr), abs(other[1] - cc))\n    else:\n        step = 1\n\n    if step <= 0:\n        step = 1\n\n    # Draw concentric squares of radius k*step for k = 1, 2, 3, ...\n    # until square is completely outside the grid\n    max_dim = max(h, w)\n    k = 1\n    while True:\n        rad = k * step\n        top = cr - rad\n        bot = cr + rad\n        left = cc - rad\n        right = cc + rad\n        # Termination: when all four edges are entirely outside the grid\n        top_visible = 0 <= top < h\n        bot_visible = 0 <= bot < h\n        left_visible = 0 <= left < w\n        right_visible = 0 <= right < w\n        if not (top_visible or bot_visible or left_visible or right_visible):\n            break\n        # Top edge\n        if 0 <= top < h:\n            for c in range(max(0, left), min(w, right + 1)):\n                out[top][c] = color\n        # Bottom edge\n        if 0 <= bot < h:\n            for c in range(max(0, left), min(w, right + 1)):\n                out[bot][c] = color\n        # Left edge\n        if 0 <= left < w:\n            for r in range(max(0, top), min(h, bot + 1)):\n                out[r][left] = color\n        # Right edge\n        if 0 <= right < w:\n            for r in range(max(0, top), min(h, bot + 1)):\n                out[r][right] = color\n        k += 1\n        # Safety bail\n        if rad > 2 * max_dim:\n            break\n\n    # Also draw the center point itself\n    if 0 <= cr < h and 0 <= cc < w:\n        out[cr][cc] = color\n\n    return out\n",
+      "source": "claude_agent_batch_018_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "ac3e2b04",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    out = [row[:] for row in input_grid]\n\n    # Find 3-box markers: 3x3 of 3s with 2 in center\n    markers = []\n    for r in range(1, H - 1):\n        for c in range(1, W - 1):\n            if input_grid[r][c] != 2:\n                continue\n            ok = True\n            for dr in (-1, 0, 1):\n                for dc in (-1, 0, 1):\n                    if dr == 0 and dc == 0:\n                        continue\n                    if input_grid[r + dr][c + dc] != 3:\n                        ok = False\n                        break\n                if not ok:\n                    break\n            if ok:\n                markers.append((r, c))\n\n    # Find horizontal 2-axes (rows where most cells are 2, ignoring 3-box parts)\n    h_axes = set()  # row indices\n    for r in range(H):\n        count2 = sum(1 for c in range(W) if input_grid[r][c] == 2)\n        count3 = sum(1 for c in range(W) if input_grid[r][c] == 3)\n        # A horizontal axis row should have lots of 2s spanning the row\n        if count2 + count3 >= W - 0 and count2 >= W - 3:\n            h_axes.add(r)\n\n    # Find vertical 2-axes\n    v_axes = set()\n    for c in range(W):\n        count2 = sum(1 for r in range(H) if input_grid[r][c] == 2)\n        count3 = sum(1 for r in range(H) if input_grid[r][c] == 3)\n        if count2 + count3 >= H - 0 and count2 >= H - 3:\n            v_axes.add(c)\n\n    # For each marker, determine which axis it sits on, then perpendicular extends\n    for (mr, mc) in markers:\n        on_h = mr in h_axes\n        on_v = mc in v_axes\n        # perpendicular direction\n        if on_h and not on_v:\n            # marker sits on horizontal axis; perpendicular = vertical line col=mc\n            # extend through entire column mc\n            target_axes = sorted(h_axes - {mr})  # other horizontal axes\n            for r in range(H):\n                if r == mr:\n                    continue  # axis row stays\n                # if this row contains a 1-box center or marker box, handle below\n                # default: set out[r][mc] = 1 if it's currently 0\n                if out[r][mc] == 0:\n                    out[r][mc] = 1\n            # Place 1-box at each other horizontal axis intersection\n            for tr in target_axes:\n                # 1-box centered at (tr, mc), 3x3\n                for dr in (-1, 0, 1):\n                    for dc in (-1, 0, 1):\n                        rr, cc = tr + dr, mc + dc\n                        if 0 <= rr < H and 0 <= cc < W:\n                            if dr == 0 and dc == 0:\n                                continue  # keep the 2 axis center\n                            if out[rr][cc] == 3:\n                                continue\n                            out[rr][cc] = 1\n        elif on_v and not on_h:\n            # marker sits on vertical axis; perpendicular = horizontal row=mr\n            target_axes = sorted(v_axes - {mc})\n            for c in range(W):\n                if c == mc:\n                    continue\n                if out[mr][c] == 0:\n                    out[mr][c] = 1\n            for tc in target_axes:\n                for dr in (-1, 0, 1):\n                    for dc in (-1, 0, 1):\n                        rr, cc = mr + dr, tc + dc\n                        if 0 <= rr < H and 0 <= cc < W:\n                            if dr == 0 and dc == 0:\n                                continue\n                            if out[rr][cc] == 3:\n                                continue\n                            out[rr][cc] = 1\n\n    return out\n",
+      "source": "claude_agent_batch_018_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

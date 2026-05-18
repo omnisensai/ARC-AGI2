@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "b527c5c6",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find connected components of non-zero cells (treat 2 and 3 as foreground)\n    visited = [[False] * W for _ in range(H)]\n    components = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != 0 and not visited[r][c]:\n                # BFS\n                stack = [(r, c)]\n                visited[r][c] = True\n                cells = []\n                while stack:\n                    cr, cc = stack.pop()\n                    cells.append((cr, cc))\n                    for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):\n                        nr, nc = cr + dr, cc + dc\n                        if 0 <= nr < H and 0 <= nc < W and not visited[nr][nc] and grid[nr][nc] != 0:\n                            visited[nr][nc] = True\n                            stack.append((nr, nc))\n                components.append(cells)\n\n    out = [row[:] for row in grid]\n\n    for comp in components:\n        rs = [r for r, _ in comp]\n        cs = [c for _, c in comp]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        # Find the 2\n        twos = [(r, c) for r, c in comp if grid[r][c] == 2]\n        if not twos:\n            continue\n        tr, tc = twos[0]\n\n        height = r1 - r0 + 1  # vertical size\n        width = c1 - c0 + 1   # horizontal size\n\n        # Determine which side the 2 is on\n        # If 2 is on the left edge of the rect -> extension goes LEFT (horizontal)\n        # extension thickness = 2*width - 1 vertical (rows)\n        # If 2 is on the right edge -> extension goes RIGHT\n        # If 2 is on the top edge -> extension goes UP\n        # extension thickness = 2*height - 1 horizontal (cols)\n        # If 2 is on the bottom edge -> extension goes DOWN\n\n        if tc == c0 and tr != r0 and tr != r1:\n            # left side (and not a corner that's also top/bottom)\n            direction = 'left'\n        elif tc == c1 and tr != r0 and tr != r1:\n            direction = 'right'\n        elif tr == r0 and tc != c0 and tc != c1:\n            direction = 'up'\n        elif tr == r1 and tc != c0 and tc != c1:\n            direction = 'down'\n        elif tc == c0:\n            direction = 'left'\n        elif tc == c1:\n            direction = 'right'\n        elif tr == r0:\n            direction = 'up'\n        else:\n            direction = 'down'\n\n        if direction in ('left', 'right'):\n            thickness = 2 * width - 1\n            half = (thickness - 1) // 2\n            row_start = tr - half\n            row_end = tr + half\n            if direction == 'left':\n                col_start = 0\n                col_end = c0 - 1\n            else:\n                col_start = c1 + 1\n                col_end = W - 1\n            for rr in range(row_start, row_end + 1):\n                for cc in range(col_start, col_end + 1):\n                    if 0 <= rr < H and 0 <= cc < W:\n                        out[rr][cc] = 2 if rr == tr else 3\n        else:\n            thickness = 2 * height - 1\n            half = (thickness - 1) // 2\n            col_start = tc - half\n            col_end = tc + half\n            if direction == 'up':\n                row_start = 0\n                row_end = r0 - 1\n            else:\n                row_start = r1 + 1\n                row_end = H - 1\n            for rr in range(row_start, row_end + 1):\n                for cc in range(col_start, col_end + 1):\n                    if 0 <= rr < H and 0 <= cc < W:\n                        out[rr][cc] = 2 if cc == tc else 3\n\n    return out\n",
+      "source": "claude_agent_batch_018_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
