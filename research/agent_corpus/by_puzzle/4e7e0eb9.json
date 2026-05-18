@@ -1,0 +1,60 @@
+{
+  "puzzle_id": "4e7e0eb9",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 5,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    g = [row[:] for row in input_grid]\n\n    # Full-width separator rows: all cells same non-zero, non-4 color\n    sep_rows = []\n    for r in range(H):\n        vals = set(g[r])\n        if len(vals) == 1:\n            v = next(iter(vals))\n            if v != 0 and v != 4:\n                sep_rows.append(r)\n    sep_cols = []\n    for c in range(W):\n        vals = set(g[r][c] for r in range(H))\n        if len(vals) == 1:\n            v = next(iter(vals))\n            if v != 0 and v != 4:\n                sep_cols.append(c)\n\n    row_ranges = []\n    prev = 0\n    for sr in sep_rows:\n        if sr > prev:\n            row_ranges.append((prev, sr))\n        prev = sr + 1\n    if prev < H:\n        row_ranges.append((prev, H))\n\n    col_ranges = []\n    prev = 0\n    for sc in sep_cols:\n        if sc > prev:\n            col_ranges.append((prev, sc))\n        prev = sc + 1\n    if prev < W:\n        col_ranges.append((prev, W))\n\n    for (r0, r1) in row_ranges:\n        for (c0, c1) in col_ranges:\n            _process_block(g, r0, r1, c0, c1)\n\n    return g\n\n\ndef _process_block(g, r0, r1, c0, c1):\n    # Each block is 9x9 containing a 2x2 arrangement of 3x3 colored cells.\n    # Optionally an internal \"4\" line (horizontal at middle row, vertical at middle col).\n    horiz_4 = all(g[r0 + 4][c] == 4 for c in range(c0, c1))\n    vert_4 = all(g[r][c0 + 4] == 4 for r in range(r0, r1))\n\n    tl = g[r0 + 1][c0 + 1]\n    tr = g[r0 + 1][c0 + 5]\n    bl = g[r0 + 5][c0 + 1]\n    br = g[r0 + 5][c0 + 5]\n\n    if horiz_4 and vert_4:\n        new_tl, new_tr, new_bl, new_br = br, bl, tr, tl\n    elif horiz_4:\n        new_tl, new_tr, new_bl, new_br = bl, br, tl, tr\n    elif vert_4:\n        new_tl, new_tr, new_bl, new_br = tr, tl, br, bl\n    else:\n        cells = [tl, tr, bl, br]\n        non_one = [c for c in cells if c != 1]\n        fill = non_one[0] if non_one else 1\n        new_tl = new_tr = new_bl = new_br = fill\n\n    def set_cell(cr, cc, val):\n        for dr in range(3):\n            for dc in range(3):\n                g[cr + dr][cc + dc] = val\n\n    set_cell(r0 + 1, c0 + 1, new_tl)\n    set_cell(r0 + 1, c0 + 5, new_tr)\n    set_cell(r0 + 5, c0 + 1, new_bl)\n    set_cell(r0 + 5, c0 + 5, new_br)\n",
+      "source": "claude_agent_batch_061_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "f15e1fac",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    eights = []\n    twos = []\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v == 8:\n                eights.append((r, c))\n            elif v == 2:\n                twos.append((r, c))\n\n    eight_rows = set(p[0] for p in eights)\n    eight_cols = set(p[1] for p in eights)\n    two_rows = set(p[0] for p in twos)\n    two_cols = set(p[1] for p in twos)\n\n    out = [[0] * W for _ in range(H)]\n    for (r, c) in twos:\n        out[r][c] = 2\n\n    if len(eight_rows) == 1:\n        sr = next(iter(eight_rows))\n        tc = next(iter(two_cols))\n        extrude_dir = 1 if sr < H - 1 - sr else -1\n        shift_dir = 1 if tc < W - 1 - tc else -1\n\n        two_marker_rows = sorted(set(p[0] for p in twos))\n        if extrude_dir == 1:\n            row_range = range(sr, H)\n        else:\n            row_range = range(sr, -1, -1)\n\n        for r in row_range:\n            if extrude_dir == 1:\n                shift = sum(1 for mr in two_marker_rows if mr <= r)\n            else:\n                shift = sum(1 for mr in two_marker_rows if mr >= r)\n            for (er, ec) in eights:\n                nc = ec + shift_dir * shift\n                if 0 <= nc < W and out[r][nc] != 2:\n                    out[r][nc] = 8\n\n    elif len(eight_cols) == 1:\n        sc = next(iter(eight_cols))\n        tr = next(iter(two_rows))\n        extrude_dir = 1 if sc < W - 1 - sc else -1\n        shift_dir = 1 if tr < H - 1 - tr else -1\n\n        two_marker_cols = sorted(set(p[1] for p in twos))\n        if extrude_dir == 1:\n            col_range = range(sc, W)\n        else:\n            col_range = range(sc, -1, -1)\n\n        for c in col_range:\n            if extrude_dir == 1:\n                shift = sum(1 for mc in two_marker_cols if mc <= c)\n            else:\n                shift = sum(1 for mc in two_marker_cols if mc >= c)\n            for (er, ec) in eights:\n                nr = er + shift_dir * shift\n                if 0 <= nr < H and out[nr][c] != 2:\n                    out[nr][c] = 8\n\n    return out\n",
+      "source": "claude_agent_batch_061_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

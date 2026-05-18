@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "a48eeaf7",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find the 2x2 block of 2s\n    block_r = block_c = None\n    for r in range(H - 1):\n        for c in range(W - 1):\n            if (input_grid[r][c] == 2 and input_grid[r][c+1] == 2\n                    and input_grid[r+1][c] == 2 and input_grid[r+1][c+1] == 2):\n                block_r, block_c = r, c\n                break\n        if block_r is not None:\n            break\n\n    # Block occupies rows block_r..block_r+1, cols block_c..block_c+1\n    r0, r1 = block_r, block_r + 1\n    c0, c1 = block_c, block_c + 1\n\n    # Initialize output: keep the 2x2 block, clear everything else\n    out = [[0] * W for _ in range(H)]\n    for r in range(r0, r1 + 1):\n        for c in range(c0, c1 + 1):\n            out[r][c] = 2\n\n    # For each 5, determine direction relative to the block and place adjacent\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 5:\n                # Determine alignment with block\n                if c0 <= c <= c1 and r < r0:\n                    # directly above\n                    nr, nc = r0 - 1, c\n                elif c0 <= c <= c1 and r > r1:\n                    # directly below\n                    nr, nc = r1 + 1, c\n                elif r0 <= r <= r1 and c < c0:\n                    # directly left\n                    nr, nc = r, c0 - 1\n                elif r0 <= r <= r1 and c > c1:\n                    # directly right\n                    nr, nc = r, c1 + 1\n                elif r < r0 and c < c0:\n                    # diagonal up-left\n                    nr, nc = r0 - 1, c0 - 1\n                elif r < r0 and c > c1:\n                    # diagonal up-right\n                    nr, nc = r0 - 1, c1 + 1\n                elif r > r1 and c < c0:\n                    # diagonal down-left\n                    nr, nc = r1 + 1, c0 - 1\n                elif r > r1 and c > c1:\n                    # diagonal down-right\n                    nr, nc = r1 + 1, c1 + 1\n                else:\n                    nr, nc = r, c\n                out[nr][nc] = 5\n\n    return out\n",
+      "source": "claude_agent_batch_061_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

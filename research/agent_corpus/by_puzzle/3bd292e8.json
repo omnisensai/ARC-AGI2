@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "3bd292e8",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    def neighbors(r, c):\n        for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):\n            nr, nc = r + dr, c + dc\n            if 0 <= nr < rows and 0 <= nc < cols:\n                yield nr, nc\n\n    # Find connected components of 2s (staircases)\n    visited_2 = [[False] * cols for _ in range(rows)]\n    staircases = []\n    for r in range(rows):\n        for c in range(cols):\n            if grid[r][c] == 2 and not visited_2[r][c]:\n                stack = [(r, c)]\n                comp = set()\n                while stack:\n                    cr, cc = stack.pop()\n                    if visited_2[cr][cc] or grid[cr][cc] != 2:\n                        continue\n                    visited_2[cr][cc] = True\n                    comp.add((cr, cc))\n                    for nr, nc in neighbors(cr, cc):\n                        if not visited_2[nr][nc] and grid[nr][nc] == 2:\n                            stack.append((nr, nc))\n                staircases.append(comp)\n\n    # For each staircase, find its \"enclosure\":\n    # split grid into 2 components using ONLY this staircase as wall,\n    # the smaller side is the enclosure.\n    enclosures = []\n    for sc in staircases:\n        visited = [[False] * cols for _ in range(rows)]\n        parts = []\n        for r in range(rows):\n            for c in range(cols):\n                if (r, c) in sc or visited[r][c]:\n                    continue\n                stack = [(r, c)]\n                part = set()\n                while stack:\n                    cr, cc = stack.pop()\n                    if visited[cr][cc] or (cr, cc) in sc:\n                        continue\n                    visited[cr][cc] = True\n                    part.add((cr, cc))\n                    for nr, nc in neighbors(cr, cc):\n                        if not visited[nr][nc] and (nr, nc) not in sc:\n                            stack.append((nr, nc))\n                if part:\n                    parts.append(part)\n        parts.sort(key=len)\n        enclosure = parts[0] if len(parts) >= 2 else set()\n        enclosures.append(enclosure)\n\n    # Find regions (connected components of non-2 cells, treating all 2s as walls)\n    visited_r = [[False] * cols for _ in range(rows)]\n    regions = []\n    for r in range(rows):\n        for c in range(cols):\n            if grid[r][c] != 2 and not visited_r[r][c]:\n                stack = [(r, c)]\n                reg = set()\n                while stack:\n                    cr, cc = stack.pop()\n                    if visited_r[cr][cc] or grid[cr][cc] == 2:\n                        continue\n                    visited_r[cr][cc] = True\n                    reg.add((cr, cc))\n                    for nr, nc in neighbors(cr, cc):\n                        if not visited_r[nr][nc] and grid[nr][nc] != 2:\n                            stack.append((nr, nc))\n                regions.append(reg)\n\n    # Compute depth for each region\n    region_depths = []\n    for reg in regions:\n        sample = next(iter(reg))\n        depth = sum(1 for enc in enclosures if sample in enc)\n        region_depths.append(depth)\n\n    max_depth = max(region_depths) if region_depths else 0\n\n    output = [row[:] for row in grid]\n    for reg, depth in zip(regions, region_depths):\n        color = 5 if (max_depth - depth) % 2 == 0 else 3\n        for (r, c) in reg:\n            output[r][c] = color\n\n    return output\n",
+      "source": "claude_agent_batch_060_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
