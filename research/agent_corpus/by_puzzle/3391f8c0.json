@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "3391f8c0",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find all non-zero colors\n    color_cells = {}\n    for r in range(H):\n        for c in range(W):\n            v = grid[r][c]\n            if v != 0:\n                color_cells.setdefault(v, []).append((r, c))\n\n    # Connected components (4-connectivity) per color\n    def components(cells_set):\n        seen = set()\n        comps = []\n        for cell in cells_set:\n            if cell in seen:\n                continue\n            stack = [cell]\n            comp = []\n            while stack:\n                cur = stack.pop()\n                if cur in seen or cur not in cells_set:\n                    continue\n                seen.add(cur)\n                comp.append(cur)\n                r, c = cur\n                for dr in (-1, 0, 1):\n                  for dc in (-1, 0, 1):\n                    if dr == 0 and dc == 0:\n                        continue\n                    nb = (r + dr, c + dc)\n                    if nb in cells_set and nb not in seen:\n                        stack.append(nb)\n            comps.append(comp)\n        return comps\n\n    color_comps = {}\n    for color, cells in color_cells.items():\n        color_comps[color] = components(set(cells))\n\n    # Identify rare (1 component) vs common (>1)\n    colors = list(color_comps.keys())\n    counts = {c: len(color_comps[c]) for c in colors}\n    rare_color = min(colors, key=lambda c: counts[c])\n    common_color = max(colors, key=lambda c: counts[c])\n\n    rare_comps = color_comps[rare_color]\n    common_comps = color_comps[common_color]\n\n    def bbox(comp):\n        rs = [p[0] for p in comp]\n        cs = [p[1] for p in comp]\n        return min(rs), min(cs), max(rs), max(cs)\n\n    def shape_mask(comp):\n        r0, c0, r1, c1 = bbox(comp)\n        h = r1 - r0 + 1\n        w = c1 - c0 + 1\n        mask = [[0] * w for _ in range(h)]\n        for r, c in comp:\n            mask[r - r0][c - c0] = 1\n        return mask, (r0, c0, h, w)\n\n    rare_mask, rare_box = shape_mask(rare_comps[0])\n\n    # Get common shape mask (use first common comp)\n    common_mask, _ = shape_mask(common_comps[0])\n\n    # Build output: start blank\n    out = [[0] * W for _ in range(H)]\n\n    # Clear original cells, then paint new shapes\n    # For each common component bbox, paint rare_mask with rare_color\n    for comp in common_comps:\n        r0, c0, r1, c1 = bbox(comp)\n        h = r1 - r0 + 1\n        w = c1 - c0 + 1\n        for i in range(h):\n            for j in range(w):\n                if rare_mask[i][j]:\n                    out[r0 + i][c0 + j] = rare_color\n\n    # For the rare component bbox, paint common_mask with common_color\n    for comp in rare_comps:\n        r0, c0, r1, c1 = bbox(comp)\n        h = r1 - r0 + 1\n        w = c1 - c0 + 1\n        for i in range(h):\n            for j in range(w):\n                if common_mask[i][j]:\n                    out[r0 + i][c0 + j] = common_color\n\n    return out\n",
+      "source": "claude_agent_batch_031_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

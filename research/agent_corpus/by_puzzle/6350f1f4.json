@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "6350f1f4",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    g = [row[:] for row in input_grid]\n    H = len(g)\n    W = len(g[0])\n\n    sep_rows = [r for r in range(H) if all(v in (0, 5) for v in g[r])]\n    sep_cols = [c for c in range(W) if all(g[r][c] in (0, 5) for r in range(H))]\n\n    def boundaries(seps, n):\n        bnds = []\n        start = None\n        for i in range(n):\n            if i in seps:\n                if start is not None:\n                    bnds.append((start, i))\n                    start = None\n            else:\n                if start is None:\n                    start = i\n        if start is not None:\n            bnds.append((start, n))\n        return bnds\n\n    row_bnds = boundaries(sep_rows, H)\n    col_bnds = boundaries(sep_cols, W)\n\n    nbr = len(row_bnds)\n    nbc = len(col_bnds)\n    blocks = [[None] * nbc for _ in range(nbr)]\n    for i, (r0, r1) in enumerate(row_bnds):\n        for j, (c0, c1) in enumerate(col_bnds):\n            blocks[i][j] = [[g[r][c] for c in range(c0, c1)] for r in range(r0, r1)]\n\n    bh = row_bnds[0][1] - row_bnds[0][0]\n    bw = col_bnds[0][1] - col_bnds[0][0]\n\n    # Find clean template blocks (multi-color, no noise)\n    clean_templates = []\n    for i in range(nbr):\n        for j in range(nbc):\n            blk = blocks[i][j]\n            non_noise = set(v for row in blk for v in row if v != 5 and v != 0)\n            has_noise = any(v == 5 for row in blk for v in row)\n            if len(non_noise) >= 2 and not has_noise:\n                clean_templates.append(blk)\n\n    if not clean_templates:\n        for i in range(nbr):\n            for j in range(nbc):\n                blk = blocks[i][j]\n                non_noise = set(v for row in blk for v in row if v != 5 and v != 0)\n                if len(non_noise) >= 2:\n                    clean_templates.append(blk)\n\n    template = [[None] * bw for _ in range(bh)]\n    for r in range(bh):\n        for c in range(bw):\n            votes = {}\n            for tb in clean_templates:\n                v = tb[r][c]\n                if v != 5 and v != 0:\n                    votes[v] = votes.get(v, 0) + 1\n            if votes:\n                template[r][c] = max(votes, key=votes.get)\n\n    # Determine A (majority in template) and B (minority)\n    tcount = {}\n    for r in range(bh):\n        for c in range(bw):\n            v = template[r][c]\n            if v is not None:\n                tcount[v] = tcount.get(v, 0) + 1\n    sorted_colors = sorted(tcount.items(), key=lambda x: -x[1])\n    A = sorted_colors[0][0]\n    B = sorted_colors[1][0] if len(sorted_colors) > 1 else A\n\n    for r in range(bh):\n        for c in range(bw):\n            if template[r][c] is None:\n                template[r][c] = A\n\n    # Classify each block as template-consistent or marker\n    marker_positions = set()\n    for i in range(nbr):\n        for j in range(nbc):\n            blk = blocks[i][j]\n            consistent = True\n            for r in range(bh):\n                for c in range(bw):\n                    v = blk[r][c]\n                    if v != 5 and v != 0:\n                        if v != template[r][c]:\n                            consistent = False\n                            break\n                if not consistent:\n                    break\n            if not consistent:\n                marker_positions.add((i, j))\n\n    out = [row[:] for row in g]\n    for r in sep_rows:\n        for c in range(W):\n            out[r][c] = 0\n    for c in sep_cols:\n        for r in range(H):\n            out[r][c] = 0\n\n    uniform_A = [[A] * bw for _ in range(bh)]\n    for i, (r0, r1) in enumerate(row_bnds):\n        for j, (c0, c1) in enumerate(col_bnds):\n            if (i, j) in marker_positions:\n                blk_out = template\n            else:\n                blk_out = uniform_A\n            for rr in range(bh):\n                for cc in range(bw):\n                    out[r0 + rr][c0 + cc] = blk_out[rr][cc]\n    return out\n",
+      "source": "claude_agent_batch_030_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

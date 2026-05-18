@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "f8be4b64",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find all plus shapes. A plus is centered at (r,c) where 4 neighbors (up,down,left,right)\n    # are all 3. The center can be any value (including 0).\n    pluses = []  # list of (r, c, center_color)\n    plus_cells = set()  # all cells that are part of any plus shape\n    arm_cells = set()  # all cells that are arms (the 3s around a center)\n    for r in range(1, H - 1):\n        for c in range(1, W - 1):\n            if (grid[r - 1][c] == 3 and grid[r + 1][c] == 3\n                    and grid[r][c - 1] == 3 and grid[r][c + 1] == 3):\n                center = grid[r][c]\n                pluses.append((r, c, center))\n                plus_cells.add((r, c))\n                for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                    plus_cells.add((r + dr, c + dc))\n                    arm_cells.add((r + dr, c + dc))\n\n    # For each plus, compute the extent of its row and column lines.\n    # A line extends from the center until it hits an arm of ANOTHER plus\n    # in the same row/col (the arm itself is the stopping point; cells beyond\n    # the arm are not drawn).\n    # Each line cell gets the plus's center color. Center color may be 0\n    # (no-center plus); in that case the line cells are 0.\n\n    # Build a layered output:\n    # 1) Start with 0s\n    # 2) For each plus, draw row line (color = center)\n    # 3) For each plus, draw col line (color = center) -- col overrides row\n    # 4) For each plus shape cell, restore original grid value (3s and centers)\n\n    out = [[0] * W for _ in range(H)]\n\n    # For each plus, find own arm positions in its row/col so we know which\n    # 3s to skip when checking \"another plus's arm\"\n    own_arms_of = {}\n    for r, c, color in pluses:\n        own = {(r - 1, c), (r + 1, c), (r, c - 1), (r, c + 1)}\n        own_arms_of[(r, c)] = own\n\n    def draw_row(r, c, color):\n        own = own_arms_of[(r, c)]\n        # Go left\n        for j in range(c - 1, -1, -1):\n            if (r, j) in arm_cells and (r, j) not in own:\n                break  # hit another plus's arm; stop (don't draw beyond)\n            if (r, j) in plus_cells:\n                continue  # own arm or own center; skip (will be restored)\n            out[r][j] = color\n        # Go right\n        for j in range(c + 1, W):\n            if (r, j) in arm_cells and (r, j) not in own:\n                break\n            if (r, j) in plus_cells:\n                continue\n            out[r][j] = color\n        # Center cell\n        if (r, c) not in plus_cells:\n            out[r][c] = color\n\n    def draw_col(r, c, color):\n        own = own_arms_of[(r, c)]\n        for i in range(r - 1, -1, -1):\n            if (i, c) in arm_cells and (i, c) not in own:\n                break\n            if (i, c) in plus_cells:\n                continue\n            out[i][c] = color\n        for i in range(r + 1, H):\n            if (i, c) in arm_cells and (i, c) not in own:\n                break\n            if (i, c) in plus_cells:\n                continue\n            out[i][c] = color\n        if (r, c) not in plus_cells:\n            out[r][c] = color\n\n    # Draw all row lines first\n    for r, c, color in pluses:\n        draw_row(r, c, color)\n    # Then col lines (override row lines at intersections)\n    for r, c, color in pluses:\n        draw_col(r, c, color)\n\n    # Restore plus shape cells from original grid\n    for (i, j) in plus_cells:\n        out[i][j] = grid[i][j]\n\n    return out\n",
+      "source": "claude_agent_batch_031_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

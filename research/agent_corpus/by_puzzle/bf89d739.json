@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "bf89d739",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    twos = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 2]\n\n    # Find the main axis: a pair of 2s sharing a row or column.\n    axis = None  # ('h', row, c1, c2) or ('v', col, r1, r2)\n    for i in range(len(twos)):\n        for j in range(i + 1, len(twos)):\n            r1, c1 = twos[i]\n            r2, c2 = twos[j]\n            if r1 == r2:\n                axis = ('h', r1, min(c1, c2), max(c1, c2))\n                break\n            if c1 == c2:\n                axis = ('v', c1, min(r1, r2), max(r1, r2))\n                break\n        if axis:\n            break\n\n    if not axis:\n        return grid\n\n    # Draw the main axis line of 3s between the two endpoints.\n    if axis[0] == 'h':\n        _, r, ca, cb = axis\n        for c in range(ca + 1, cb):\n            if grid[r][c] == 0:\n                grid[r][c] = 3\n        axis_endpoints = {(r, ca), (r, cb)}\n    else:\n        _, c, ra, rb = axis\n        for r in range(ra + 1, rb):\n            if grid[r][c] == 0:\n                grid[r][c] = 3\n        axis_endpoints = {(ra, c), (rb, c)}\n\n    # For each other 2, draw perpendicular projection onto the axis.\n    for (r, c) in twos:\n        if (r, c) in axis_endpoints:\n            continue\n        if axis[0] == 'h':\n            # Main axis horizontal; project vertically onto row axis[1].\n            ar = axis[1]\n            if r < ar:\n                for rr in range(r + 1, ar + 1):\n                    if grid[rr][c] == 0:\n                        grid[rr][c] = 3\n            else:\n                for rr in range(ar, r):\n                    if grid[rr][c] == 0:\n                        grid[rr][c] = 3\n        else:\n            # Main axis vertical; project horizontally onto col axis[1].\n            ac = axis[1]\n            if c < ac:\n                for cc in range(c + 1, ac + 1):\n                    if grid[r][cc] == 0:\n                        grid[r][cc] = 3\n            else:\n                for cc in range(ac, c):\n                    if grid[r][cc] == 0:\n                        grid[r][cc] = 3\n\n    return grid\n",
+      "source": "claude_agent_batch_031_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

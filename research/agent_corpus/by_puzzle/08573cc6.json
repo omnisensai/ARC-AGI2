@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "08573cc6",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find the two color cells at (0,0) and (0,1): A (inner) and B (outer)\n    A = input_grid[0][0]\n    B = input_grid[0][1]\n    # Find the 1 marker\n    r1, c1 = None, None\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 1:\n                r1, c1 = r, c\n                break\n        if r1 is not None:\n            break\n    # Build output grid initialized with zeros, place the 1\n    out = [[0] * W for _ in range(H)]\n    out[r1][c1] = 1\n\n    # Spiral arms: directions cycle L, D, R, U\n    # Each arm k (1-indexed) has natural length k+1\n    # Arm 1: from one cell left of 1, going L, length 2\n    # Arm 2: from one cell down of previous end, going D, length 3\n    # etc.\n\n    # Track current position (the cell where the next arm STARTS)\n    # Arm 1 starts at (r1, c1-1) going LEFT\n    directions = [(0, -1), (1, 0), (0, 1), (-1, 0)]  # L, D, R, U\n    colors = [A, B, A, B]  # L=A, D=B, R=A, U=B\n\n    # Starting position for arm 1\n    cur_r, cur_c = r1, c1\n    arm_idx = 0\n    length = 2\n\n    while True:\n        dr, dc = directions[arm_idx % 4]\n        color = colors[arm_idx % 4]\n        # Arm starts one cell from cur_r,cur_c in direction (dr,dc)\n        start_r = cur_r + dr\n        start_c = cur_c + dc\n        # Try to draw `length` cells\n        # Compute the end cell\n        end_r = start_r + dr * (length - 1)\n        end_c = start_c + dc * (length - 1)\n        # Check if end is within bounds\n        capped = False\n        if not (0 <= end_r < H and 0 <= end_c < W):\n            # Cap to fit\n            # Find max cells that fit\n            actual_len = 0\n            for i in range(length):\n                rr = start_r + dr * i\n                cc = start_c + dc * i\n                if 0 <= rr < H and 0 <= cc < W:\n                    actual_len = i + 1\n                else:\n                    break\n            length = actual_len\n            capped = True\n            end_r = start_r + dr * (length - 1)\n            end_c = start_c + dc * (length - 1)\n        # Draw the arm\n        for i in range(length):\n            rr = start_r + dr * i\n            cc = start_c + dc * i\n            out[rr][cc] = color\n        # Update current position\n        cur_r, cur_c = end_r, end_c\n        if capped:\n            break\n        arm_idx += 1\n        length += 1\n\n    return out\n",
+      "source": "claude_agent_batch_031_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "94be5b80",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find the \"key\" region: a small block where multiple distinct colors appear\n    # as vertical stripes in adjacent columns. Each stripe is a single column\n    # with one color repeated. The key is identified by being a connected\n    # region containing multiple colors (with each column having a single color).\n    visited = [[False]*W for _ in range(H)]\n    key_colors = None\n    key_cells = set()\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] != 0 and not visited[r][c]:\n                stack = [(r, c)]\n                region = []\n                while stack:\n                    rr, cc = stack.pop()\n                    if rr < 0 or rr >= H or cc < 0 or cc >= W:\n                        continue\n                    if visited[rr][cc] or input_grid[rr][cc] == 0:\n                        continue\n                    visited[rr][cc] = True\n                    region.append((rr, cc))\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        stack.append((rr + dr, cc + dc))\n                colors = set(input_grid[rr][cc] for rr, cc in region)\n                if len(colors) > 1:\n                    col_colors = {}\n                    for rr, cc in region:\n                        col_colors.setdefault(cc, set()).add(input_grid[rr][cc])\n                    if all(len(v) == 1 for v in col_colors.values()):\n                        cols_sorted = sorted(col_colors.keys())\n                        key_colors = [next(iter(col_colors[c])) for c in cols_sorted]\n                        key_cells = set(region)\n\n    # Find template cells: all non-zero cells NOT in the key, grouped by color\n    templates_by_color = {}\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != 0 and (r, c) not in key_cells:\n                templates_by_color.setdefault(v, []).append((r, c))\n\n    # Compute bounding box per color\n    template_bboxes = {}\n    for color, cells in templates_by_color.items():\n        rs = [r for r, c in cells]\n        cs = [c for r, c in cells]\n        template_bboxes[color] = (min(rs), max(rs), min(cs), max(cs), cells)\n\n    # Use any existing template as reference shape\n    ref_color = next(iter(template_bboxes))\n    rmin, rmax, cmin, cmax, ref_cells = template_bboxes[ref_color]\n    rel_cells = [(r - rmin, c - cmin) for r, c in ref_cells]\n    height = rmax - rmin + 1\n\n    # Find an anchor: a color present both as a template and in key_colors\n    anchor_color = None\n    anchor_rmin = None\n    for color in templates_by_color:\n        if color in key_colors:\n            anchor_color = color\n            anchor_rmin = template_bboxes[color][0]\n            break\n\n    anchor_idx = key_colors.index(anchor_color)\n\n    output = [[0] * W for _ in range(H)]\n    for i, color in enumerate(key_colors):\n        offset = i - anchor_idx\n        new_rmin = anchor_rmin + offset * height\n        for dr, dc in rel_cells:\n            r = new_rmin + dr\n            c = cmin + dc\n            if 0 <= r < H and 0 <= c < W:\n                output[r][c] = color\n\n    return output\n",
+      "source": "claude_agent_batch_030_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
