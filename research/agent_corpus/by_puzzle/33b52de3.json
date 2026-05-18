@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "33b52de3",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find palette: bounding box of cells that are non-zero and non-5\n    palette_cells = [(r, c) for r in range(H) for c in range(W)\n                     if grid[r][c] != 0 and grid[r][c] != 5]\n    pr_min = min(r for r, c in palette_cells)\n    pr_max = max(r for r, c in palette_cells)\n    pc_min = min(c for r, c in palette_cells)\n    pc_max = max(c for r, c in palette_cells)\n\n    palette = [[grid[r][c] for c in range(pc_min, pc_max + 1)]\n               for r in range(pr_min, pr_max + 1)]\n    PH = len(palette)\n    PW = len(palette[0])\n\n    # Find templates (regions with 5s)\n    five_cells = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 5]\n    rows_with_5 = sorted(set(r for r, c in five_cells))\n    cols_with_5 = sorted(set(c for r, c in five_cells))\n\n    def group_consecutive(vals):\n        groups = []\n        cur = [vals[0]]\n        for v in vals[1:]:\n            if v == cur[-1] + 1:\n                cur.append(v)\n            else:\n                groups.append(cur)\n                cur = [v]\n        groups.append(cur)\n        return groups\n\n    row_bands = group_consecutive(rows_with_5)\n    col_bands = group_consecutive(cols_with_5)\n\n    out = [row[:] for row in grid]\n    for i in range(PH):\n        for j in range(PW):\n            color = palette[i][j]\n            for r in row_bands[i]:\n                for c in col_bands[j]:\n                    if grid[r][c] == 5:\n                        out[r][c] = color\n    return out\n",
+      "source": "claude_agent_batch_024_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

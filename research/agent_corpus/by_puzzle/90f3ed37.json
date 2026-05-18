@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "90f3ed37",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    H = len(grid)\n    W = len(grid[0]) if H > 0 else 0\n\n    # Find shape groups: maximal sets of consecutive rows containing 8s\n    groups = []\n    current = []\n    for r in range(H):\n        has8 = any(grid[r][c] == 8 for c in range(W))\n        if has8:\n            current.append(r)\n        else:\n            if current:\n                groups.append(current)\n                current = []\n    if current:\n        groups.append(current)\n\n    # Find template: group containing an 8 at col W-1\n    template = None\n    for g in groups:\n        for r in g:\n            if grid[r][W - 1] == 8:\n                template = g\n                break\n        if template is not None:\n            break\n\n    if template is None:\n        return grid\n\n    def cols_with_8(r):\n        return [c for c in range(W) if grid[r][c] == 8]\n\n    def cols_with_8_or_1(r):\n        return [c for c in range(W) if grid[r][c] == 8 or grid[r][c] == 1]\n\n    # For each non-template group, extend\n    for g in groups:\n        if g == template:\n            continue\n\n        # Iterate through template rows; map by index position\n        for i in range(len(template)):\n            t_row = template[i]\n            t_cols = cols_with_8(t_row)\n            if not t_cols:\n                continue\n            t_first = t_cols[0]\n\n            if i < len(g):\n                s_row = g[i]\n                s_cols = cols_with_8(s_row)\n                if not s_cols:\n                    continue\n                s_first = s_cols[0]\n                offset = s_first - t_first\n\n                for c in t_cols:\n                    new_c = c + offset\n                    if 0 <= new_c < W and grid[s_row][new_c] == 0:\n                        grid[s_row][new_c] = 1\n            else:\n                # Missing row: predict its position and fill\n                prev_t_row = template[i - 1]\n                prev_s_row_idx = i - 1\n                if prev_s_row_idx >= len(g):\n                    # Use last known shape row\n                    prev_s_row = g[-1] + (i - 1 - (len(g) - 1))\n                else:\n                    prev_s_row = g[prev_s_row_idx]\n\n                s_row = prev_s_row + (t_row - prev_t_row)\n                if s_row < 0 or s_row >= H:\n                    continue\n\n                # Predict shape's first 8 col using staircase rule:\n                # s_first = end_col of previous shape row + 1\n                prev_s_marks = cols_with_8_or_1(prev_s_row)\n                if not prev_s_marks:\n                    continue\n                prev_s_end = prev_s_marks[-1]\n                s_first = prev_s_end + 1\n                offset = s_first - t_first\n\n                for c in t_cols:\n                    new_c = c + offset\n                    if 0 <= new_c < W and grid[s_row][new_c] == 0:\n                        grid[s_row][new_c] = 1\n\n    return grid\n",
+      "source": "claude_agent_batch_021_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

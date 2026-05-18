@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "342ae2ed",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import defaultdict\n\n\ndef solve(input_grid):\n    g = [row[:] for row in input_grid]\n    H, W = len(g), len(g[0])\n\n    seen = [[False] * W for _ in range(H)]\n    shapes = defaultdict(list)\n    for i in range(H):\n        for j in range(W):\n            if g[i][j] != 7 and not seen[i][j]:\n                color = g[i][j]\n                stack = [(i, j)]\n                cells = []\n                while stack:\n                    y, x = stack.pop()\n                    if 0 <= y < H and 0 <= x < W and not seen[y][x] and input_grid[y][x] == color:\n                        seen[y][x] = True\n                        cells.append((y, x))\n                        for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                            stack.append((y + dy, x + dx))\n                shapes[color].append(cells)\n\n    for color, shape_list in shapes.items():\n        if len(shape_list) != 2:\n            continue\n        boxes = []\n        for cells in shape_list:\n            ys = [y for y, x in cells]\n            xs = [x for y, x in cells]\n            boxes.append((min(ys), min(xs), max(ys), max(xs)))\n        corners = []\n        for (y0, x0, y1, x1) in boxes:\n            corners.append([(y0, x0), (y0, x1), (y1, x0), (y1, x1)])\n        best = None\n        best_d = None\n        for c1 in corners[0]:\n            for c2 in corners[1]:\n                dy = c2[0] - c1[0]\n                dx = c2[1] - c1[1]\n                if abs(dy) == abs(dx) and abs(dy) > 0:\n                    d = abs(dy)\n                    if best_d is None or d < best_d:\n                        best_d = d\n                        best = (c1, c2)\n        if best is None:\n            continue\n        c1, c2 = best\n        sy = 1 if c2[0] > c1[0] else -1\n        sx = 1 if c2[1] > c1[1] else -1\n        y, x = c1[0] + sy, c1[1] + sx\n        while (y, x) != c2:\n            if 0 <= y < H and 0 <= x < W:\n                g[y][x] = color\n            y += sy\n            x += sx\n    return g\n",
+      "source": "claude_agent_batch_024_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

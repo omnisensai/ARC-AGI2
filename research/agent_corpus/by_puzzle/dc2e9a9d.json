@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "dc2e9a9d",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    out = [row[:] for row in input_grid]\n\n    # find connected components of 3s (4-connectivity)\n    seen = [[False]*W for _ in range(H)]\n    comps = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 3 and not seen[r][c]:\n                stack = [(r, c)]\n                seen[r][c] = True\n                cells = []\n                while stack:\n                    cr, cc = stack.pop()\n                    cells.append((cr, cc))\n                    for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:\n                        nr, nc = cr+dr, cc+dc\n                        if 0 <= nr < H and 0 <= nc < W and not seen[nr][nc] and grid[nr][nc] == 3:\n                            seen[nr][nc] = True\n                            stack.append((nr, nc))\n                comps.append(cells)\n\n    for cells in comps:\n        # Find the rectangle: the bump is the single extra cell.\n        # The rectangle is a hollow rectangle. Look for the bounding box,\n        # then check which cells form the rectangle vs the bump.\n        rs = [c[0] for c in cells]\n        cs = [c[1] for c in cells]\n        minr, maxr = min(rs), max(rs)\n        minc, maxc = min(cs), max(cs)\n        cellset = set(cells)\n\n        # Try each possible sub-rectangle by removing one cell as the bump.\n        # The bump is on the boundary of the bounding box, sticking out.\n        # Try to find rectangle by removing one cell from the four edges of bbox.\n        rect_found = None\n        bump = None\n        for (br, bc) in cells:\n            # candidate bump - remove it, see if remainder is a hollow rectangle\n            remaining = cellset - {(br, bc)}\n            if not remaining:\n                continue\n            rs2 = [c[0] for c in remaining]\n            cs2 = [c[1] for c in remaining]\n            r0, r1 = min(rs2), max(rs2)\n            c0, c1 = min(cs2), max(cs2)\n            # Build expected hollow rectangle\n            expected = set()\n            for rr in range(r0, r1+1):\n                for cc in range(c0, c1+1):\n                    if rr == r0 or rr == r1 or cc == c0 or cc == c1:\n                        expected.add((rr, cc))\n            if expected == remaining and (r1 - r0) >= 1 and (c1 - c0) >= 1:\n                # The bump must be adjacent to the rectangle outside\n                # Check that bump is outside bbox of rect\n                if br < r0 or br > r1 or bc < c0 or bc > c1:\n                    rect_found = (r0, r1, c0, c1)\n                    bump = (br, bc)\n                    break\n\n        if rect_found is None:\n            continue\n\n        r0, r1, c0, c1 = rect_found\n        br, bc = bump\n\n        # Determine bump direction\n        if br < r0:\n            direction = 'up'\n        elif br > r1:\n            direction = 'down'\n        elif bc < c0:\n            direction = 'left'\n        elif bc > c1:\n            direction = 'right'\n        else:\n            continue\n\n        # Color: horizontal bump (left/right) -> 1, vertical bump (up/down) -> 8\n        if direction in ('left', 'right'):\n            color = 1\n        else:\n            color = 8\n\n        # Mirror axis is on the OPPOSITE side of the bump, one unit outside the rect.\n        # Mirror the entire shape (rect + bump) across that axis.\n        if direction == 'left':\n            # axis at col c1+1, mirror to the right\n            axis = c1 + 1\n            new_cells = [(r, 2*axis - c) for (r, c) in cells]\n        elif direction == 'right':\n            axis = c0 - 1\n            new_cells = [(r, 2*axis - c) for (r, c) in cells]\n        elif direction == 'up':\n            axis = r1 + 1\n            new_cells = [(2*axis - r, c) for (r, c) in cells]\n        elif direction == 'down':\n            axis = r0 - 1\n            new_cells = [(2*axis - r, c) for (r, c) in cells]\n\n        for (rr, cc) in new_cells:\n            if 0 <= rr < H and 0 <= cc < W:\n                out[rr][cc] = color\n\n    return out\n",
+      "source": "claude_agent_batch_024_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
