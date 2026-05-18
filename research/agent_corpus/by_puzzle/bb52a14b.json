@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "bb52a14b",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find the 3x3 template containing 4s. The template is at the position where\n    # 4s appear in the grid. We assume the 4s are contained in a single 3x3 block.\n    rows_with_4 = []\n    cols_with_4 = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 4:\n                rows_with_4.append(r)\n                cols_with_4.append(c)\n    if not rows_with_4:\n        return grid\n\n    r0 = min(rows_with_4)\n    c0 = min(cols_with_4)\n    # template is grid[r0:r0+3][c0:c0+3]\n    template = [[grid[r0 + i][c0 + j] for j in range(3)] for i in range(3)]\n\n    # The non-4 cells form the \"key\" pattern (values 1, 8, etc.)\n    # The 4-cell positions are what we fill in elsewhere when we find a match.\n    four_positions = [(i, j) for i in range(3) for j in range(3) if template[i][j] == 4]\n    non_four_positions = [(i, j) for i in range(3) for j in range(3) if template[i][j] != 4]\n\n    # Search for other 3x3 windows where:\n    #  - all non-4 positions match the template values\n    #  - all 4 positions are 0 (empty so we can fill)\n    # Exclude the template itself.\n    for r in range(H - 2):\n        for c in range(W - 2):\n            if r == r0 and c == c0:\n                continue\n            # Check non-4 positions match\n            match = True\n            for (i, j) in non_four_positions:\n                if grid[r + i][c + j] != template[i][j]:\n                    match = False\n                    break\n            if not match:\n                continue\n            # Check 4 positions are 0\n            for (i, j) in four_positions:\n                if grid[r + i][c + j] != 0:\n                    match = False\n                    break\n            if not match:\n                continue\n            # Fill in the 4s\n            for (i, j) in four_positions:\n                grid[r + i][c + j] = 4\n\n    return grid\n",
+      "source": "claude_agent_batch_038_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

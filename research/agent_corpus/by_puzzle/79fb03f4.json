@@ -1,0 +1,67 @@
+{
+  "puzzle_id": "79fb03f4",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 5,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 6,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    new_grid = [row[:] for row in input_grid]\n\n    def is_source_value(v):\n        return v != 0 and v != 1\n\n    def box_in_bounds(r, c):\n        return 0 <= r-1 and r+1 < H and 0 <= c-1 and c+1 < W\n\n    marker_rows = [r for r in range(H) if grid[r][0] == 1]\n    marker_set = set(marker_rows)\n\n    active = set()\n    for r in marker_rows:\n        for c in range(W):\n            if is_source_value(grid[r][c]):\n                active.add((r, c))\n\n    def wing_unblocked(rr, cc, side):\n        nr = rr + side\n        nc = cc - 1\n        if nr < 0 or nr >= H:\n            return False\n        if nc < 0:\n            return True\n        return grid[nr][nc] == 0\n\n    def can_be_chain_source(rr, cc):\n        return wing_unblocked(rr, cc, -1) or wing_unblocked(rr, cc, +1)\n\n    changed = True\n    while changed:\n        changed = False\n        for (r, c) in list(active):\n            for ds in [-1, +1]:\n                nr = r + ds\n                if 0 <= nr < H:\n                    for dc in [0, 1]:\n                        cc = c + dc\n                        if 0 <= cc < W:\n                            if is_source_value(grid[nr][cc]):\n                                if (nr, cc) not in active:\n                                    if can_be_chain_source(nr, cc):\n                                        active.add((nr, cc))\n                                        changed = True\n            if r not in marker_set:\n                cc = c + 1\n                if 0 <= cc < W:\n                    if is_source_value(grid[r][cc]):\n                        if (r, cc) not in active:\n                            if can_be_chain_source(r, cc):\n                                active.add((r, cc))\n                                changed = True\n\n    beam_end_for_row = {}\n    for r in marker_rows:\n        marker_sources_cols = sorted([c for c in range(W) if is_source_value(grid[r][c])])\n        beam_end = 0\n        all_valid = True\n        for c in marker_sources_cols:\n            if box_in_bounds(r, c):\n                beam_end = c\n            else:\n                all_valid = False\n                break\n        if all_valid:\n            beam_end = W - 1\n        beam_end_for_row[r] = beam_end\n\n    for r, beam_end in beam_end_for_row.items():\n        for c in range(0, beam_end + 1):\n            if grid[r][c] == 0:\n                new_grid[r][c] = 1\n\n    for (r, c) in active:\n        if r - 1 >= 0 and (r - 1) not in marker_set:\n            for dc in [-1, 0, 1]:\n                cc = c + dc\n                if 0 <= cc < W:\n                    val = grid[r-1][cc]\n                    if val == 0:\n                        new_grid[r-1][cc] = 1\n                    elif (r-1, cc) in active:\n                        pass\n                    else:\n                        break\n\n        if r + 1 < H and (r + 1) not in marker_set:\n            for dc in [-1, 0, 1]:\n                cc = c + dc\n                if 0 <= cc < W:\n                    val = grid[r+1][cc]\n                    if val == 0:\n                        new_grid[r+1][cc] = 1\n                    elif (r+1, cc) in active:\n                        pass\n                    else:\n                        break\n\n        if r not in marker_set:\n            cc = c - 1\n            if 0 <= cc < W:\n                val = grid[r][cc]\n                if val == 0:\n                    new_grid[r][cc] = 1\n            cc = c + 1\n            if 0 <= cc < W:\n                val = grid[r][cc]\n                if val == 0:\n                    new_grid[r][cc] = 1\n\n    return new_grid\n",
+      "source": "claude_agent_batch_036_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

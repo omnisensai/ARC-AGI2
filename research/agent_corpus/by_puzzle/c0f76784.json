@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "c0f76784",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    visited = [[False] * W for _ in range(H)]\n    # Find all rectangles of 5s (hollow). For each, find top-left corner.\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 5 and not visited[r][c]:\n                # Try to find rectangle starting here as top-left\n                # Find width: extend right while 5\n                if c + 1 >= W or grid[r][c + 1] != 5:\n                    continue\n                # Find max width\n                c2 = c\n                while c2 + 1 < W and grid[r][c2 + 1] == 5:\n                    c2 += 1\n                # Find max height\n                r2 = r\n                while r2 + 1 < H and grid[r2 + 1][c] == 5:\n                    r2 += 1\n                # Verify rectangle: top row, bottom row, left col, right col all 5\n                ok = True\n                for cc in range(c, c2 + 1):\n                    if grid[r][cc] != 5 or grid[r2][cc] != 5:\n                        ok = False\n                        break\n                if ok:\n                    for rr in range(r, r2 + 1):\n                        if grid[rr][c] != 5 or grid[rr][c2] != 5:\n                            ok = False\n                            break\n                if not ok:\n                    continue\n                interior_h = r2 - r - 1\n                interior_w = c2 - c - 1\n                if interior_h < 1 or interior_w < 1:\n                    continue\n                if interior_h != interior_w:\n                    continue\n                size = interior_h\n                if size == 1:\n                    fill = 6\n                elif size == 2:\n                    fill = 7\n                elif size == 3:\n                    fill = 8\n                else:\n                    fill = 0\n                for rr in range(r + 1, r2):\n                    for cc in range(c + 1, c2):\n                        grid[rr][cc] = fill\n                # Mark border visited to avoid re-processing\n                for cc in range(c, c2 + 1):\n                    visited[r][cc] = True\n                    visited[r2][cc] = True\n                for rr in range(r, r2 + 1):\n                    visited[rr][c] = True\n                    visited[rr][c2] = True\n    return grid\n",
+      "source": "claude_agent_batch_038_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

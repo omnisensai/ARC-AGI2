@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "890034e9",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from copy import deepcopy\n    grid = deepcopy(input_grid)\n    H = len(grid)\n    W = len(grid[0])\n\n    # Find the existing rectangular frame: a rectangle whose border cells are all\n    # the same non-zero color C, and whose interior cells are all 0.\n    frame = None  # (r0, c0, r1, c1, color)\n    best_area = 0\n    for r0 in range(H):\n        for c0 in range(W):\n            c = grid[r0][c0]\n            if c == 0:\n                continue\n            for r1 in range(r0 + 2, H):\n                for c1 in range(c0 + 2, W):\n                    ok = True\n                    for cc in range(c0, c1 + 1):\n                        if grid[r0][cc] != c:\n                            ok = False\n                            break\n                    if not ok:\n                        continue\n                    for cc in range(c0, c1 + 1):\n                        if grid[r1][cc] != c:\n                            ok = False\n                            break\n                    if not ok:\n                        continue\n                    for rr in range(r0, r1 + 1):\n                        if grid[rr][c0] != c:\n                            ok = False\n                            break\n                    if not ok:\n                        continue\n                    for rr in range(r0, r1 + 1):\n                        if grid[rr][c1] != c:\n                            ok = False\n                            break\n                    if not ok:\n                        continue\n                    for rr in range(r0 + 1, r1):\n                        for cc in range(c0 + 1, c1):\n                            if grid[rr][cc] != 0:\n                                ok = False\n                                break\n                        if not ok:\n                            break\n                    if not ok:\n                        continue\n                    area = (r1 - r0 + 1) * (c1 - c0 + 1)\n                    if area > best_area:\n                        best_area = area\n                        frame = (r0, c0, r1, c1, c)\n\n    if frame is None:\n        return grid\n\n    r0, c0, r1, c1, color = frame\n    h = r1 - r0 + 1\n    w = c1 - c0 + 1\n    ih = h - 2\n    iw = w - 2\n\n    # Find an ih x iw rectangular block of all zeros elsewhere (not overlapping\n    # the existing frame). Use it as the interior of the new frame.\n    for tr in range(H - ih + 1):\n        for tc in range(W - iw + 1):\n            # Skip if overlaps existing frame rectangle\n            if not (tr + ih - 1 < r0 or tr > r1 or tc + iw - 1 < c0 or tc > c1):\n                continue\n            # Also need room for the frame border around it\n            fr0 = tr - 1\n            fc0 = tc - 1\n            fr1 = tr + ih\n            fc1 = tc + iw\n            if fr0 < 0 or fc0 < 0 or fr1 >= H or fc1 >= W:\n                continue\n            ok = True\n            for rr in range(tr, tr + ih):\n                for cc in range(tc, tc + iw):\n                    if grid[rr][cc] != 0:\n                        ok = False\n                        break\n                if not ok:\n                    break\n            if ok:\n                # Draw frame border around the block\n                for cc in range(fc0, fc1 + 1):\n                    grid[fr0][cc] = color\n                    grid[fr1][cc] = color\n                for rr in range(fr0, fr1 + 1):\n                    grid[rr][fc0] = color\n                    grid[rr][fc1] = color\n                return grid\n\n    return grid\n",
+      "source": "claude_agent_batch_037_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

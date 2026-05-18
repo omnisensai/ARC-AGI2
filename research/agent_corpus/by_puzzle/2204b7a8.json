@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "2204b7a8",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    h = len(input_grid)\n    w = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Determine orientation: are the borders left/right columns or top/bottom rows?\n    # Count non-zero cells in each border candidate.\n    left_col = [grid[r][0] for r in range(h)]\n    right_col = [grid[r][w - 1] for r in range(h)]\n    top_row = grid[0][:]\n    bot_row = grid[h - 1][:]\n\n    def majority_nonzero(line):\n        vals = [v for v in line if v != 0]\n        if not vals:\n            return None\n        # most common\n        from collections import Counter\n        return Counter(vals).most_common(1)[0][0]\n\n    left_color = majority_nonzero(left_col)\n    right_color = majority_nonzero(right_col)\n    top_color = majority_nonzero(top_row)\n    bot_color = majority_nonzero(bot_row)\n\n    # Decide orientation: vertical (left/right) if both left and right cols have a dominant color\n    # and that color appears on most cells of that column.\n    def col_score(col, color):\n        if color is None:\n            return 0\n        return sum(1 for v in col if v == color)\n\n    def row_score(row, color):\n        if color is None:\n            return 0\n        return sum(1 for v in row if v == color)\n\n    vert_score = col_score(left_col, left_color) + col_score(right_col, right_color)\n    horiz_score = row_score(top_row, top_color) + row_score(bot_row, bot_color)\n\n    vertical = vert_score >= horiz_score\n\n    for r in range(h):\n        for c in range(w):\n            if grid[r][c] == 3:\n                if vertical:\n                    # distance to left col (0) and right col (w-1)\n                    dl = c - 0\n                    dr = (w - 1) - c\n                    if dl <= dr:\n                        grid[r][c] = left_color\n                    else:\n                        grid[r][c] = right_color\n                else:\n                    dt = r - 0\n                    db = (h - 1) - r\n                    if dt <= db:\n                        grid[r][c] = top_color\n                    else:\n                        grid[r][c] = bot_color\n    return grid\n",
+      "source": "claude_agent_batch_038_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
