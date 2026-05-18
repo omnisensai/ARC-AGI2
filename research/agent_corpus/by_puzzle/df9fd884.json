@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "df9fd884",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find the shape (non-7, non-4 cells)\n    shape_cells = []\n    for r in range(H):\n        for c in range(W):\n            v = grid[r][c]\n            if v != 7 and v != 4:\n                shape_cells.append((r, c, v))\n    shape_color = shape_cells[0][2]\n    sr_min = min(r for r, c, v in shape_cells)\n    sr_max = max(r for r, c, v in shape_cells)\n    sc_min = min(c for r, c, v in shape_cells)\n    sc_max = max(c for r, c, v in shape_cells)\n    shape_h = sr_max - sr_min + 1\n    shape_w = sc_max - sc_min + 1\n    # normalize shape relative offsets\n    shape_offsets = [(r - sr_min, c - sc_min) for r, c, v in shape_cells]\n\n    # Find connected components of 4s\n    visited = [[False] * W for _ in range(H)]\n    cups = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 4 and not visited[r][c]:\n                stack = [(r, c)]\n                comp = []\n                while stack:\n                    cr, cc = stack.pop()\n                    if cr < 0 or cr >= H or cc < 0 or cc >= W:\n                        continue\n                    if visited[cr][cc] or grid[cr][cc] != 4:\n                        continue\n                    visited[cr][cc] = True\n                    comp.append((cr, cc))\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        stack.append((cr + dr, cc + dc))\n                cups.append(comp)\n\n    # For each cup, find bounding box and opening direction\n    cup_info = []\n    for comp in cups:\n        rmin = min(r for r, c in comp)\n        rmax = max(r for r, c in comp)\n        cmin = min(c for r, c in comp)\n        cmax = max(c for r, c in comp)\n        # Determine opening direction: which side has no 4 wall\n        # Top row has wall if all cells in top row of bbox are 4\n        top_full = all((rmin, c) in set(comp) for c in range(cmin, cmax + 1))\n        bot_full = all((rmax, c) in set(comp) for c in range(cmin, cmax + 1))\n        left_full = all((r, cmin) in set(comp) for r in range(rmin, rmax + 1))\n        right_full = all((r, cmax) in set(comp) for r in range(rmin, rmax + 1))\n        # opening = side that is NOT full\n        if not top_full:\n            opening = 'up'\n        elif not bot_full:\n            opening = 'down'\n        elif not left_full:\n            opening = 'left'\n        elif not right_full:\n            opening = 'right'\n        else:\n            opening = None\n        cup_info.append({\n            'comp': comp,\n            'rmin': rmin, 'rmax': rmax,\n            'cmin': cmin, 'cmax': cmax,\n            'opening': opening,\n        })\n\n    # Determine which cup is \"far\" from the shape (target cup)\n    shape_cr = (sr_min + sr_max) / 2\n    shape_cc = (sc_min + sc_max) / 2\n\n    def cup_dist(cup):\n        cr = (cup['rmin'] + cup['rmax']) / 2\n        cc = (cup['cmin'] + cup['cmax']) / 2\n        return abs(cr - shape_cr) + abs(cc - shape_cc)\n\n    cup_info.sort(key=cup_dist)\n    # near = cup_info[0], far = cup_info[1]\n    target = cup_info[-1]\n\n    # Remove the shape from output\n    for r, c, v in shape_cells:\n        grid[r][c] = 7\n\n    # Determine placement based on cup opening direction\n    rmin, rmax = target['rmin'], target['rmax']\n    cmin, cmax = target['cmin'], target['cmax']\n    opening = target['opening']\n\n    if opening == 'down':\n        # Interior columns are cmin+1 .. cmax-1\n        # Place shape at far end (bottom of grid)\n        place_r0 = H - shape_h\n        # Center within interior cols\n        interior_cmin = cmin + 1\n        interior_cmax = cmax - 1\n        interior_w = interior_cmax - interior_cmin + 1\n        place_c0 = interior_cmin + (interior_w - shape_w) // 2\n    elif opening == 'up':\n        place_r0 = 0\n        interior_cmin = cmin + 1\n        interior_cmax = cmax - 1\n        interior_w = interior_cmax - interior_cmin + 1\n        place_c0 = interior_cmin + (interior_w - shape_w) // 2\n    elif opening == 'right':\n        place_c0 = W - shape_w\n        interior_rmin = rmin + 1\n        interior_rmax = rmax - 1\n        interior_h = interior_rmax - interior_rmin + 1\n        place_r0 = interior_rmin + (interior_h - shape_h) // 2\n    elif opening == 'left':\n        place_c0 = 0\n        interior_rmin = rmin + 1\n        interior_rmax = rmax - 1\n        interior_h = interior_rmax - interior_rmin + 1\n        place_r0 = interior_rmin + (interior_h - shape_h) // 2\n    else:\n        place_r0, place_c0 = sr_min, sc_min\n\n    for dr, dc in shape_offsets:\n        rr = place_r0 + dr\n        cc = place_c0 + dc\n        if 0 <= rr < H and 0 <= cc < W:\n            grid[rr][cc] = shape_color\n\n    return grid\n",
+      "source": "claude_agent_batch_030_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

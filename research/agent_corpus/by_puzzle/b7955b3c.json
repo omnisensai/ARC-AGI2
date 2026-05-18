@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "b7955b3c",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Determine background color: most common color\n    counts = Counter()\n    for r in range(H):\n        for c in range(W):\n            counts[input_grid[r][c]] += 1\n    bg = counts.most_common(1)[0][0]\n\n    NOISE = 8\n\n    # Collect cells per color (excluding bg and noise)\n    color_cells = {}\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v == bg or v == NOISE:\n                continue\n            color_cells.setdefault(v, []).append((r, c))\n\n    # Compute bounding box per color\n    bboxes = {}\n    for col, cells in color_cells.items():\n        rs = [p[0] for p in cells]\n        cs = [p[1] for p in cells]\n        bboxes[col] = (min(rs), max(rs), min(cs), max(cs))\n\n    # Build output\n    output = [[bg] * W for _ in range(H)]\n\n    for r in range(H):\n        for c in range(W):\n            # Find rectangles whose bbox covers (r,c)\n            candidates = []\n            for col, (r1, r2, c1, c2) in bboxes.items():\n                if r1 <= r <= r2 and c1 <= c <= c2:\n                    candidates.append(col)\n            if not candidates:\n                output[r][c] = bg\n            elif len(candidates) == 1:\n                output[r][c] = candidates[0]\n            else:\n                # Compute intersection of all candidate bboxes\n                ir1 = max(bboxes[col][0] for col in candidates)\n                ir2 = min(bboxes[col][1] for col in candidates)\n                ic1 = max(bboxes[col][2] for col in candidates)\n                ic2 = min(bboxes[col][3] for col in candidates)\n                # Count visible cells of each candidate color in intersection\n                best_col = candidates[0]\n                best_count = -1\n                for col in candidates:\n                    cnt = 0\n                    for rr in range(ir1, ir2 + 1):\n                        for cc in range(ic1, ic2 + 1):\n                            if input_grid[rr][cc] == col:\n                                cnt += 1\n                    if cnt > best_count:\n                        best_count = cnt\n                        best_col = col\n                output[r][c] = best_col\n\n    return output\n",
+      "source": "claude_agent_batch_028_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
