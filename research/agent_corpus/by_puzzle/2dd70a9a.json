@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "2dd70a9a",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    twos = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 2]\n    threes = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 3]\n\n    def line_info(pair):\n        (r1, c1), (r2, c2) = pair\n        if r1 == r2:\n            return 'h', r1, (min(c1, c2), max(c1, c2))\n        else:\n            return 'v', c1, (min(r1, r2), max(r1, r2))\n\n    three_orient, three_fixed, (three_lo, three_hi) = line_info(threes)\n    two_orient, two_fixed, (two_lo, two_hi) = line_info(twos)\n\n    def try_extend_three(direction):\n        orient, sign = direction\n        if orient != three_orient:\n            return None\n        if orient == 'h':\n            tip_col = three_hi if sign == 1 else three_lo\n            dr, dc = 0, sign\n            r, c = three_fixed, tip_col\n        else:\n            tip_row = three_hi if sign == 1 else three_lo\n            dr, dc = sign, 0\n            r, c = tip_row, three_fixed\n\n        last_r, last_c = r, c\n        steps = 0\n        while True:\n            nr, nc = r + dr, c + dc\n            if not (0 <= nr < H and 0 <= nc < W):\n                break\n            if input_grid[nr][nc] != 0:\n                break\n            r, c = nr, nc\n            last_r, last_c = r, c\n            steps += 1\n\n        if steps == 0:\n            return None\n\n        corner_r, corner_c = last_r, last_c\n\n        if orient == 'h':\n            if two_orient == 'h':\n                target_r = two_fixed\n            else:\n                if corner_r < two_lo:\n                    target_r = two_lo\n                elif corner_r > two_hi:\n                    target_r = two_hi\n                else:\n                    target_r = corner_r\n            if target_r == corner_r:\n                return None\n            pdr = 1 if target_r > corner_r else -1\n            r, c = corner_r, corner_c\n            while r != target_r:\n                r += pdr\n                if input_grid[r][c] != 0 and input_grid[r][c] != 2:\n                    return None\n            meet_r, meet_c = target_r, corner_c\n        else:\n            if two_orient == 'v':\n                target_c = two_fixed\n            else:\n                if corner_c < two_lo:\n                    target_c = two_lo\n                elif corner_c > two_hi:\n                    target_c = two_hi\n                else:\n                    target_c = corner_c\n            if target_c == corner_c:\n                return None\n            pdc = 1 if target_c > corner_c else -1\n            r, c = corner_r, corner_c\n            while c != target_c:\n                c += pdc\n                if input_grid[r][c] != 0 and input_grid[r][c] != 2:\n                    return None\n            meet_r, meet_c = corner_r, target_c\n\n        if two_orient == 'h':\n            if meet_c > two_hi:\n                two_tip = (two_fixed, two_hi)\n                tdr, tdc = 0, 1\n            elif meet_c < two_lo:\n                two_tip = (two_fixed, two_lo)\n                tdr, tdc = 0, -1\n            else:\n                return None\n            r, c = two_tip\n            while (r, c) != (meet_r, meet_c):\n                r += tdr\n                c += tdc\n                if not (0 <= r < H and 0 <= c < W):\n                    return None\n                if input_grid[r][c] != 0:\n                    return None\n        else:\n            if meet_r > two_hi:\n                two_tip = (two_hi, two_fixed)\n                tdr, tdc = 1, 0\n            elif meet_r < two_lo:\n                two_tip = (two_lo, two_fixed)\n                tdr, tdc = -1, 0\n            else:\n                return None\n            r, c = two_tip\n            while (r, c) != (meet_r, meet_c):\n                r += tdr\n                c += tdc\n                if not (0 <= r < H and 0 <= c < W):\n                    return None\n                if input_grid[r][c] != 0:\n                    return None\n\n        cells_three = []\n        if orient == 'h':\n            r, c = three_fixed, tip_col\n        else:\n            r, c = tip_row, three_fixed\n        while (r, c) != (corner_r, corner_c):\n            r += dr\n            c += dc\n            cells_three.append((r, c))\n\n        if orient == 'h':\n            r, c = corner_r, corner_c\n            while (r, c) != (meet_r, meet_c):\n                r += pdr\n                cells_three.append((r, c))\n        else:\n            r, c = corner_r, corner_c\n            while (r, c) != (meet_r, meet_c):\n                c += pdc\n                cells_three.append((r, c))\n\n        if two_orient == 'h':\n            r, c = two_tip\n            while (r, c) != (meet_r, meet_c):\n                r += tdr\n                c += tdc\n                if (r, c) != (meet_r, meet_c):\n                    cells_three.append((r, c))\n        else:\n            r, c = two_tip\n            while (r, c) != (meet_r, meet_c):\n                r += tdr\n                c += tdc\n                if (r, c) != (meet_r, meet_c):\n                    cells_three.append((r, c))\n\n        return cells_three\n\n    valid = []\n    for direction in [('h', 1), ('h', -1), ('v', 1), ('v', -1)]:\n        cells = try_extend_three(direction)\n        if cells is not None:\n            valid.append((direction, cells))\n\n    chosen = None\n    if len(valid) == 1:\n        chosen = valid[0]\n    elif len(valid) > 1:\n        if three_orient == 'h':\n            two_center_along = (two_lo + two_hi) / 2 if two_orient == 'h' else two_fixed\n        else:\n            two_center_along = (two_lo + two_hi) / 2 if two_orient == 'v' else two_fixed\n        three_center_along = (three_lo + three_hi) / 2\n        if two_center_along > three_center_along:\n            preferred_sign = 1\n        elif two_center_along < three_center_along:\n            preferred_sign = -1\n        else:\n            preferred_sign = 0\n        for d, cells in valid:\n            if d[1] == preferred_sign:\n                chosen = (d, cells)\n                break\n        if chosen is None:\n            chosen = valid[0]\n\n    grid = [row[:] for row in input_grid]\n    if chosen is not None:\n        for r, c in chosen[1]:\n            grid[r][c] = 3\n\n    return grid\n",
+      "source": "claude_agent_batch_055_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

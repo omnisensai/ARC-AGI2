@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "9d9215db",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    out = [[0] * W for _ in range(H)]\n    # H and W expected to be 19; centers of mirroring are at (H-1)/2, (W-1)/2\n    R = H - 1  # 18\n    C = W - 1  # 18\n\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v == 0:\n                continue\n            # Determine the ring k = min(r, R-r, c, C-c)\n            k = min(r, R - r, c, C - c)\n            # The ring's corners are at (k,k),(k,C-k),(R-k,k),(R-k,C-k)\n            r_extreme = (r == k or r == R - k)\n            c_extreme = (c == k or c == C - k)\n\n            if r_extreme and c_extreme:\n                # Corner: place value at all 4 corners of ring k\n                for rr in (k, R - k):\n                    for cc in (k, C - k):\n                        out[rr][cc] = v\n            elif r_extreme:\n                # Top or bottom edge of ring k: fill both top and bottom edges\n                # between corner columns k and C-k (exclusive of corners)\n                for rr in (k, R - k):\n                    cc = k + 2\n                    while cc <= C - k - 2:\n                        out[rr][cc] = v\n                        cc += 2\n            elif c_extreme:\n                # Left or right edge of ring k: fill both left and right edges\n                for cc in (k, C - k):\n                    rr = k + 2\n                    while rr <= R - k - 2:\n                        out[rr][cc] = v\n                        rr += 2\n            else:\n                # Interior cell (shouldn't happen for these puzzles, but place at all 4 mirrored positions)\n                for rr in (r, R - r):\n                    for cc in (c, C - c):\n                        out[rr][cc] = v\n\n    return out\n",
+      "source": "claude_agent_batch_056_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

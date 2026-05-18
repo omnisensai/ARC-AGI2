@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "da515329",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find all 8 cells (which form a \"+\"-shape cross)\n    eights = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 8]\n    if not eights:\n        return [row[:] for row in input_grid]\n\n    rows = [r for r, c in eights]\n    cols = [c for r, c in eights]\n    min_r, max_r = min(rows), max(rows)\n    min_c, max_c = min(cols), max(cols)\n    cr = (min_r + max_r) // 2\n    cc = (min_c + max_c) // 2\n    L = (max_r - min_r) // 2  # arm length\n\n    def cw(d):\n        return (d[1], -d[0])\n\n    def make_spiral(init_dir):\n        cells = []\n        pos = [cr + init_dir[0], cc + init_dir[1]]\n\n        def add_if_inside():\n            if 0 <= pos[0] < H and 0 <= pos[1] < W:\n                cells.append((pos[0], pos[1]))\n\n        add_if_inside()\n\n        def step(dd, n):\n            for _ in range(n):\n                pos[0] += dd[0]\n                pos[1] += dd[1]\n                add_if_inside()\n\n        d = init_dir\n        first_len = max(L - 1, 1)\n        step(d, first_len)\n\n        # Compute a safe upper bound for number of rings needed.\n        max_rings = (H + W) * 2\n\n        if L <= 2:\n            d = cw(d)\n            ln = 4\n            for _ in range(max_rings):\n                step(d, ln)\n                d = cw(d)\n                ln += 4\n        else:\n            d = cw(d)\n            step(d, 2)\n            ln = 6\n            for _ in range(max_rings):\n                d2 = cw(d)\n                step(d2, L - 2)\n                step(d, L)\n                d = cw(d)\n                step(d, ln)\n                ln += 4\n        return cells\n\n    grid = [[0] * W for _ in range(H)]\n    for init_dir in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n        for r, c in make_spiral(init_dir):\n            grid[r][c] = 8\n    return grid\n",
+      "source": "claude_agent_batch_051_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
