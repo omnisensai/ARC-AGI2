@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "85fa5666",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    out = [row[:] for row in input_grid]\n\n    # Find 2x2 blocks of 2s\n    blocks = []\n    for r in range(H - 1):\n        for c in range(W - 1):\n            if (input_grid[r][c] == 2 and input_grid[r][c + 1] == 2\n                    and input_grid[r + 1][c] == 2 and input_grid[r + 1][c + 1] == 2):\n                blocks.append((r, c))\n\n    # Collect 2-cells (obstacles for rays)\n    twos = set()\n    for (r, c) in blocks:\n        for dr in range(2):\n            for dc in range(2):\n                twos.add((r + dr, c + dc))\n\n    # Compute new corners via CW rotation of the four corner colors around each block\n    new_corners = {}\n    corner_block = {}\n    for (r, c) in blocks:\n        tl_p = (r - 1, c - 1)\n        tr_p = (r - 1, c + 2)\n        bl_p = (r + 2, c - 1)\n        br_p = (r + 2, c + 2)\n        tl = input_grid[tl_p[0]][tl_p[1]]\n        tr = input_grid[tr_p[0]][tr_p[1]]\n        bl = input_grid[bl_p[0]][bl_p[1]]\n        br = input_grid[br_p[0]][br_p[1]]\n        # CW rotation: new TL = old BL, new TR = old TL, new BR = old TR, new BL = old BR\n        new_corners[tl_p] = bl\n        new_corners[tr_p] = tl\n        new_corners[bl_p] = br\n        new_corners[br_p] = tr\n        for p in [tl_p, tr_p, bl_p, br_p]:\n            corner_block[p] = (r, c)\n\n    # Clear original corner cells, then place new corners\n    for p in new_corners:\n        out[p[0]][p[1]] = 0\n    for p, v in new_corners.items():\n        out[p[0]][p[1]] = v\n\n    # Emit diagonal rays outward from each new corner\n    for (r, c) in blocks:\n        tl_p = (r - 1, c - 1)\n        tr_p = (r - 1, c + 2)\n        bl_p = (r + 2, c - 1)\n        br_p = (r + 2, c + 2)\n        for (start, dr, dc) in [(tl_p, -1, -1), (tr_p, -1, 1),\n                                (bl_p, 1, -1), (br_p, 1, 1)]:\n            color = new_corners[start]\n            rr, cc = start[0] + dr, start[1] + dc\n            while 0 <= rr < H and 0 <= cc < W and (rr, cc) not in twos:\n                if out[rr][cc] == 0:\n                    out[rr][cc] = color\n                # Stop if orthogonally adjacent to a same-colored new corner\n                # belonging to a DIFFERENT block, but only when the ray would\n                # otherwise extend at least two more cells.\n                stop = False\n                for ddr, ddc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                    nr, nc = rr + ddr, cc + ddc\n                    if ((nr, nc) in new_corners\n                            and new_corners[(nr, nc)] == color\n                            and corner_block.get((nr, nc)) != (r, c)):\n                        nrr, ncc = rr + dr, cc + dc\n                        nrr2, ncc2 = rr + 2 * dr, cc + 2 * dc\n                        next_in = (0 <= nrr < H and 0 <= ncc < W\n                                   and (nrr, ncc) not in twos)\n                        next2_in = (0 <= nrr2 < H and 0 <= ncc2 < W\n                                    and (nrr2, ncc2) not in twos)\n                        if next_in and next2_in:\n                            stop = True\n                if stop:\n                    break\n                rr += dr\n                cc += dc\n\n    return out\n",
+      "source": "claude_agent_batch_023_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
