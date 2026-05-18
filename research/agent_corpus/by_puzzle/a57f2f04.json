@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "a57f2f04",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    BG = 8\n    # Deep copy\n    out = [row[:] for row in input_grid]\n\n    visited = [[False] * W for _ in range(H)]\n\n    def find_rect(sr, sc):\n        # BFS/flood-fill over all non-BG cells (connected by 4-adjacency)\n        stack = [(sr, sc)]\n        cells = []\n        visited[sr][sc] = True\n        while stack:\n            r, c = stack.pop()\n            cells.append((r, c))\n            for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < H and 0 <= nc < W and not visited[nr][nc] and input_grid[nr][nc] != BG:\n                    visited[nr][nc] = True\n                    stack.append((nr, nc))\n        return cells\n\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] != BG and not visited[r][c]:\n                cells = find_rect(r, c)\n                rmin = min(rc[0] for rc in cells)\n                rmax = max(rc[0] for rc in cells)\n                cmin = min(rc[1] for rc in cells)\n                cmax = max(rc[1] for rc in cells)\n                # Find the foreground color (non-0, non-BG)\n                fg = None\n                for (rr, cc) in cells:\n                    v = input_grid[rr][cc]\n                    if v != 0 and v != BG:\n                        fg = v\n                        break\n                if fg is None:\n                    continue\n                # Find bbox of fg cells within rect\n                fg_cells = [(rr, cc) for (rr, cc) in cells if input_grid[rr][cc] == fg]\n                fr_min = min(rc[0] for rc in fg_cells)\n                fr_max = max(rc[0] for rc in fg_cells)\n                fc_min = min(rc[1] for rc in fg_cells)\n                fc_max = max(rc[1] for rc in fg_cells)\n                # Extract seed pattern\n                th = fr_max - fr_min + 1\n                tw = fc_max - fc_min + 1\n                seed = [[input_grid[fr_min + i][fc_min + j] for j in range(tw)] for i in range(th)]\n                # Tile the seed across rect [rmin..rmax] x [cmin..cmax]\n                rh = rmax - rmin + 1\n                rw = cmax - cmin + 1\n                for i in range(rh):\n                    for j in range(rw):\n                        out[rmin + i][cmin + j] = seed[i % th][j % tw]\n    return out\n",
+      "source": "claude_agent_batch_051_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

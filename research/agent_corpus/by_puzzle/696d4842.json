@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "696d4842",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find all non-zero cells, group by color\n    from collections import defaultdict\n    cells_by_color = defaultdict(list)\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != 0:\n                cells_by_color[grid[r][c]].append((r, c))\n\n    # Separate markers (single cells) from shapes (multi-cell)\n    markers = {}  # color -> (r, c)\n    shapes = {}  # color -> list of cells\n    for color, cells in cells_by_color.items():\n        if len(cells) == 1:\n            markers[color] = cells[0]\n        else:\n            shapes[color] = cells\n\n    # For each shape, find its path (ordered list of cells from one endpoint to other)\n    def find_path(cells):\n        cell_set = set(cells)\n        # Find endpoints: cells with exactly 1 neighbor\n        def neighbors(r, c):\n            result = []\n            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                if (r+dr, c+dc) in cell_set:\n                    result.append((r+dr, c+dc))\n            return result\n\n        endpoints = [cell for cell in cells if len(neighbors(*cell)) == 1]\n        # Start from one endpoint and traverse\n        if len(endpoints) < 2:\n            # Could be a closed shape, but unlikely here\n            endpoints = [cells[0]]\n        start = endpoints[0]\n        path = [start]\n        prev = None\n        cur = start\n        while True:\n            nbrs = [n for n in neighbors(*cur) if n != prev]\n            if not nbrs:\n                break\n            nxt = nbrs[0]\n            path.append(nxt)\n            prev = cur\n            cur = nxt\n        return path\n\n    # For each shape, find which marker aligns with one of its endpoints\n    # A marker aligns if it's in the same row or column as an endpoint,\n    # and the direction from the endpoint to the marker is the direction\n    # the path comes from at that endpoint (extending the segment).\n\n    for color, cells in shapes.items():\n        path = find_path(cells)\n        if len(path) < 2:\n            continue\n        # Two endpoints\n        ep1, ep2 = path[0], path[-1]\n        # Direction at endpoint: from second-cell to endpoint (extension direction)\n        # ep1's segment direction: ep1 - path[1]\n        def seg_dir(ep, nxt):\n            return (ep[0] - nxt[0], ep[1] - nxt[1])\n\n        dir1 = seg_dir(ep1, path[1])\n        dir2 = seg_dir(ep2, path[-2])\n\n        # Find marker aligned with ep1's segment direction or ep2's\n        chosen_marker = None\n        chosen_ep = None\n        chosen_dir = None\n        chosen_other_ep = None\n        for mcolor, (mr, mc) in markers.items():\n            for ep, d, other_ep in [(ep1, dir1, ep2), (ep2, dir2, ep1)]:\n                er, ec = ep\n                dr, dc = d\n                # Check marker is in line with ep going direction d\n                if dr == 0:\n                    # horizontal direction\n                    if mr == er and dc != 0:\n                        # marker must be in direction dc from ep\n                        if (mc - ec) * dc > 0:\n                            chosen_marker = mcolor\n                            chosen_ep = ep\n                            chosen_dir = d\n                            chosen_other_ep = other_ep\n                            break\n                elif dc == 0:\n                    # vertical direction\n                    if mc == ec and dr != 0:\n                        if (mr - er) * dr > 0:\n                            chosen_marker = mcolor\n                            chosen_ep = ep\n                            chosen_dir = d\n                            chosen_other_ep = other_ep\n                            break\n            if chosen_marker is not None:\n                break\n\n        if chosen_marker is None:\n            continue\n\n        # Extend from chosen_ep in chosen_dir until reaching cell before marker\n        mr, mc = markers[chosen_marker]\n        er, ec = chosen_ep\n        dr, dc = chosen_dir\n        # Cells from (er+dr, ec+dc) up to but not including (mr, mc)\n        new_cells = 0\n        cur_r, cur_c = er + dr, ec + dc\n        while (cur_r, cur_c) != (mr, mc):\n            grid[cur_r][cur_c] = color\n            new_cells += 1\n            cur_r += dr\n            cur_c += dc\n        # The marker cell stays its color (already is)\n\n        # Recolor N cells along path starting from other_ep\n        # Find the path order: start from chosen_other_ep\n        if path[0] == chosen_other_ep:\n            recolor_path = path\n        else:\n            recolor_path = path[::-1]\n        for i in range(min(new_cells, len(recolor_path))):\n            r, c = recolor_path[i]\n            grid[r][c] = chosen_marker\n\n    return grid\n",
+      "source": "claude_agent_batch_051_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

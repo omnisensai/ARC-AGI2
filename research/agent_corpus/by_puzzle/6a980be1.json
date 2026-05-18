@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "6a980be1",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    g = [row[:] for row in input_grid]\n\n    # Determine border color B (corners)\n    B = g[0][0]\n\n    # Find lines (rows/cols) that are entirely 3 in the inner region\n    rows_with_3line = []\n    for r in range(H):\n        inner = [g[r][c] for c in range(W) if g[r][c] != B]\n        if len(inner) > 0 and all(v == 3 for v in inner):\n            rows_with_3line.append(r)\n    cols_with_3line = []\n    for c in range(W):\n        inner = [g[r][c] for r in range(H) if g[r][c] != B]\n        if len(inner) > 0 and all(v == 3 for v in inner):\n            cols_with_3line.append(c)\n\n    def find_period(pattern):\n        n = len(pattern)\n        for p in range(1, n + 1):\n            ok = True\n            for i in range(n):\n                if pattern[i] != pattern[i % p]:\n                    ok = False\n                    break\n            if ok:\n                return p\n        return n\n\n    out = [[0] * W for _ in range(H)]\n\n    if len(rows_with_3line) == 2:\n        # Horizontal strip\n        r1, r2 = rows_with_3line\n        inner_rows = list(range(r1 + 1, r2))\n        # Determine inner column range (between borders)\n        inner_cols_range = [c for c in range(W) if g[r1][c] == 3]\n        # Actually, in inner cols: any column in inner_cols_range\n        # For each inner col, gather inner-row values (could be 2 or 0)\n        # Determine col pattern: for col c in inner range, is it 2-col?\n        c_start = min(inner_cols_range)\n        c_end = max(inner_cols_range)\n        # Build pattern across inner cols\n        pattern = []\n        for c in range(c_start, c_end + 1):\n            vals = [g[r][c] for r in inner_rows]\n            pattern.append(1 if any(v == 2 for v in vals) else 0)\n        period = find_period(pattern)\n        # Map each output column c to is_two\n        # Use anchor c_start: offset = (c - c_start) mod period\n        def col_is_two(c):\n            offset = (c - c_start) % period\n            return pattern[offset] == 1\n\n        for r in range(H):\n            for c in range(W):\n                if r == r1 or r == r2:\n                    out[r][c] = 3\n                elif r1 < r < r2:\n                    out[r][c] = 2 if col_is_two(c) else 0\n                else:\n                    out[r][c] = B if col_is_two(c) else 0\n    elif len(cols_with_3line) == 2:\n        # Vertical strip\n        c1, c2 = cols_with_3line\n        inner_cols = list(range(c1 + 1, c2))\n        inner_rows_range = [r for r in range(H) if g[r][c1] == 3]\n        r_start = min(inner_rows_range)\n        r_end = max(inner_rows_range)\n        pattern = []\n        for r in range(r_start, r_end + 1):\n            vals = [g[r][c] for c in inner_cols]\n            pattern.append(1 if any(v == 2 for v in vals) else 0)\n        period = find_period(pattern)\n        def row_is_two(r):\n            offset = (r - r_start) % period\n            return pattern[offset] == 1\n\n        for r in range(H):\n            for c in range(W):\n                if c == c1 or c == c2:\n                    out[r][c] = 3\n                elif c1 < c < c2:\n                    out[r][c] = 2 if row_is_two(r) else 0\n                else:\n                    out[r][c] = B if row_is_two(r) else 0\n\n    return out\n",
+      "source": "claude_agent_batch_051_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

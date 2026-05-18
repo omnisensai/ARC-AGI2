@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "bd14c3bf",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    def get_components(color):\n        seen = [[False] * W for _ in range(H)]\n        comps = []\n        for i in range(H):\n            for j in range(W):\n                if grid[i][j] == color and not seen[i][j]:\n                    stack = [(i, j)]\n                    seen[i][j] = True\n                    comp = []\n                    while stack:\n                        x, y = stack.pop()\n                        comp.append((x, y))\n                        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                            nx, ny = x + dx, y + dy\n                            if 0 <= nx < H and 0 <= ny < W and grid[nx][ny] == color and not seen[nx][ny]:\n                                seen[nx][ny] = True\n                                stack.append((nx, ny))\n                    comps.append(comp)\n        return comps\n\n    def analyze(cells):\n        rs = [c[0] for c in cells]\n        cs = [c[1] for c in cells]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        cset = set(cells)\n        zero_seen = set()\n        interior_count = 0\n        border_count = 0\n        for i in range(r0, r1 + 1):\n            for j in range(c0, c1 + 1):\n                if (i, j) in cset:\n                    continue\n                if (i, j) in zero_seen:\n                    continue\n                stack = [(i, j)]\n                zero_seen.add((i, j))\n                touches_border = False\n                while stack:\n                    x, y = stack.pop()\n                    if x == r0 or x == r1 or y == c0 or y == c1:\n                        touches_border = True\n                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        nx, ny = x + dx, y + dy\n                        if r0 <= nx <= r1 and c0 <= ny <= c1 and (nx, ny) not in cset and (nx, ny) not in zero_seen:\n                            zero_seen.add((nx, ny))\n                            stack.append((nx, ny))\n                if touches_border:\n                    border_count += 1\n                else:\n                    interior_count += 1\n        return interior_count, border_count\n\n    two_comps = get_components(2)\n    if not two_comps:\n        return grid\n    template_cells = []\n    for c in two_comps:\n        template_cells.extend(c)\n    t_int, t_bord = analyze(template_cells)\n\n    one_comps = get_components(1)\n    for comp in one_comps:\n        c_int, c_bord = analyze(comp)\n        if c_int == t_int and c_bord == t_bord:\n            for (x, y) in comp:\n                grid[x][y] = 2\n    return grid\n",
+      "source": "claude_agent_batch_051_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

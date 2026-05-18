@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "e681b708",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import Counter, deque\n\n\ndef solve(input_grid):\n    H, W = len(input_grid), len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # 1. Detect horizontal lines: long runs (>=5) of non-zero cells in a row\n    h_lines = []\n    for r in range(H):\n        c = 0\n        while c < W:\n            if grid[r][c] != 0:\n                c0 = c\n                while c < W and grid[r][c] != 0:\n                    c += 1\n                c1 = c - 1\n                if c1 - c0 + 1 >= 5:\n                    h_lines.append((r, c0, c1))\n            else:\n                c += 1\n\n    # 2. Detect vertical lines similarly\n    v_lines = []\n    for c in range(W):\n        r = 0\n        while r < H:\n            if grid[r][c] != 0:\n                r0 = r\n                while r < H and grid[r][c] != 0:\n                    r += 1\n                r1 = r - 1\n                if r1 - r0 + 1 >= 5:\n                    v_lines.append((c, r0, r1))\n            else:\n                r += 1\n\n    # 3. Build wall map\n    is_wall = [[False] * W for _ in range(H)]\n    for (r, c0, c1) in h_lines:\n        for c in range(c0, c1 + 1):\n            is_wall[r][c] = True\n    for (c, r0, r1) in v_lines:\n        for r in range(r0, r1 + 1):\n            is_wall[r][c] = True\n\n    # 4. Flood-fill regions of non-wall cells\n    region_id = [[-1] * W for _ in range(H)]\n    regions = []\n    rid = 0\n    for r in range(H):\n        for c in range(W):\n            if not is_wall[r][c] and region_id[r][c] == -1:\n                cells = []\n                q = deque([(r, c)])\n                region_id[r][c] = rid\n                while q:\n                    rr, cc = q.popleft()\n                    cells.append((rr, cc))\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        nr, nc = rr + dr, cc + dc\n                        if 0 <= nr < H and 0 <= nc < W and not is_wall[nr][nc] and region_id[nr][nc] == -1:\n                            region_id[nr][nc] = rid\n                            q.append((nr, nc))\n                regions.append(cells)\n                rid += 1\n\n    # 5. Collect special markers (non-0, non-1 cells)\n    specials = {}\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] not in (0, 1):\n                specials[(r, c)] = grid[r][c]\n\n    out = [row[:] for row in input_grid]\n\n    # 6. For each region: bounding box, find specials on perimeter, take majority, recolor 1s\n    for cells in regions:\n        rmin = min(r for r, _ in cells)\n        rmax = max(r for r, _ in cells)\n        cmin = min(c for _, c in cells)\n        cmax = max(c for _, c in cells)\n        r0 = rmin - 1 if rmin > 0 else 0\n        r1 = rmax + 1 if rmax < H - 1 else H - 1\n        c0 = cmin - 1 if cmin > 0 else 0\n        c1 = cmax + 1 if cmax < W - 1 else W - 1\n\n        perim_colors = []\n        for (sr, sc), v in specials.items():\n            on_top = (sr == r0) and (c0 <= sc <= c1)\n            on_bot = (sr == r1) and (c0 <= sc <= c1)\n            on_left = (sc == c0) and (r0 <= sr <= r1)\n            on_right = (sc == c1) and (r0 <= sr <= r1)\n            if on_top or on_bot or on_left or on_right:\n                perim_colors.append(v)\n\n        if perim_colors:\n            cnt = Counter(perim_colors)\n            color = cnt.most_common(1)[0][0]\n            for (r, c) in cells:\n                if input_grid[r][c] == 1:\n                    out[r][c] = color\n\n    return out\n",
+      "source": "claude_agent_batch_051_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
