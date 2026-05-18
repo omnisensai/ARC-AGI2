@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "84551f4c",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find vertical lines: for each column, find consecutive non-zero cells\n    # Each line: (col, color, length, top_row)\n    lines = []\n    for c in range(W):\n        # collect non-zero cells in this column\n        cells = [r for r in range(H) if input_grid[r][c] != 0]\n        if not cells:\n            continue\n        color = input_grid[cells[0]][c]\n        length = len(cells)\n        top = cells[0]\n        lines.append({'col': c, 'color': color, 'length': length, 'top': top})\n    # Sort by column\n    lines.sort(key=lambda x: x['col'])\n    # Determine which lines fall\n    # Rule: a 1-color line always falls. A 2-color line falls only if previous line\n    # in order fell and its fall reaches/touches this line's column.\n    prev_end = -2  # end column of previous fall (inclusive)\n    prev_fell = False\n    for line in lines:\n        if line['color'] == 1:\n            line['falls'] = True\n        else:\n            if prev_fell and prev_end + 1 >= line['col']:\n                line['falls'] = True\n            else:\n                line['falls'] = False\n        if line['falls']:\n            prev_end = line['col'] + line['length'] - 1\n            prev_fell = True\n        else:\n            prev_fell = False\n    # Build output\n    out = [[0] * W for _ in range(H)]\n    for line in lines:\n        if line['falls']:\n            # horizontal at bottom row\n            for k in range(line['length']):\n                out[H - 1][line['col'] + k] = line['color']\n        else:\n            # vertical stays as-is\n            for r in range(line['top'], line['top'] + line['length']):\n                out[r][line['col']] = line['color']\n    return out\n",
+      "source": "claude_agent_batch_039_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
