@@ -266,7 +266,8 @@ def main():
     ap.add_argument("--workers", type=int, default=5)
     ap.add_argument("--temperature", type=float, default=0.7)
     ap.add_argument("--splits", default="splits/baseline_qwen_run.json")
-    ap.add_argument("--puzzle-dir", default="data/training")
+    ap.add_argument("--puzzle-dir", default=None,
+                    help="Single source dir. If omitted, search all of data/arc1_train, data/arc1_eval, data/arc2_train.")
     ap.add_argument("--mode", default="raw", choices=["raw"])
     args = ap.parse_args()
 
@@ -283,11 +284,26 @@ def main():
         "workers": args.workers, "splits": args.splits, "puzzle_ids": puzzle_ids,
     }, indent=2))
 
+    search_dirs = [Path(args.puzzle_dir)] if args.puzzle_dir else [
+        Path("data/arc1_train"), Path("data/arc1_eval"), Path("data/arc2_train")
+    ]
+
     tasks = []
+    missing = []
     for pid in puzzle_ids:
-        puzzle = json.loads(Path(args.puzzle_dir, f"{pid}.json").read_text())
+        puzzle = None
+        for d in search_dirs:
+            f = d / f"{pid}.json"
+            if f.exists():
+                puzzle = json.loads(f.read_text())
+                break
+        if puzzle is None:
+            missing.append(pid)
+            continue
         for run_idx in range(args.runs):
             tasks.append((pid, puzzle, run_idx))
+    if missing:
+        print(f"WARN: {len(missing)} puzzles not found in search dirs: {missing[:5]}...")
 
     print(f"[{ts}] {len(puzzle_ids)} puzzles x {args.runs} runs = {len(tasks)} tasks, "
           f"{args.workers} workers, model={args.model}")
