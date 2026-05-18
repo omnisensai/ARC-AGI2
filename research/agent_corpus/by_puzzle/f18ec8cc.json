@@ -1,0 +1,60 @@
+{
+  "puzzle_id": "f18ec8cc",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 5,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    h = len(input_grid)\n    w = len(input_grid[0])\n    # Determine background color of each column (majority)\n    col_bg = []\n    for c in range(w):\n        cnt = Counter(input_grid[r][c] for r in range(h))\n        col_bg.append(cnt.most_common(1)[0][0])\n    # Group columns into regions by contiguous bg color\n    regions = []\n    start = 0\n    cur = col_bg[0]\n    for c in range(1, w):\n        if col_bg[c] != cur:\n            regions.append((start, c, cur))\n            start = c\n            cur = col_bg[c]\n    regions.append((start, w, cur))\n\n    widths = [e - s for s, e, _ in regions]\n    min_w = min(widths)\n    count_min = widths.count(min_w)\n\n    # Determine new order of regions\n    if count_min == 1:\n        # Unique smallest-width region: reverse the order of regions\n        new_order = list(range(len(regions)))[::-1]\n    else:\n        # Tied smallest widths: left-rotate by 1 (leftmost goes to end)\n        new_order = list(range(1, len(regions))) + [0]\n\n    # Build output by placing the regions in the new order, preserving each\n    # region's column slice (so anomalies inside each region keep their\n    # relative position).\n    output = [[0] * w for _ in range(h)]\n    out_col = 0\n    for idx in new_order:\n        s, e, _ = regions[idx]\n        width = e - s\n        for r in range(h):\n            for k in range(width):\n                output[r][out_col + k] = input_grid[r][s + k]\n        out_col += width\n    return output\n",
+      "source": "claude_agent_batch_033_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

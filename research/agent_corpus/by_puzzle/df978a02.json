@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "df978a02",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    bg = 8\n\n    # Find all distinct colors != bg\n    colors = set()\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != bg:\n                colors.add(v)\n\n    # Collect cells per color and compute centers\n    shape_cells = {}\n    shape_centers = {}\n    for color in colors:\n        cells = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == color]\n        shape_cells[color] = cells\n        avg_r = sum(p[0] for p in cells) / len(cells)\n        avg_c = sum(p[1] for p in cells) / len(cells)\n        shape_centers[color] = (avg_r, avg_c)\n\n    # The \"central point\" is the average of shape centers\n    cr = sum(v[0] for v in shape_centers.values()) / len(shape_centers)\n    cc = sum(v[1] for v in shape_centers.values()) / len(shape_centers)\n\n    # For each shape, the tip = cell of that color closest to (cr, cc)\n    tips = {}\n    for color, cells in shape_cells.items():\n        best = None\n        best_d = None\n        for (r, c) in cells:\n            d = (r - cr) ** 2 + (c - cc) ** 2\n            if best_d is None or d < best_d:\n                best_d = d\n                best = (r, c)\n        tips[color] = best\n\n    # Identify the largest shape\n    largest_color = max(shape_cells.keys(), key=lambda k: len(shape_cells[k]))\n\n    # Build output grid (copy)\n    out = [row[:] for row in input_grid]\n\n    for color, cells in shape_cells.items():\n        tip = tips[color]\n        if color == largest_color:\n            # Keep tip, add 3-cell extension on opposite side\n            # Body = cells minus tip\n            body = [p for p in cells if p != tip]\n            tr, tc = tip\n            br = sum(p[0] for p in body) / len(body)\n            bc = sum(p[1] for p in body) / len(body)\n            # Direction from body center to tip\n            dr = tr - br\n            dc = tc - bc\n            # Determine primary direction (one of up/down/left/right)\n            if abs(dr) >= abs(dc):\n                # vertical tip\n                if dr > 0:\n                    # tip is below body; extension on top\n                    # find body's minimum row\n                    min_br = min(p[0] for p in body)\n                    new_r = min_br - 1\n                    out[new_r][tc - 1] = color\n                    out[new_r][tc] = color\n                    out[new_r][tc + 1] = color\n                else:\n                    # tip is above body; extension on bottom\n                    max_br = max(p[0] for p in body)\n                    new_r = max_br + 1\n                    out[new_r][tc - 1] = color\n                    out[new_r][tc] = color\n                    out[new_r][tc + 1] = color\n            else:\n                # horizontal tip\n                if dc > 0:\n                    # tip is to the right; extension on left\n                    min_bc = min(p[1] for p in body)\n                    new_c = min_bc - 1\n                    out[tr - 1][new_c] = color\n                    out[tr][new_c] = color\n                    out[tr + 1][new_c] = color\n                else:\n                    # tip is to the left; extension on right\n                    max_bc = max(p[1] for p in body)\n                    new_c = max_bc + 1\n                    out[tr - 1][new_c] = color\n                    out[tr][new_c] = color\n                    out[tr + 1][new_c] = color\n        else:\n            # Remove tip\n            tr, tc = tip\n            out[tr][tc] = bg\n\n    return out\n",
+      "source": "claude_agent_batch_033_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

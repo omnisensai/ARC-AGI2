@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "b7f8a4d8",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import Counter, defaultdict\n\n\ndef solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    g = [row[:] for row in input_grid]\n    out = [row[:] for row in input_grid]\n\n    counts = Counter()\n    for r in range(H):\n        for c in range(W):\n            if g[r][c] != 0:\n                counts[g[r][c]] += 1\n    frame_color = counts.most_common(1)[0][0]\n\n    interior_rows = []\n    for r in range(H):\n        for c in range(W):\n            v = g[r][c]\n            if v != 0 and v != frame_color:\n                interior_rows.append(r)\n                break\n\n    interior_cols = []\n    for c in range(W):\n        for r in range(H):\n            v = g[r][c]\n            if v != 0 and v != frame_color:\n                interior_cols.append(c)\n                break\n\n    def group_consecutive(lst):\n        groups = []\n        cur = []\n        for x in lst:\n            if not cur or x == cur[-1] + 1:\n                cur.append(x)\n            else:\n                groups.append(cur)\n                cur = [x]\n        if cur:\n            groups.append(cur)\n        return groups\n\n    row_groups = group_consecutive(interior_rows)\n    col_groups = group_consecutive(interior_cols)\n\n    nR = len(row_groups)\n    nC = len(col_groups)\n\n    centers = {}\n    for i, rg in enumerate(row_groups):\n        for j, cg in enumerate(col_groups):\n            colors = set()\n            for r in rg:\n                for c in cg:\n                    colors.add(g[r][c])\n            color = next(iter(colors))\n            centers[(i, j)] = (color, rg, cg)\n\n    interior_counts = Counter()\n    for k, (col, rg, cg) in centers.items():\n        interior_counts[col] += len(rg) * len(cg)\n    bg_interior = interior_counts.most_common(1)[0][0]\n\n    # Horizontal connections\n    for i in range(nR):\n        by_color = defaultdict(list)\n        for j in range(nC):\n            col, rg, cg = centers[(i, j)]\n            if col != bg_interior:\n                by_color[col].append(j)\n        for color, js in by_color.items():\n            if len(js) < 2:\n                continue\n            jmin, jmax = min(js), max(js)\n            for j in range(jmin, jmax):\n                left_end = col_groups[j][-1]\n                right_start = col_groups[j + 1][0]\n                for r in row_groups[i]:\n                    for c in range(left_end + 1, right_start):\n                        if out[r][c] == 0:\n                            out[r][c] = color\n\n    # Vertical connections\n    for j in range(nC):\n        by_color = defaultdict(list)\n        for i in range(nR):\n            col, rg, cg = centers[(i, j)]\n            if col != bg_interior:\n                by_color[col].append(i)\n        for color, iis in by_color.items():\n            if len(iis) < 2:\n                continue\n            imin, imax = min(iis), max(iis)\n            for i in range(imin, imax):\n                top_end = row_groups[i][-1]\n                bot_start = row_groups[i + 1][0]\n                for c in col_groups[j]:\n                    for r in range(top_end + 1, bot_start):\n                        if out[r][c] == 0:\n                            out[r][c] = color\n\n    return out\n",
+      "source": "claude_agent_batch_032_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "f8f52ecc",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import defaultdict\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Collect dots by color\n    dots_by_color = defaultdict(list)\n    for r in range(H):\n        for c in range(W):\n            v = grid[r][c]\n            if v != 1 and v != 8:\n                dots_by_color[v].append((r, c))\n\n    def seg_clear(r1, c1, r2, c2, color):\n        # Check that segment from (r1,c1) to (r2,c2) (inclusive) does not cross any 8.\n        if r1 == r2:\n            for c in range(min(c1, c2), max(c1, c2) + 1):\n                if grid[r1][c] == 8:\n                    return False\n            return True\n        elif c1 == c2:\n            for r in range(min(r1, r2), max(r1, r2) + 1):\n                if grid[r][c1] == 8:\n                    return False\n            return True\n        return False\n\n    def draw_seg(r1, c1, r2, c2, color):\n        if r1 == r2:\n            for c in range(min(c1, c2), max(c1, c2) + 1):\n                if grid[r1][c] != 8:\n                    grid[r1][c] = color\n        elif c1 == c2:\n            for r in range(min(r1, r2), max(r1, r2) + 1):\n                if grid[r][c1] != 8:\n                    grid[r][c1] = color\n\n    for color, dots in dots_by_color.items():\n        if len(dots) < 2:\n            continue\n        dots_sorted = sorted(dots)\n        prev_dir = None  # 'H' or 'V'\n        for i in range(len(dots_sorted) - 1):\n            A = dots_sorted[i]\n            B = dots_sorted[i + 1]\n            if A[0] == B[0] or A[1] == B[1]:\n                draw_seg(A[0], A[1], B[0], B[1], color)\n                if A[0] == B[0]:\n                    prev_dir = 'H'\n                else:\n                    prev_dir = 'V'\n            else:\n                # L-shape. Two possible corners.\n                corner_h_first = (A[0], B[1])  # go horizontal from A, then vertical to B\n                corner_v_first = (B[0], A[1])  # go vertical from A, then horizontal to B\n\n                # Determine preferred order\n                if prev_dir == 'V':\n                    first_choice = 'V'\n                else:\n                    first_choice = 'H'\n\n                def try_path(order):\n                    if order == 'H':\n                        corner = corner_h_first\n                        # seg1: A row, from A.col to corner.col (=B.col)\n                        # seg2: corner col (=B.col) from corner.row (=A.row) to B.row\n                        if seg_clear(A[0], A[1], corner[0], corner[1], color) and \\\n                           seg_clear(corner[0], corner[1], B[0], B[1], color):\n                            return corner, 'V'  # ending direction is vertical\n                    else:\n                        corner = corner_v_first\n                        if seg_clear(A[0], A[1], corner[0], corner[1], color) and \\\n                           seg_clear(corner[0], corner[1], B[0], B[1], color):\n                            return corner, 'H'  # ending direction is horizontal\n                    return None, None\n\n                corner, end_dir = try_path(first_choice)\n                if corner is None:\n                    other = 'V' if first_choice == 'H' else 'H'\n                    corner, end_dir = try_path(other)\n                if corner is None:\n                    # Fallback: just use h_first regardless\n                    corner = corner_h_first\n                    end_dir = 'V'\n\n                draw_seg(A[0], A[1], corner[0], corner[1], color)\n                draw_seg(corner[0], corner[1], B[0], B[1], color)\n                prev_dir = end_dir\n\n    return grid\n",
+      "source": "claude_agent_batch_033_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
