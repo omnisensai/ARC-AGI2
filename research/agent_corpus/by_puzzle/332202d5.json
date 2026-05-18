@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "332202d5",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find the special column (the one that has 8 or 1 throughout, not 7 or other color)\n    # The special column has value 8 in 7-rows and 1 in colored rows\n    special_col = None\n    for c in range(W):\n        col_vals = set(input_grid[r][c] for r in range(H))\n        if col_vals == {8, 1} or col_vals == {8} or col_vals == {1}:\n            special_col = c\n            break\n    if special_col is None:\n        # fallback: column whose values are all in {8,1}\n        for c in range(W):\n            col_vals = set(input_grid[r][c] for r in range(H))\n            if col_vals.issubset({8, 1}):\n                special_col = c\n                break\n\n    # Identify rows: colored rows have a non-7 fill color (and 1 at special col),\n    # 7-rows have 7 fill and 8 at special col.\n    colored_rows = []  # list of (row_index, color)\n    for r in range(H):\n        # The fill value: any column other than special_col\n        fill_col = 0 if special_col != 0 else 1\n        fill = input_grid[r][fill_col]\n        if fill != 7:\n            colored_rows.append((r, fill))\n\n    # Build output, row by row\n    output = [[0] * W for _ in range(H)]\n\n    # First, assign each row a \"type\":\n    # - If it's a colored row: becomes all 1s with 8 at special_col\n    # - If 7-row: determine which color it should take from colored rows,\n    #   or be a \"boundary\" all-1s row.\n\n    # Sort colored rows by index\n    colored_rows.sort()\n    cr_indices = [r for r, _ in colored_rows]\n    cr_colors = {r: c for r, c in colored_rows}\n\n    # For each 7-row, determine its color (or boundary)\n    row_assignment = {}  # row -> ('color', val) or ('boundary',) or ('colored', color)\n\n    for r, c in colored_rows:\n        row_assignment[r] = ('colored', c)\n\n    for r in range(H):\n        if r in cr_colors:\n            continue\n        # Find nearest colored row above and below\n        above = None\n        below = None\n        for cr in cr_indices:\n            if cr < r:\n                above = cr\n            elif cr > r and below is None:\n                below = cr\n\n        if above is None and below is not None:\n            row_assignment[r] = ('color', cr_colors[below])\n        elif below is None and above is not None:\n            row_assignment[r] = ('color', cr_colors[above])\n        elif above is not None and below is not None:\n            color_above = cr_colors[above]\n            color_below = cr_colors[below]\n            if color_above == color_below:\n                row_assignment[r] = ('color', color_above)\n            else:\n                # Split rows between above and below\n                gap_start = above + 1\n                gap_end = below - 1\n                gap_len = gap_end - gap_start + 1\n                pos = r - gap_start  # 0-indexed within gap\n                if gap_len % 2 == 1:\n                    mid = gap_len // 2\n                    if pos < mid:\n                        row_assignment[r] = ('color', color_above)\n                    elif pos == mid:\n                        row_assignment[r] = ('boundary',)\n                    else:\n                        row_assignment[r] = ('color', color_below)\n                else:\n                    half = gap_len // 2\n                    if pos < half:\n                        row_assignment[r] = ('color', color_above)\n                    else:\n                        row_assignment[r] = ('color', color_below)\n\n    # Now build output\n    for r in range(H):\n        kind = row_assignment[r]\n        if kind[0] == 'colored':\n            # all 1s with 8 at special_col\n            for c in range(W):\n                output[r][c] = 1\n            output[r][special_col] = 8\n        elif kind[0] == 'boundary':\n            for c in range(W):\n                output[r][c] = 1\n        elif kind[0] == 'color':\n            val = kind[1]\n            for c in range(W):\n                output[r][c] = val\n            output[r][special_col] = 1\n\n    return output\n",
+      "source": "claude_agent_batch_037_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
