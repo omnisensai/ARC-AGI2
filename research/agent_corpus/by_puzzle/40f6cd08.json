@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "40f6cd08",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find connected components of non-zero cells (4-connectivity), ignoring color\n    visited = [[False] * W for _ in range(H)]\n    components = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != 0 and not visited[r][c]:\n                stack = [(r, c)]\n                cells = []\n                while stack:\n                    rr, cc = stack.pop()\n                    if rr < 0 or rr >= H or cc < 0 or cc >= W:\n                        continue\n                    if visited[rr][cc] or grid[rr][cc] == 0:\n                        continue\n                    visited[rr][cc] = True\n                    cells.append((rr, cc))\n                    stack.extend([(rr+1, cc), (rr-1, cc), (rr, cc+1), (rr, cc-1)])\n                components.append(cells)\n\n    # For each component, compute bbox and colors\n    comp_info = []\n    for cells in components:\n        rs = [c[0] for c in cells]\n        cs = [c[1] for c in cells]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        colors = set()\n        for (rr, cc) in cells:\n            colors.add(grid[rr][cc])\n        comp_info.append({\n            'cells': cells,\n            'bbox': (r0, r1, c0, c1),\n            'colors': colors\n        })\n\n    # Identify template: component with multiple colors\n    template = None\n    blanks = []\n    for ci in comp_info:\n        if len(ci['colors']) >= 2:\n            template = ci\n        else:\n            blanks.append(ci)\n\n    if template is None:\n        return grid\n\n    tr0, tr1, tc0, tc1 = template['bbox']\n\n    # Determine layer order by bbox size of each color within the template\n    # For each color, find its bbox within the template area\n    color_bboxes = {}\n    for color in template['colors']:\n        rs = []\n        cs = []\n        for r in range(tr0, tr1 + 1):\n            for c in range(tc0, tc1 + 1):\n                if grid[r][c] == color:\n                    rs.append(r)\n                    cs.append(c)\n        if rs:\n            color_bboxes[color] = (min(rs), max(rs), min(cs), max(cs))\n\n    # Sort colors from outermost (largest bbox) to innermost\n    def bbox_size(b):\n        return (b[1] - b[0] + 1) * (b[3] - b[2] + 1)\n\n    sorted_colors = sorted(color_bboxes.keys(),\n                           key=lambda col: bbox_size(color_bboxes[col]),\n                           reverse=True)\n\n    # Compute thicknesses of each layer relative to previous (parent) bbox\n    # Layer i parent bbox = layer i-1 bbox (or template bbox for i=0)\n    layers = []  # list of (color, top_thick, bottom_thick, left_thick, right_thick)\n    parent_bbox = template['bbox']\n    for i, color in enumerate(sorted_colors):\n        cb = color_bboxes[color]\n        if i == 0:\n            # outermost: fills entire rectangle, thicknesses 0\n            layers.append((color, 0, 0, 0, 0))\n            parent_bbox = template['bbox']\n        else:\n            pr0, pr1, pc0, pc1 = parent_bbox\n            top_t = cb[0] - pr0\n            bot_t = pr1 - cb[1]\n            left_t = cb[2] - pc0\n            right_t = pc1 - cb[3]\n            layers.append((color, top_t, bot_t, left_t, right_t))\n            parent_bbox = cb\n\n    # For each blank rectangle, apply the layers\n    for blank in blanks:\n        br0, br1, bc0, bc1 = blank['bbox']\n        # Fill with each layer in order\n        cur_r0, cur_r1, cur_c0, cur_c1 = br0, br1, bc0, bc1\n        for i, (color, tt, bt, lt, rt) in enumerate(layers):\n            if i == 0:\n                # Fill entire blank bbox with outermost color (already that color)\n                for r in range(cur_r0, cur_r1 + 1):\n                    for c in range(cur_c0, cur_c1 + 1):\n                        grid[r][c] = color\n            else:\n                new_r0 = cur_r0 + tt\n                new_r1 = cur_r1 - bt\n                new_c0 = cur_c0 + lt\n                new_c1 = cur_c1 - rt\n                if new_r0 > new_r1 or new_c0 > new_c1:\n                    break\n                for r in range(new_r0, new_r1 + 1):\n                    for c in range(new_c0, new_c1 + 1):\n                        grid[r][c] = color\n                cur_r0, cur_r1, cur_c0, cur_c1 = new_r0, new_r1, new_c0, new_c1\n\n    return grid\n",
+      "source": "claude_agent_batch_064_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "5ffb2104",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find connected components by same-color 4-connectivity\n    seen = [[False]*W for _ in range(H)]\n    comps = []\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] != 0 and not seen[r][c]:\n                color = input_grid[r][c]\n                stack = [(r, c)]\n                cells = []\n                while stack:\n                    rr, cc = stack.pop()\n                    if rr < 0 or rr >= H or cc < 0 or cc >= W:\n                        continue\n                    if seen[rr][cc] or input_grid[rr][cc] != color:\n                        continue\n                    seen[rr][cc] = True\n                    cells.append((rr, cc, color))\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        stack.append((rr + dr, cc + dc))\n                comps.append(cells)\n    # Group components transitively by shared rows\n    n = len(comps)\n    comp_rows = [set(c[0] for c in comp) for comp in comps]\n    parent = list(range(n))\n\n    def find(x):\n        while parent[x] != x:\n            parent[x] = parent[parent[x]]\n            x = parent[x]\n        return x\n\n    def union(a, b):\n        ra, rb = find(a), find(b)\n        if ra != rb:\n            parent[ra] = rb\n\n    for i in range(n):\n        for j in range(i + 1, n):\n            if comp_rows[i] & comp_rows[j]:\n                union(i, j)\n\n    groups = {}\n    for i in range(n):\n        groups.setdefault(find(i), []).append(i)\n\n    # Build output: in each group, slide each component to the right,\n    # rightmost first to the wall, others packed left of already placed ones.\n    output = [[0]*W for _ in range(H)]\n    for grp in groups.values():\n        grp_sorted = sorted(grp, key=lambda i: -max(c[1] for c in comps[i]))\n        row_left = {}  # row -> current leftmost occupied column in output for this group\n        for idx in grp_sorted:\n            cells = comps[idx]\n            max_col_per_row = {}\n            for (r, c, v) in cells:\n                if r not in max_col_per_row or c > max_col_per_row[r]:\n                    max_col_per_row[r] = c\n            possible_shifts = []\n            for r, mc in max_col_per_row.items():\n                limit = row_left.get(r, W)  # exclusive\n                possible_shifts.append(limit - 1 - mc)\n            S = min(possible_shifts)\n            min_col_per_row = {}\n            for (r, c, v) in cells:\n                nc = c + S\n                output[r][nc] = v\n                if r not in min_col_per_row or nc < min_col_per_row[r]:\n                    min_col_per_row[r] = nc\n            for r, mnc in min_col_per_row.items():\n                if r not in row_left or mnc < row_left[r]:\n                    row_left[r] = mnc\n    return output\n",
+      "source": "claude_agent_batch_064_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

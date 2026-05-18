@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "f21745ec",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find bounding box for each non-zero color\n    color_cells = {}\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != 0:\n                color_cells.setdefault(v, []).append((r, c))\n    boxes = {}  # color -> (r0, r1, c0, c1)\n    for color, cells in color_cells.items():\n        rs = [p[0] for p in cells]\n        cs = [p[1] for p in cells]\n        boxes[color] = (min(rs), max(rs), min(cs), max(cs))\n    # For each box, determine if it has an interior pattern (any same-color cell strictly inside the perimeter)\n    source_color = None\n    source_pattern = None  # 2D list of bools (interior shape)\n    for color, (r0, r1, c0, c1) in boxes.items():\n        if r1 - r0 < 2 or c1 - c0 < 2:\n            continue\n        # Check interior\n        has_interior = False\n        ih = r1 - r0 - 1\n        iw = c1 - c0 - 1\n        pat = [[False] * iw for _ in range(ih)]\n        for i in range(ih):\n            for j in range(iw):\n                if input_grid[r0 + 1 + i][c0 + 1 + j] == color:\n                    pat[i][j] = True\n                    has_interior = True\n        if has_interior:\n            source_color = color\n            source_pattern = pat\n            source_dims = (r1 - r0 + 1, c1 - c0 + 1)\n            break\n    # Build output: copy input\n    output = [row[:] for row in input_grid]\n    for color, (r0, r1, c0, c1) in boxes.items():\n        if color == source_color:\n            continue\n        dims = (r1 - r0 + 1, c1 - c0 + 1)\n        if dims == source_dims:\n            # Fill interior with source pattern in this color\n            ih = r1 - r0 - 1\n            iw = c1 - c0 - 1\n            for i in range(ih):\n                for j in range(iw):\n                    if source_pattern[i][j]:\n                        output[r0 + 1 + i][c0 + 1 + j] = color\n        else:\n            # Erase the box entirely\n            for r in range(r0, r1 + 1):\n                for c in range(c0, c1 + 1):\n                    if output[r][c] == color:\n                        output[r][c] = 0\n    return output\n",
+      "source": "claude_agent_batch_064_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
