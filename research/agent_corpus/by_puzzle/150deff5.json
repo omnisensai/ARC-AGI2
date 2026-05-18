@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "150deff5",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    five_cells = set()\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 5:\n                five_cells.add((r, c))\n\n    shapes = []  # list of (kind, frozenset of cells); kind = '8' (2x2) or '2' (1x3)\n\n    # 2x2 blocks of 5s\n    for r in range(H - 1):\n        for c in range(W - 1):\n            cells = frozenset({(r, c), (r, c + 1), (r + 1, c), (r + 1, c + 1)})\n            if cells <= five_cells:\n                shapes.append(('8', cells))\n\n    # 1x3 horizontal\n    for r in range(H):\n        for c in range(W - 2):\n            cells = frozenset({(r, c), (r, c + 1), (r, c + 2)})\n            if cells <= five_cells:\n                shapes.append(('2', cells))\n\n    # 1x3 vertical\n    for r in range(H - 2):\n        for c in range(W):\n            cells = frozenset({(r, c), (r + 1, c), (r + 2, c)})\n            if cells <= five_cells:\n                shapes.append(('2', cells))\n\n    cell_to_shapes = {cell: [] for cell in five_cells}\n    for i, (k, cells) in enumerate(shapes):\n        for cell in cells:\n            cell_to_shapes[cell].append(i)\n\n    uncovered = set(five_cells)\n    chosen = []\n\n    def backtrack():\n        if not uncovered:\n            return True\n        # MRV: pick cell with fewest viable shape options\n        best_cell = None\n        best_opts = None\n        for cell in uncovered:\n            opts = [i for i in cell_to_shapes[cell] if shapes[i][1] <= uncovered]\n            if best_opts is None or len(opts) < len(best_opts):\n                best_opts = opts\n                best_cell = cell\n                if len(opts) == 0:\n                    return False\n        for i in best_opts:\n            cells_i = shapes[i][1]\n            chosen.append(i)\n            for c in cells_i:\n                uncovered.discard(c)\n            if backtrack():\n                return True\n            for c in cells_i:\n                uncovered.add(c)\n            chosen.pop()\n        return False\n\n    backtrack()\n\n    output = [[0] * W for _ in range(H)]\n    for i in chosen:\n        k, cells = shapes[i]\n        val = 8 if k == '8' else 2\n        for r, c in cells:\n            output[r][c] = val\n\n    return output\n",
+      "source": "claude_agent_batch_039_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

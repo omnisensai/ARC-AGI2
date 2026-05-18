@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "7c8af763",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Identify separator rows (no 0s) and columns (no 0s)\n    sep_rows = [r for r in range(H) if all(grid[r][c] != 0 for c in range(W))]\n    sep_cols = [c for c in range(W) if all(grid[r][c] != 0 for r in range(H))]\n\n    # Build row segments: list of (start, end) inclusive for non-separator row bands\n    row_bands = []\n    prev = -1\n    for r in sep_rows + [H]:\n        if r - prev > 1:\n            row_bands.append((prev + 1, r - 1))\n        prev = r\n\n    col_bands = []\n    prev = -1\n    for c in sep_cols + [W]:\n        if c - prev > 1:\n            col_bands.append((prev + 1, c - 1))\n        prev = c\n\n    for (r0, r1) in row_bands:\n        for (c0, c1) in col_bands:\n            # Collect markers from adjacent separator segments\n            markers = []\n            # Top separator row at r0-1 (if exists)\n            if r0 - 1 >= 0 and r0 - 1 in sep_rows:\n                for c in range(c0, c1 + 1):\n                    v = grid[r0 - 1][c]\n                    if v != 5:\n                        markers.append(v)\n            # Bottom separator row at r1+1 (if exists)\n            if r1 + 1 < H and r1 + 1 in sep_rows:\n                for c in range(c0, c1 + 1):\n                    v = grid[r1 + 1][c]\n                    if v != 5:\n                        markers.append(v)\n            # Left separator col at c0-1 (if exists)\n            if c0 - 1 >= 0 and c0 - 1 in sep_cols:\n                for r in range(r0, r1 + 1):\n                    v = grid[r][c0 - 1]\n                    if v != 5:\n                        markers.append(v)\n            # Right separator col at c1+1 (if exists)\n            if c1 + 1 < W and c1 + 1 in sep_cols:\n                for r in range(r0, r1 + 1):\n                    v = grid[r][c1 + 1]\n                    if v != 5:\n                        markers.append(v)\n\n            if markers:\n                fill = Counter(markers).most_common(1)[0][0]\n            else:\n                fill = 0  # fallback\n\n            for r in range(r0, r1 + 1):\n                for c in range(c0, c1 + 1):\n                    if grid[r][c] == 0:\n                        grid[r][c] = fill\n\n    return grid\n",
+      "source": "claude_agent_batch_041_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

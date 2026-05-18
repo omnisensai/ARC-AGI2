@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "aa300dc3",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    runs = []\n    for dr, dc in [(1, 1), (1, -1)]:\n        for r0 in range(H):\n            for c0 in range(W):\n                pr, pc = r0 - dr, c0 - dc\n                if 0 <= pr < H and 0 <= pc < W and grid[pr][pc] == 0:\n                    continue\n                if grid[r0][c0] != 0:\n                    continue\n                r, c = r0, c0\n                cells = []\n                while 0 <= r < H and 0 <= c < W and grid[r][c] == 0:\n                    cells.append((r, c))\n                    r += dr\n                    c += dc\n                if len(cells) >= 2:\n                    if dr == 1 and dc == 1:\n                        offset = r0 - c0\n                    else:\n                        offset = r0 + c0\n                    runs.append((len(cells), dr, dc, offset, cells))\n\n    max_len = max(r[0] for r in runs)\n    candidates = [r for r in runs if r[0] == max_len]\n\n    if len(candidates) == 1:\n        chosen = candidates[0]\n    else:\n        from collections import defaultdict\n        by_dir = defaultdict(list)\n        for r in candidates:\n            by_dir[(r[1], r[2])].append(r)\n        best_dir = max(by_dir.keys(), key=lambda k: len(by_dir[k]))\n        cands = sorted(by_dir[best_dir], key=lambda r: r[3])\n        chosen = cands[len(cands) // 2]\n\n    for r, c in chosen[4]:\n        grid[r][c] = 8\n    return grid\n",
+      "source": "claude_agent_batch_041_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

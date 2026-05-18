@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "aa62e3f4",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    cnt = Counter()\n    for r in range(H):\n        for c in range(W):\n            cnt[input_grid[r][c]] += 1\n    bg = cnt.most_common(1)[0][0]\n    non_bg_colors = [k for k in cnt if k != bg]\n\n    def has_bg_neighbor(color):\n        for r in range(H):\n            for c in range(W):\n                if input_grid[r][c] != color:\n                    continue\n                for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                    nr, nc = r + dr, c + dc\n                    if not (0 <= nr < H and 0 <= nc < W):\n                        return True\n                    if input_grid[nr][nc] == bg:\n                        return True\n        return False\n\n    outer_color = None\n    for color in non_bg_colors:\n        if has_bg_neighbor(color):\n            outer_color = color\n            break\n\n    # inner color = the non-bg color that does NOT touch the outer color\n    # (i.e., the most central / deepest one). If multiple non-outer colors exist,\n    # pick the one with no neighbor equal to outer_color.\n    inner_candidates = [c for c in non_bg_colors if c != outer_color]\n    inner_color = None\n    for color in inner_candidates:\n        touches_outer = False\n        for r in range(H):\n            for c in range(W):\n                if input_grid[r][c] != color:\n                    continue\n                for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                    nr, nc = r + dr, c + dc\n                    if 0 <= nr < H and 0 <= nc < W and input_grid[nr][nc] == outer_color:\n                        touches_outer = True\n                        break\n                if touches_outer:\n                    break\n            if touches_outer:\n                break\n        if not touches_outer:\n            inner_color = color\n            break\n\n    if inner_color is None:\n        # fallback: pick the rarest non-bg, non-outer color\n        if inner_candidates:\n            inner_color = min(inner_candidates, key=lambda c: cnt[c])\n        else:\n            inner_color = outer_color\n\n    output = [[bg] * W for _ in range(H)]\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] != outer_color:\n                continue\n            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                nr, nc = r + dr, c + dc\n                outward = False\n                if not (0 <= nr < H and 0 <= nc < W):\n                    outward = True\n                elif input_grid[nr][nc] == bg:\n                    outward = True\n                if outward and 0 <= nr < H and 0 <= nc < W:\n                    output[nr][nc] = inner_color\n    return output\n",
+      "source": "claude_agent_batch_040_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
