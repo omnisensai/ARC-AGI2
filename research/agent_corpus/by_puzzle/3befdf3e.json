@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "3befdf3e",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    visited = [[False] * W for _ in range(H)]\n    boxes = []\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] != 0 and not visited[r][c]:\n                stack = [(r, c)]\n                cells = []\n                while stack:\n                    y, x = stack.pop()\n                    if y < 0 or y >= H or x < 0 or x >= W:\n                        continue\n                    if visited[y][x]:\n                        continue\n                    if input_grid[y][x] == 0:\n                        continue\n                    visited[y][x] = True\n                    cells.append((y, x))\n                    for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        stack.append((y + dy, x + dx))\n                ys = [y for y, x in cells]\n                xs = [x for y, x in cells]\n                r0, r1 = min(ys), max(ys)\n                c0, c1 = min(xs), max(xs)\n                F = input_grid[r0][c0]\n                I = None\n                for y, x in cells:\n                    if input_grid[y][x] != F:\n                        I = input_grid[y][x]\n                        break\n                inner_cells = [(y, x) for y, x in cells if input_grid[y][x] == I]\n                iys = [y for y, x in inner_cells]\n                ir0, ir1 = min(iys), max(iys)\n                s = ir1 - ir0 + 1\n                cr = (r0 + r1) / 2\n                cc = (c0 + c1) / 2\n                boxes.append((F, I, s, cr, cc))\n\n    out = [[0] * W for _ in range(H)]\n    for F, I, s, cr, cc in boxes:\n        new_size = 3 * s + 2\n        nr0 = int(cr - (new_size - 1) / 2)\n        nc0 = int(cc - (new_size - 1) / 2)\n\n        def setp(ry, rx, v):\n            y = nr0 + ry\n            x = nc0 + rx\n            if 0 <= y < H and 0 <= x < W:\n                out[y][x] = v\n\n        # Outer F arms (4 sides, thickness s, no corners)\n        for dy in range(s):\n            for dx in range(s, 2 * s + 2):\n                setp(dy, dx, F)\n                setp(2 * s + 2 + dy, dx, F)\n                setp(dx, dy, F)\n                setp(dx, 2 * s + 2 + dy, F)\n        # Inner color region: (s+2)x(s+2) at offset s\n        for dy in range(s + 2):\n            for dx in range(s + 2):\n                setp(s + dy, s + dx, I)\n        # Center sxs of F at offset s+1\n        for dy in range(s):\n            for dx in range(s):\n                setp(s + 1 + dy, s + 1 + dx, F)\n    return out\n",
+      "source": "claude_agent_batch_058_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

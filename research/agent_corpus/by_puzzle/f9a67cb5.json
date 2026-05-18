@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "f9a67cb5",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    src_r, src_c = -1, -1\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 2:\n                src_r, src_c = r, c\n                break\n        if src_r >= 0:\n            break\n\n    if src_r == 0 or src_r == H - 1:\n        axis = 'h'\n        direction = 'down' if src_r == 0 else 'up'\n    else:\n        axis = 'v'\n        direction = 'right' if src_c == 0 else 'left'\n\n    if axis == 'h':\n        line_positions = [r for r in range(H) if 8 in grid[r]]\n    else:\n        line_positions = [c for c in range(W) if any(grid[r][c] == 8 for r in range(H))]\n\n    if direction in ('down', 'right'):\n        line_positions = [p for p in sorted(line_positions) if p != (src_r if axis == 'h' else src_c)]\n    else:\n        line_positions = [p for p in sorted(line_positions, reverse=True) if p != (src_r if axis == 'h' else src_c)]\n\n    def get_gaps(line_idx):\n        if axis == 'h':\n            return set(c for c in range(W) if grid[line_idx][c] == 0)\n        else:\n            return set(r for r in range(H) if grid[r][line_idx] == 0)\n\n    perp_size = W if axis == 'h' else H\n\n    def get_spread(entries, exits):\n        result = set()\n        for e in entries:\n            if e in exits:\n                result.add(e)\n                continue\n            up_exits = [x for x in exits if x < e]\n            down_exits = [x for x in exits if x > e]\n            if up_exits:\n                nu = max(up_exits)\n                result.update(range(nu, e + 1))\n            else:\n                result.update(range(0, e + 1))\n            if down_exits:\n                nd = min(down_exits)\n                result.update(range(e, nd + 1))\n            else:\n                result.update(range(e, perp_size))\n        return result\n\n    def set_2(prop, perp):\n        if axis == 'h':\n            r, c = prop, perp\n        else:\n            r, c = perp, prop\n        if 0 <= r < H and 0 <= c < W and grid[r][c] == 0:\n            grid[r][c] = 2\n\n    src_perp = src_c if axis == 'h' else src_r\n    src_prop = src_r if axis == 'h' else src_c\n\n    prev_active = {src_perp}\n    prev_prop = src_prop\n\n    for line_idx in line_positions:\n        gaps = get_gaps(line_idx)\n        spread = get_spread(prev_active, gaps)\n        active = spread & gaps\n\n        if direction in ('down', 'right'):\n            stripe = list(range(prev_prop + 1, line_idx))\n        else:\n            stripe = list(range(prev_prop - 1, line_idx, -1))\n\n        if stripe:\n            connector_pos = stripe[-1]\n            for sp in stripe[:-1]:\n                for pp in prev_active:\n                    set_2(sp, pp)\n            for pp in spread:\n                set_2(connector_pos, pp)\n\n        for pp in active:\n            set_2(line_idx, pp)\n\n        prev_active = active\n        prev_prop = line_idx\n\n    if direction == 'down':\n        post = range(prev_prop + 1, H)\n    elif direction == 'up':\n        post = range(prev_prop - 1, -1, -1)\n    elif direction == 'right':\n        post = range(prev_prop + 1, W)\n    else:\n        post = range(prev_prop - 1, -1, -1)\n\n    for sp in post:\n        for pp in prev_active:\n            set_2(sp, pp)\n\n    return grid\n",
+      "source": "claude_agent_batch_058_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

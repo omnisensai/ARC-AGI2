@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "3ed85e70",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import defaultdict\n\n    grid = [row[:] for row in input_grid]\n    H = len(grid)\n    W = len(grid[0])\n    bg_set = {0, 3}\n\n    # Find connected components (8-connectivity) of non-bg cells\n    visited = [[False] * W for _ in range(H)]\n    comps = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] not in bg_set and not visited[r][c]:\n                stack = [(r, c)]\n                cells = []\n                while stack:\n                    rr, cc = stack.pop()\n                    if rr < 0 or rr >= H or cc < 0 or cc >= W:\n                        continue\n                    if visited[rr][cc]:\n                        continue\n                    if grid[rr][cc] in bg_set:\n                        continue\n                    visited[rr][cc] = True\n                    cells.append((rr, cc, grid[rr][cc]))\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1),\n                                   (-1, -1), (-1, 1), (1, -1), (1, 1)]:\n                        stack.append((rr + dr, cc + dc))\n                if cells:\n                    comps.append(cells)\n\n    # Classify components as templates (in 3-region) or partials (in 0-region)\n    templates = []\n    partials = []\n    for comp in comps:\n        bg_counts = defaultdict(int)\n        rs = [r for r, c, v in comp]\n        cs = [c for r, c, v in comp]\n        rmin, rmax = min(rs) - 1, max(rs) + 1\n        cmin, cmax = min(cs) - 1, max(cs) + 1\n        for rr in range(rmin, rmax + 1):\n            for cc in range(cmin, cmax + 1):\n                if 0 <= rr < H and 0 <= cc < W:\n                    if grid[rr][cc] in bg_set:\n                        bg_counts[grid[rr][cc]] += 1\n        bg = max(bg_counts, key=bg_counts.get) if bg_counts else 0\n        if bg == 3:\n            templates.append(comp)\n        else:\n            partials.append(comp)\n\n    out = [row[:] for row in grid]\n\n    for partial in partials:\n        p_positions = [(r, c) for r, c, v in partial]\n        p_rmin = min(r for r, c in p_positions)\n        p_cmin = min(c for r, c in p_positions)\n        p_rmax = max(r for r, c in p_positions)\n        p_cmax = max(c for r, c in p_positions)\n        p_colors = set(v for r, c, v in partial)\n        pH = p_rmax - p_rmin + 1\n        pW = p_cmax - p_cmin + 1\n        is_solid_one_color = (len(p_colors) == 1) and (len(partial) == pH * pW)\n\n        matched = False\n\n        if is_solid_one_color:\n            # Type A: solid rectangle of one color matches a template's\n            # color-region bbox. Restricted to square templates: a\n            # single-color partial is too ambiguous when the template's\n            # full bounding box is non-square (it could fit in multiple\n            # positions / orientations), so we only match square templates.\n            pv = next(iter(p_colors))\n            for tmpl in templates:\n                t_rs = [r for r, c, v in tmpl]\n                t_cs = [c for r, c, v in tmpl]\n                t_H = max(t_rs) - min(t_rs) + 1\n                t_W = max(t_cs) - min(t_cs) + 1\n                if t_H != t_W:\n                    continue\n\n                pv_cells = [(r, c) for r, c, v in tmpl if v == pv]\n                if not pv_cells:\n                    continue\n                pv_rmin = min(r for r, c in pv_cells)\n                pv_cmin = min(c for r, c in pv_cells)\n                pv_rmax = max(r for r, c in pv_cells)\n                pv_cmax = max(c for r, c in pv_cells)\n                pv_H = pv_rmax - pv_rmin + 1\n                pv_W = pv_cmax - pv_cmin + 1\n                if pH == pv_H and pW == pv_W:\n                    dr = pv_rmin - p_rmin\n                    dc = pv_cmin - p_cmin\n                    for R, C, V in tmpl:\n                        if 0 <= R - dr < H and 0 <= C - dc < W:\n                            out[R - dr][C - dc] = V\n                    matched = True\n                    break\n        else:\n            # Type B: multi-color partial as exact sub-region of a template.\n            # The partial's cells must align exactly with template cells of\n            # the same color at the corresponding positions.\n            for tmpl in templates:\n                if matched:\n                    break\n                t_pos_to_val = {(r, c): v for r, c, v in tmpl}\n                pr0, pc0, pv0 = partial[0]\n                for tr, tc, tv in tmpl:\n                    if pv0 != tv:\n                        continue\n                    dr = tr - pr0\n                    dc = tc - pc0\n                    ok = True\n                    for pr, pc, pv in partial:\n                        if (pr + dr, pc + dc) not in t_pos_to_val:\n                            ok = False\n                            break\n                        if t_pos_to_val[(pr + dr, pc + dc)] != pv:\n                            ok = False\n                            break\n                    if ok:\n                        for R, C, V in tmpl:\n                            if 0 <= R - dr < H and 0 <= C - dc < W:\n                                out[R - dr][C - dc] = V\n                        matched = True\n                        break\n\n    return out\n",
+      "source": "claude_agent_batch_052_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

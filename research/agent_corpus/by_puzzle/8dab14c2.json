@@ -1,0 +1,74 @@
+{
+  "puzzle_id": "8dab14c2",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 5,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 6,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 7,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    h = len(input_grid)\n    w = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    out = [row[:] for row in input_grid]\n    BG = 8\n    FG = 1\n\n    def get(r, c):\n        if 0 <= r < h and 0 <= c < w:\n            return grid[r][c]\n        return BG\n\n    def count_fg_nbrs(r, c):\n        return sum(1 for (dr, dc) in [(-1, 0), (1, 0), (0, -1), (0, 1)] if get(r + dr, c + dc) == FG)\n\n    # Step 1: robust bumps = 1-cells with exactly 1 FG neighbor where that FG neighbor has 4 FG neighbors\n    robust_bumps = set()\n    for r in range(h):\n        for c in range(w):\n            if grid[r][c] == FG and count_fg_nbrs(r, c) == 1:\n                for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                    nr, nc = r + dr, c + dc\n                    if get(nr, nc) == FG:\n                        if count_fg_nbrs(nr, nc) == 4:\n                            robust_bumps.add((r, c))\n                        break\n\n    # Step 2: dents = 8-cells with 3 FG neighbors where none of those FG neighbors is a robust bump\n    dents = set()\n    for r in range(h):\n        for c in range(w):\n            if grid[r][c] == BG and count_fg_nbrs(r, c) == 3:\n                fg_nbrs = [(r + dr, c + dc) for (dr, dc) in [(-1, 0), (1, 0), (0, -1), (0, 1)] if get(r + dr, c + dc) == FG]\n                if not any(n in robust_bumps for n in fg_nbrs):\n                    dents.add((r, c))\n\n    # Step 3: extra bumps = 1-cells with exactly 1 FG neighbor, not robust, and not adjacent to any dent\n    extra_bumps = set()\n    for r in range(h):\n        for c in range(w):\n            if grid[r][c] == FG and count_fg_nbrs(r, c) == 1 and (r, c) not in robust_bumps:\n                adj_dent = any((r + dr, c + dc) in dents for (dr, dc) in [(-1, 0), (1, 0), (0, -1), (0, 1)])\n                if not adj_dent:\n                    extra_bumps.add((r, c))\n\n    bumps = robust_bumps | extra_bumps\n\n    # Build anomalies with outside directions\n    anomalies = []\n    for r, c in bumps:\n        for dr, dc, d in [(-1, 0, 'up'), (1, 0, 'down'), (0, -1, 'left'), (0, 1, 'right')]:\n            if get(r + dr, c + dc) == FG:\n                opp = {'up': 'down', 'down': 'up', 'left': 'right', 'right': 'left'}[d]\n                anomalies.append(('bump', r, c, opp))\n                break\n    for r, c in dents:\n        for dr, dc, d in [(-1, 0, 'up'), (1, 0, 'down'), (0, -1, 'left'), (0, 1, 'right')]:\n            if get(r + dr, c + dc) == BG:\n                anomalies.append(('dent', r, c, d))\n                break\n\n    # Mirror each anomaly across the shape (walking along row/col, allowing single-cell dent gaps)\n    for atype, r, c, outside in anomalies:\n        if outside in ('up', 'down'):\n            dr = -1 if outside == 'down' else 1\n            rr = r + dr\n            last_fg = None\n            while 0 <= rr < h:\n                if grid[rr][c] == FG:\n                    last_fg = rr\n                else:\n                    nr = rr + dr\n                    if not (0 <= nr < h) or grid[nr][c] == BG:\n                        break\n                rr += dr\n            if last_fg is None:\n                continue\n            if atype == 'bump':\n                out[last_fg][c] = BG\n            else:\n                nr = last_fg + dr\n                if 0 <= nr < h:\n                    out[nr][c] = FG\n        else:\n            dc = -1 if outside == 'right' else 1\n            cc = c + dc\n            last_fg = None\n            while 0 <= cc < w:\n                if grid[r][cc] == FG:\n                    last_fg = cc\n                else:\n                    nc = cc + dc\n                    if not (0 <= nc < w) or grid[r][nc] == BG:\n                        break\n                cc += dc\n            if last_fg is None:\n                continue\n            if atype == 'bump':\n                out[r][last_fg] = BG\n            else:\n                nc = last_fg + dc\n                if 0 <= nc < w:\n                    out[r][nc] = FG\n\n    return out\n",
+      "source": "claude_agent_batch_058_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
