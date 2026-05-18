@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "762cd429",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    out = [[0]*W for _ in range(H)]\n\n    # Find the 2x2 block of non-zero cells\n    br, bc = None, None\n    for r in range(H-1):\n        for c in range(W-1):\n            if (input_grid[r][c] != 0 and input_grid[r][c+1] != 0 and\n                input_grid[r+1][c] != 0 and input_grid[r+1][c+1] != 0):\n                br, bc = r, c\n                break\n        if br is not None:\n            break\n\n    a = input_grid[br][bc]\n    b = input_grid[br][bc+1]\n    c_ = input_grid[br+1][bc]\n    d = input_grid[br+1][bc+1]\n\n    # Place scaled copies. Scale k=1,2,4,8,...\n    # For scale k: block occupies rows [br-(k-1) .. br+k] and cols [bc + 2*(k-1) ... bc + 2*(k-1) + 2k - 1]\n    # Wait: scale 1 occupies rows br..br+1 (height 2), cols bc..bc+1 (width 2).\n    # scale 2 occupies rows br-1..br+2 (height 4), cols bc+2..bc+5 (width 4)\n    # scale 4 occupies rows br-3..br+4 (height 8), cols bc+6..bc+13 (width 8)\n    # General scale k: row range [br-(k-1) .. br+k], col range [bc + 2*(k-1) .. bc + 2*(k-1) + 2k - 1]\n    # Actually for scale 1: rows br-0..br+1, cols bc+0..bc+1. So offset is 2*(k-1) starting col, vertical offset is (k-1) up and k down? No, vertical: top row offset is -(k-1), bottom offset is +k. Height = 2k. Yes.\n    # Within each scaled block (2k rows x 2k cols): top-left kxk = a, top-right kxk = b, bottom-left kxk = c_, bottom-right kxk = d.\n\n    k = 1\n    while True:\n        top_row = br - (k - 1)\n        bot_row = br + k  # inclusive end\n        left_col = bc + 2 * (k - 1) if k > 1 else bc\n        # Actually scale 1: left_col = bc. scale 2: left_col = bc + 2. scale 4: left_col = bc + 6 = bc + 2*(2)+2 = bc + 2*(k-1) where k=4 gives 6. Yes.\n        # Hmm, for k=1: 2*(k-1)=0, so left_col=bc. Good.\n        left_col = bc + 2 * (k - 1)\n        right_col = left_col + 2 * k - 1\n        # Check if entirely outside grid\n        if left_col >= W and top_row >= H and bot_row < 0:\n            break\n        # Draw cells (clipped to grid)\n        any_drawn = False\n        for dr in range(2 * k):\n            for dc in range(2 * k):\n                rr = top_row + dr\n                cc = left_col + dc\n                if 0 <= rr < H and 0 <= cc < W:\n                    # Determine which quadrant\n                    if dr < k and dc < k:\n                        val = a\n                    elif dr < k and dc >= k:\n                        val = b\n                    elif dr >= k and dc < k:\n                        val = c_\n                    else:\n                        val = d\n                    out[rr][cc] = val\n                    any_drawn = True\n        if not any_drawn:\n            break\n        k *= 2\n\n    return out\n",
+      "source": "claude_agent_batch_048_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

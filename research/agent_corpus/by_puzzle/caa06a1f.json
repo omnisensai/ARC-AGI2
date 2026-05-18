@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "caa06a1f",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find background color: it forms an L-shape (right column block and bottom row block).\n    # The background color is the one in the corner (bottom-right).\n    bg = input_grid[H - 1][W - 1]\n\n    # Determine the pattern region: largest rectangle starting at (0,0)\n    # such that no background color appears inside it.\n    pH = 0\n    for r in range(H):\n        if any(input_grid[r][c] == bg for c in range(W)) and all(\n            input_grid[r][c] == bg for c in range(W)\n        ):\n            break\n        # Check: row contains pattern (not entirely bg)\n        if all(input_grid[r][c] == bg for c in range(W)):\n            break\n        pH = r + 1\n        # Stop if this row has bg somewhere in the leftmost columns we'd care about\n    # Better: find pH = first row that is entirely bg, or where pattern stops\n    pH = 0\n    for r in range(H):\n        # find first column where bg appears in this row\n        row_bg_start = W\n        for c in range(W):\n            if input_grid[r][c] == bg:\n                row_bg_start = c\n                break\n        if row_bg_start == 0:\n            # entire row starts with bg => not part of pattern\n            break\n        pH = r + 1\n\n    pW = 0\n    for c in range(W):\n        col_bg_start = H\n        for r in range(H):\n            if input_grid[r][c] == bg:\n                col_bg_start = r\n                break\n        if col_bg_start == 0:\n            break\n        pW = c + 1\n\n    # Detect smallest row period within pattern region\n    def find_period(length, equal_fn):\n        for p in range(1, length + 1):\n            ok = True\n            for i in range(length):\n                if not equal_fn(i, (i % p)):\n                    ok = False\n                    break\n            if ok:\n                return p\n        return length\n\n    # Row period: smallest pr such that for all r in [0,pH), row r == row (r % pr)\n    def row_eq(r1, r2):\n        return all(input_grid[r1][c] == input_grid[r2][c] for c in range(pW))\n\n    pr = pH\n    for p in range(1, pH + 1):\n        ok = True\n        for r in range(pH):\n            if not row_eq(r, r % p):\n                ok = False\n                break\n        if ok:\n            pr = p\n            break\n\n    def col_eq(c1, c2):\n        return all(input_grid[r][c1] == input_grid[r][c2] for r in range(pH))\n\n    pc = pW\n    for p in range(1, pW + 1):\n        ok = True\n        for c in range(pW):\n            if not col_eq(c, c % p):\n                ok = False\n                break\n        if ok:\n            pc = p\n            break\n\n    # Build output: full HxW grid, output[r][c] = pattern[r % pr][(c+1) % pc]\n    output = []\n    for r in range(H):\n        row = []\n        for c in range(W):\n            row.append(input_grid[r % pr][(c + 1) % pc])\n        output.append(row)\n    return output\n",
+      "source": "claude_agent_batch_048_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

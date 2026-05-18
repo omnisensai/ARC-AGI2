@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "a096bf4d",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find separator rows and columns (all zeros)\n    sep_rows = [r for r in range(H) if all(grid[r][c] == 0 for c in range(W))]\n    sep_cols = [c for c in range(W) if all(grid[r][c] == 0 for r in range(H))]\n\n    # Determine meta-cell boundaries: regions between separator rows/cols\n    def get_regions(seps, total):\n        regions = []\n        prev = -1\n        for s in seps:\n            if s - prev > 1:\n                regions.append((prev + 1, s - 1))\n            prev = s\n        if total - 1 - prev > 0:\n            regions.append((prev + 1, total - 1))\n        return regions\n\n    row_regions = get_regions(sep_rows, H)\n    col_regions = get_regions(sep_cols, W)\n\n    n_rows = len(row_regions)\n    n_cols = len(col_regions)\n\n    # Extract each meta-cell\n    cells = {}\n    for mr, (r0, r1) in enumerate(row_regions):\n        for mc, (c0, c1) in enumerate(col_regions):\n            cell = tuple(tuple(grid[r][c0:c1+1]) for r in range(r0, r1+1))\n            cells[(mr, mc)] = cell\n\n    # Find the most common cell pattern (background pattern)\n    pattern_counts = Counter(cells.values())\n    bg_pattern = pattern_counts.most_common(1)[0][0]\n    ch = len(bg_pattern)\n    cw = len(bg_pattern[0])\n\n    # Find anomalies: positions within cell where it differs from bg pattern\n    # An anomaly is (meta_r, meta_c, in_r, in_c, value)\n    anomalies = []\n    for (mr, mc), cell in cells.items():\n        for ir in range(ch):\n            for ic in range(cw):\n                if cell[ir][ic] != bg_pattern[ir][ic]:\n                    anomalies.append((mr, mc, ir, ic, cell[ir][ic]))\n\n    # Group by (in_r, in_c, value)\n    groups = {}\n    for a in anomalies:\n        mr, mc, ir, ic, v = a\n        key = (ir, ic, v)\n        groups.setdefault(key, []).append((mr, mc))\n\n    # For each group, fill between pairs sharing meta-row or meta-col\n    for (ir, ic, v), positions in groups.items():\n        # For each pair sharing same meta_row\n        rows_to_fill = {}  # mr -> set of mc to fill\n        cols_to_fill = {}  # mc -> set of mr to fill\n        for i in range(len(positions)):\n            for j in range(i+1, len(positions)):\n                r1, c1 = positions[i]\n                r2, c2 = positions[j]\n                if r1 == r2:\n                    lo, hi = min(c1, c2), max(c1, c2)\n                    rows_to_fill.setdefault(r1, set()).update(range(lo, hi+1))\n                if c1 == c2:\n                    lo, hi = min(r1, r2), max(r1, r2)\n                    cols_to_fill.setdefault(c1, set()).update(range(lo, hi+1))\n\n        # Apply fills\n        for mr, mcs in rows_to_fill.items():\n            for mc in mcs:\n                r0 = row_regions[mr][0]\n                c0 = col_regions[mc][0]\n                grid[r0 + ir][c0 + ic] = v\n        for mc, mrs in cols_to_fill.items():\n            for mr in mrs:\n                r0 = row_regions[mr][0]\n                c0 = col_regions[mc][0]\n                grid[r0 + ir][c0 + ic] = v\n\n    return grid\n",
+      "source": "claude_agent_batch_048_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

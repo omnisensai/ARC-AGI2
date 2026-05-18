@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "48634b99",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find vertical segments of non-7 values (8 or 9) in each column.\n    # A segment is a maximal vertical run of cells in {8, 9}.\n    segments = []  # list of (col, start_row, end_row_inclusive, has_nine, nine_top)\n    for c in range(W):\n        r = 0\n        while r < H:\n            if grid[r][c] in (8, 9):\n                start = r\n                while r < H and grid[r][c] in (8, 9):\n                    r += 1\n                end = r - 1\n                seg_vals = [grid[i][c] for i in range(start, end + 1)]\n                has_nine = 9 in seg_vals\n                nine_top = False\n                if has_nine:\n                    # Determine if 9s are at the top half or bottom half\n                    nine_indices = [i for i, v in enumerate(seg_vals) if v == 9]\n                    # 9s are contiguous; check if the first cell is 9\n                    nine_top = (seg_vals[0] == 9)\n                segments.append((c, start, end, has_nine, nine_top, seg_vals))\n            else:\n                r += 1\n\n    # Identify template segment (the one with 9s)\n    template = None\n    for seg in segments:\n        if seg[3]:  # has_nine\n            template = seg\n            break\n\n    if template is None:\n        return grid\n\n    t_col, t_start, t_end, _, t_nine_top, _ = template\n    t_len = t_end - t_start + 1\n    target_len = t_len + 2\n\n    # Find target segment with length = template length + 2\n    target = None\n    for seg in segments:\n        if seg[3]:\n            continue\n        seg_len = seg[2] - seg[1] + 1\n        if seg_len == target_len:\n            target = seg\n            break\n\n    # Replace 9s in template with 8s\n    for r in range(t_start, t_end + 1):\n        grid[r][t_col] = 8\n\n    if target is None:\n        return grid\n\n    tg_col, tg_start, tg_end, _, _, _ = target\n    tg_len = tg_end - tg_start + 1\n    half = tg_len // 2  # number of 9s\n\n    if t_nine_top:\n        for i in range(half):\n            grid[tg_start + i][tg_col] = 9\n    else:\n        for i in range(half):\n            grid[tg_end - i][tg_col] = 9\n\n    return grid\n",
+      "source": "claude_agent_batch_048_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

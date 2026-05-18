@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "f28a3cbb",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    BG = 6\n\n    # Output starts as background\n    out = [[BG for _ in range(W)] for _ in range(H)]\n\n    # Find all non-background colors\n    colors = set()\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != BG:\n                colors.add(v)\n\n    for color in colors:\n        # Find 3x3 solid block of this color\n        block_r0 = block_c0 = None\n        for r in range(H - 2):\n            for c in range(W - 2):\n                if all(input_grid[r + dr][c + dc] == color for dr in range(3) for dc in range(3)):\n                    block_r0, block_c0 = r, c\n                    break\n            if block_r0 is not None:\n                break\n\n        if block_r0 is None:\n            # No solid block; just copy cells as-is\n            for r in range(H):\n                for c in range(W):\n                    if input_grid[r][c] == color:\n                        out[r][c] = color\n            continue\n\n        block_r1 = block_r0 + 2\n        block_c1 = block_c0 + 2\n\n        # Place the 3x3 block in output\n        for dr in range(3):\n            for dc in range(3):\n                out[block_r0 + dr][block_c0 + dc] = color\n\n        # Determine which corner of grid the block touches; this defines\n        # which two sides of the block are \"outward\" facing.\n        # outward_row_side: +1 means block_r1+1 is outward; -1 means block_r0-1\n        # outward_col_side: +1 means block_c1+1 is outward; -1 means block_c0-1\n        if block_r0 == 0:\n            outward_row_side = +1\n        elif block_r1 == H - 1:\n            outward_row_side = -1\n        else:\n            outward_row_side = +1  # default\n        if block_c0 == 0:\n            outward_col_side = +1\n        elif block_c1 == W - 1:\n            outward_col_side = -1\n        else:\n            outward_col_side = +1  # default\n\n        # Build the L-perimeter target cells\n        if outward_row_side == +1:\n            row_edge_r = block_r1 + 1\n        else:\n            row_edge_r = block_r0 - 1\n        if outward_col_side == +1:\n            col_edge_c = block_c1 + 1\n        else:\n            col_edge_c = block_c0 - 1\n\n        L_cells = []\n        # Horizontal edge: same row, columns spanning block cols\n        for j in range(block_c0, block_c1 + 1):\n            L_cells.append((row_edge_r, j))\n        # Vertical edge: same col, rows spanning block rows\n        for i in range(block_r0, block_r1 + 1):\n            L_cells.append((i, col_edge_c))\n\n        # Process scattered cells\n        for r in range(H):\n            for c in range(W):\n                if input_grid[r][c] != color:\n                    continue\n                if block_r0 <= r <= block_r1 and block_c0 <= c <= block_c1:\n                    continue  # part of solid block\n\n                # Find nearest L cell (squared euclidean)\n                best = None\n                best_d = None\n                for (lr, lc) in L_cells:\n                    d = (r - lr) ** 2 + (c - lc) ** 2\n                    if best_d is None or d < best_d:\n                        best_d = d\n                        best = (lr, lc)\n                out[best[0]][best[1]] = color\n\n    return out\n",
+      "source": "claude_agent_batch_048_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
