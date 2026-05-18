@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "92e50de0",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find divider color: the color that fills full rows/cols\n    divider = None\n    for r in range(H):\n        vals = set(grid[r])\n        if len(vals) == 1:\n            divider = next(iter(vals))\n            break\n\n    # Identify divider row and column indices\n    div_rows = [r for r in range(H) if all(grid[r][c] == divider for c in range(W))]\n    div_cols = [c for c in range(W) if all(grid[r][c] == divider for r in range(H))]\n\n    # Compute cell boundaries (segments between dividers)\n    def segments(divs, total):\n        segs = []\n        start = 0\n        for d in divs:\n            if d > start:\n                segs.append((start, d))\n            start = d + 1\n        if start < total:\n            segs.append((start, total))\n        return segs\n\n    row_segs = segments(div_rows, H)\n    col_segs = segments(div_cols, W)\n\n    # Find which cell contains the pattern (non-zero, non-divider)\n    src_cell = None\n    pattern = None\n    for ri, (r0, r1) in enumerate(row_segs):\n        for ci, (c0, c1) in enumerate(col_segs):\n            block = [row[c0:c1] for row in grid[r0:r1]]\n            if any(v != 0 and v != divider for row in block for v in row):\n                src_cell = (ri, ci)\n                pattern = block\n                break\n        if src_cell:\n            break\n\n    sr, sc = src_cell\n\n    # Clear source cell (will be re-filled below)\n    r0, r1 = row_segs[sr]\n    c0, c1 = col_segs[sc]\n    for r in range(r0, r1):\n        for c in range(c0, c1):\n            grid[r][c] = 0\n\n    # Place pattern in every cell with same parity as source\n    for ri, (r0, r1) in enumerate(row_segs):\n        for ci, (c0, c1) in enumerate(col_segs):\n            if (ri % 2) == (sr % 2) and (ci % 2) == (sc % 2):\n                # Place pattern, respecting cell size (some edge cells may be smaller)\n                ph = r1 - r0\n                pw = c1 - c0\n                for i in range(min(ph, len(pattern))):\n                    for j in range(min(pw, len(pattern[0]))):\n                        grid[r0 + i][c0 + j] = pattern[i][j]\n\n    return grid\n",
+      "source": "claude_agent_batch_017_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "50a16a69",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Detect border: a full row or full column of a single color that is the marker.\n    # Determine which rows/cols are \"border\" (uniform single color that differs from pattern).\n    # Approach: find the marker color = the color that fills entire bottom/top row and/or\n    # entire right/left column.\n\n    def is_uniform(vals):\n        return all(v == vals[0] for v in vals)\n\n    # Identify border rows and columns\n    border_rows = set()\n    border_cols = set()\n\n    # Check each row/col for uniformity; uniform ones are candidates\n    uniform_row_color = {}\n    for i in range(H):\n        if is_uniform(input_grid[i]):\n            uniform_row_color[i] = input_grid[i][0]\n    uniform_col_color = {}\n    for j in range(W):\n        col = [input_grid[i][j] for i in range(H)]\n        if is_uniform(col):\n            uniform_col_color[j] = col[0]\n\n    # Marker color: should appear as uniform row AND uniform col with same color\n    marker = None\n    if uniform_row_color and uniform_col_color:\n        for c in uniform_row_color.values():\n            if c in uniform_col_color.values():\n                marker = c\n                break\n    if marker is None:\n        if uniform_row_color:\n            marker = list(uniform_row_color.values())[0]\n        elif uniform_col_color:\n            marker = list(uniform_col_color.values())[0]\n\n    # Border rows/cols are those uniform with marker color\n    for i, c in uniform_row_color.items():\n        if c == marker:\n            border_rows.add(i)\n    for j, c in uniform_col_color.items():\n        if c == marker:\n            border_cols.add(j)\n\n    # Also any cell with marker color is border-contaminated\n    # The \"pattern area\" is rows not in border_rows and cols not in border_cols.\n    # But there might be partial border: e.g. last column has marker in pattern rows.\n    # Determine pattern region: max contiguous rectangle without marker\n    # Simpler: pattern rows = rows not entirely marker AND row contains non-marker in\n    # some pattern col region.\n\n    pattern_rows = [i for i in range(H) if i not in border_rows]\n    pattern_cols = [j for j in range(W) if j not in border_cols]\n\n    # In pattern rows, some cols may still be marker (the right/left border column\n    # in those rows). Find pattern_cols by: cols where pattern_rows are mostly non-marker.\n    real_pattern_cols = []\n    for j in range(W):\n        if j in border_cols:\n            continue\n        vals = [input_grid[i][j] for i in pattern_rows]\n        if all(v != marker for v in vals):\n            real_pattern_cols.append(j)\n        elif all(v == marker for v in vals):\n            # this column is actually all marker in pattern rows -> border col too\n            border_cols.add(j)\n        else:\n            real_pattern_cols.append(j)\n\n    real_pattern_rows = []\n    for i in range(H):\n        if i in border_rows:\n            continue\n        vals = [input_grid[i][j] for j in real_pattern_cols]\n        if all(v == marker for v in vals):\n            border_rows.add(i)\n        else:\n            real_pattern_rows.append(i)\n\n    pattern_rows = real_pattern_rows\n    pattern_cols = real_pattern_cols\n\n    # Now find the period of the pattern in rows direction (column period) and row period.\n    # Build a small known pattern from pattern_rows x pattern_cols.\n    # The pattern_cols indices in the original grid; we need to keep their original\n    # column positions to extend correctly.\n\n    # Detect column period: find smallest p such that for all pattern cells,\n    # input[i][j] == input[i][j+p] when both are pattern cols and j+p in pattern cols.\n    pc_set = set(pattern_cols)\n    pr_set = set(pattern_rows)\n\n    def check_col_period(p):\n        for i in pattern_rows:\n            for j in pattern_cols:\n                if (j + p) in pc_set:\n                    if input_grid[i][j] != input_grid[i][j + p]:\n                        return False\n        return True\n\n    col_period = None\n    for p in range(1, len(pattern_cols) + 1):\n        if check_col_period(p):\n            col_period = p\n            break\n    if col_period is None:\n        col_period = 1\n\n    def check_row_period(p):\n        for j in pattern_cols:\n            for i in pattern_rows:\n                if (i + p) in pr_set:\n                    if input_grid[i][j] != input_grid[i + p][j]:\n                        return False\n        return True\n\n    row_period = None\n    for p in range(1, len(pattern_rows) + 1):\n        if check_row_period(p):\n            row_period = p\n            break\n    if row_period is None:\n        row_period = 1\n\n    # Build pattern lookup: for any (i, j) in original coords, determine pattern value\n    # using known cells. We have a set of known (i, j) -> value. Extend periodically.\n    known = {}\n    for i in pattern_rows:\n        for j in pattern_cols:\n            known[(i, j)] = input_grid[i][j]\n\n    # Use the first pattern row and col as references; map (i, j) -> equivalent class\n    # by reducing relative to a base.\n    base_i = pattern_rows[0]\n    base_j = pattern_cols[0]\n\n    def pattern_val(i, j):\n        # find equivalent (i', j') in known\n        # i' = base_i + ((i - base_i) % row_period) but we want some i' that has data\n        di = (i - base_i) % row_period\n        dj = (j - base_j) % col_period\n        # find a pattern row with (row - base_i) % row_period == di\n        for pi in pattern_rows:\n            if (pi - base_i) % row_period == di:\n                for pj in pattern_cols:\n                    if (pj - base_j) % col_period == dj:\n                        return input_grid[pi][pj]\n        return 0\n\n    # Output: output[i][j] = pattern_val(i, j+1)? Need to determine shift direction.\n    # In all examples border is bottom+right, and shift is +1 in column (left shift).\n    # But it could be top/left border too. Determine shift direction from border position.\n\n    # The shift is \"away from border\": if border is on right, output shifts left\n    # (output[i][j] = pattern_val(i, j+1)). If border on left, shift right\n    # (output[i][j] = pattern_val(i, j-1)). Similarly for top/bottom rows... but\n    # in examples, only column shift happens. Let me think.\n    # Training 1: border on right col and bottom row. Pattern shift = pattern[i][j+1].\n    # Equivalently could be pattern[i+1][j] for checkerboard. Since training 2 only\n    # column shift works, use column shift.\n\n    # Determine column shift direction\n    col_shift = 0\n    if max(border_cols, default=-1) == W - 1:\n        col_shift = 1  # border on right -> shift left -> +1\n    elif min(border_cols, default=W) == 0:\n        col_shift = -1\n    else:\n        col_shift = 1  # default\n\n    row_shift = 0\n    if max(border_rows, default=-1) == H - 1:\n        row_shift = 1\n    elif min(border_rows, default=H) == 0:\n        row_shift = -1\n\n    # In training examples, only col shift applies (output matches pattern[i][j+1]).\n    # Set row_shift = 0 to use just column shift.\n    # Actually verify: training 2 output[0][0]=3. pattern_val(0, 1) = pattern[0][1]=3. \u2713\n    # With row_shift=1: pattern[1][1]=7. \u2717. So row_shift=0.\n    row_shift = 0\n\n    output = [[0] * W for _ in range(H)]\n    for i in range(H):\n        for j in range(W):\n            output[i][j] = pattern_val(i + row_shift, j + col_shift)\n    return output\n",
+      "source": "claude_agent_batch_017_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

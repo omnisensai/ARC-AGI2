@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "d931c21c",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import deque\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    out = [row[:] for row in input_grid]\n\n    # Find connected components of 1s (8-connectivity to handle diagonal touches)\n    visited = [[False]*W for _ in range(H)]\n    components = []\n    for i in range(H):\n        for j in range(W):\n            if grid[i][j] == 1 and not visited[i][j]:\n                comp = []\n                q = deque([(i,j)])\n                visited[i][j] = True\n                while q:\n                    y,x = q.popleft()\n                    comp.append((y,x))\n                    for dy in (-1,0,1):\n                        for dx in (-1,0,1):\n                            if dy==0 and dx==0: continue\n                            ny,nx = y+dy, x+dx\n                            if 0<=ny<H and 0<=nx<W and grid[ny][nx]==1 and not visited[ny][nx]:\n                                visited[ny][nx] = True\n                                q.append((ny,nx))\n                components.append(comp)\n\n    # For each component, determine if it encloses a region of 0s.\n    # Find the 4-connected 0-regions. The \"outside\" region touches the border of the grid.\n    # A 0-cell is \"interior\" to component C if its 4-connected region of 0s does not touch the grid border,\n    # AND the surrounding 1s belong to C.\n\n    # Find 0-regions\n    zero_visited = [[False]*W for _ in range(H)]\n    zero_regions = []  # list of (cells, touches_border, neighbor_one_cells_set)\n    for i in range(H):\n        for j in range(W):\n            if grid[i][j] == 0 and not zero_visited[i][j]:\n                cells = []\n                touches_border = False\n                neighbor_ones = set()\n                q = deque([(i,j)])\n                zero_visited[i][j] = True\n                while q:\n                    y,x = q.popleft()\n                    cells.append((y,x))\n                    if y==0 or y==H-1 or x==0 or x==W-1:\n                        touches_border = True\n                    for dy,dx in [(-1,0),(1,0),(0,-1),(0,1)]:\n                        ny,nx = y+dy, x+dx\n                        if 0<=ny<H and 0<=nx<W:\n                            if grid[ny][nx] == 0 and not zero_visited[ny][nx]:\n                                zero_visited[ny][nx] = True\n                                q.append((ny,nx))\n                            elif grid[ny][nx] == 1:\n                                neighbor_ones.add((ny,nx))\n                zero_regions.append((cells, touches_border, neighbor_ones))\n\n    # Map cell -> component index\n    cell_to_comp = {}\n    for ci, comp in enumerate(components):\n        for c in comp:\n            cell_to_comp[c] = ci\n\n    # For each component, find interior 0-regions (those enclosed and bordered only by this component)\n    comp_interior_regions = {ci: [] for ci in range(len(components))}\n    for cells, touches_border, neighbor_ones in zero_regions:\n        if touches_border:\n            continue\n        # Check all bordering 1s belong to one component\n        comp_ids = set(cell_to_comp[c] for c in neighbor_ones if c in cell_to_comp)\n        if len(comp_ids) == 1:\n            ci = next(iter(comp_ids))\n            comp_interior_regions[ci].append(cells)\n\n    # A component is \"closed\" if it has at least one interior region\n    closed_components = set(ci for ci, regs in comp_interior_regions.items() if regs)\n\n    # For closed components:\n    #   - interior 0 cells -> 3, but only if orthogonally adjacent to a 1 of this component\n    #     (if not, stays 0)\n    #   - outside 0 cells 8-adjacent to a 1 of this component -> 2\n    for ci in closed_components:\n        comp_cells = set(components[ci])\n        interior_cells = set()\n        for reg in comp_interior_regions[ci]:\n            for c in reg:\n                interior_cells.add(c)\n\n        # Mark interior cells: become 3 if 8-adjacent to a border 1 of this component,\n        # else stay 0\n        for (y,x) in interior_cells:\n            adj_one = False\n            for dy in (-1,0,1):\n                for dx in (-1,0,1):\n                    if dy==0 and dx==0: continue\n                    ny,nx = y+dy, x+dx\n                    if 0<=ny<H and 0<=nx<W and (ny,nx) in comp_cells:\n                        adj_one = True\n                        break\n                if adj_one: break\n            if adj_one:\n                out[y][x] = 3\n            # else stays 0\n\n        # Mark outside halo cells (2s): cells 8-adjacent to a 1 of this component,\n        # that are outside the shape (not interior)\n        halo_cells = set()\n        for (y,x) in comp_cells:\n            for dy in (-1,0,1):\n                for dx in (-1,0,1):\n                    if dy==0 and dx==0: continue\n                    ny,nx = y+dy, x+dx\n                    if 0<=ny<H and 0<=nx<W:\n                        if grid[ny][nx] == 0 and (ny,nx) not in interior_cells:\n                            halo_cells.add((ny,nx))\n\n        # Compute bbox of component\n        ys = [c[0] for c in comp_cells]\n        xs = [c[1] for c in comp_cells]\n        rmin, rmax = min(ys), max(ys)\n        cmin, cmax = min(xs), max(xs)\n        # Bbox+1 corners\n        corners = [(rmin-1, cmin-1), (rmin-1, cmax+1),\n                   (rmax+1, cmin-1), (rmax+1, cmax+1)]\n        for (cy, cx) in corners:\n            if not (0 <= cy < H and 0 <= cx < W):\n                continue\n            if grid[cy][cx] != 0:\n                continue\n            if (cy, cx) in interior_cells:\n                continue\n            # Two adjacent ring neighbors: along row (rmin-1 or rmax+1) and along col\n            if cy == rmin-1:\n                ny_row = (cy, cx + (1 if cx == cmin-1 else -1))  # cell on top ring next to corner\n            else:\n                ny_row = (cy, cx + (1 if cx == cmin-1 else -1))  # bottom ring\n            if cx == cmin-1:\n                ny_col = (cy + (1 if cy == rmin-1 else -1), cx)\n            else:\n                ny_col = (cy + (1 if cy == rmin-1 else -1), cx)\n            if ny_row in halo_cells and ny_col in halo_cells:\n                halo_cells.add((cy, cx))\n\n        for (y, x) in halo_cells:\n            out[y][x] = 2\n\n    return out\n",
+      "source": "claude_agent_batch_017_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

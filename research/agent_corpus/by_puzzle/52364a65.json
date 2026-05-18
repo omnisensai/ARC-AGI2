@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "52364a65",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    h = len(input_grid)\n    w = len(input_grid[0])\n    bg = 8\n    out = [[bg] * w for _ in range(h)]\n\n    # Find connected components (4-connected) of non-bg cells, grouped by color.\n    # Each color likely forms one shape, but use component detection to be safe.\n    visited = [[False] * w for _ in range(h)]\n    components = []\n    for r in range(h):\n        for c in range(w):\n            if input_grid[r][c] != bg and not visited[r][c]:\n                color = input_grid[r][c]\n                stack = [(r, c)]\n                cells = []\n                visited[r][c] = True\n                while stack:\n                    cr, cc = stack.pop()\n                    cells.append((cr, cc))\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        nr, nc = cr + dr, cc + dc\n                        if 0 <= nr < h and 0 <= nc < w and not visited[nr][nc] and input_grid[nr][nc] == color:\n                            visited[nr][nc] = True\n                            stack.append((nr, nc))\n                components.append((color, cells))\n\n    # For each component, find bounding box, then remove the leftmost 2 columns.\n    for color, cells in components:\n        min_c = min(c for _, c in cells)\n        for r, c in cells:\n            if c >= min_c + 2:\n                out[r][c] = color\n\n    return out\n",
+      "source": "claude_agent_batch_017_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
