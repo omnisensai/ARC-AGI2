@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "84ba50d3",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import deque\n    H = len(input_grid)\n    W = len(input_grid[0])\n    L = None\n    for r in range(H):\n        if all(c == 2 for c in input_grid[r]):\n            L = r\n            break\n\n    def find_components(cells_set):\n        visited = set()\n        comps = []\n        for cell in cells_set:\n            if cell in visited:\n                continue\n            comp = []\n            q = deque([cell])\n            visited.add(cell)\n            while q:\n                r, c = q.popleft()\n                comp.append((r, c))\n                for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                    nr, nc = r + dr, c + dc\n                    if (nr, nc) in cells_set and (nr, nc) not in visited:\n                        visited.add((nr, nc))\n                        q.append((nr, nc))\n            comps.append(comp)\n        return comps\n\n    above_cells = set()\n    below_cells = set()\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 1:\n                if r < L:\n                    above_cells.add((r, c))\n                elif r > L:\n                    below_cells.add((r, c))\n\n    above_comps = find_components(above_cells)\n    below_comps = find_components(below_cells)\n\n    def process_shape(cells, side):\n        rows = [r for r, c in cells]\n        row_to_cols = {}\n        for r, c in cells:\n            row_to_cols.setdefault(r, []).append(c)\n        multi_rows = [r for r, cs in row_to_cols.items() if len(cs) > 1]\n\n        if multi_rows:\n            if side == 'above':\n                target = L - 1\n                arm_row = max(multi_rows)\n            else:\n                target = L + 1\n                arm_row = min(multi_rows)\n            shift = target - arm_row\n        else:\n            if side == 'above':\n                shift = (H - 1) - max(rows)\n            else:\n                shift = 0 - min(rows)\n\n        return [(r + shift, c) for r, c in cells]\n\n    out = [[8] * W for _ in range(H)]\n    for c in range(W):\n        out[L][c] = 2\n\n    all_new = []\n    for comp in above_comps:\n        all_new.append((process_shape(comp, 'above'), 'above'))\n    for comp in below_comps:\n        all_new.append((process_shape(comp, 'below'), 'below'))\n\n    for new_cells, side in all_new:\n        if side == 'above':\n            max_new_row = max(r for r, c in new_cells)\n            if max_new_row >= L:\n                for r, c in new_cells:\n                    if r >= L:\n                        out[L][c] = 8\n        else:\n            min_new_row = min(r for r, c in new_cells)\n            if min_new_row <= L:\n                for r, c in new_cells:\n                    if r <= L:\n                        out[L][c] = 8\n\n    for new_cells, side in all_new:\n        for r, c in new_cells:\n            if 0 <= r < H and 0 <= c < W:\n                out[r][c] = 1\n\n    return out\n",
+      "source": "claude_agent_batch_036_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

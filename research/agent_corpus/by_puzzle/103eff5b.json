@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "103eff5b",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Copy\n    out = [row[:] for row in input_grid]\n\n    # Find 8-region bounding box\n    rs, re, cs, ce = None, None, None, None\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 8:\n                if rs is None or r < rs: rs = r\n                if re is None or r > re: re = r\n                if cs is None or c < cs: cs = c\n                if ce is None or c > ce: ce = c\n\n    # Find key bounding box (non-zero, non-8)\n    krs, kre, kcs, kce = None, None, None, None\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != 0 and v != 8:\n                if krs is None or r < krs: krs = r\n                if kre is None or r > kre: kre = r\n                if kcs is None or c < kcs: kcs = c\n                if kce is None or c > kce: kce = c\n\n    key_h = kre - krs + 1\n    key_w = kce - kcs + 1\n    # Assume square\n    N = key_h  # == key_w\n    # Extract key\n    key = [[input_grid[krs + i][kcs + j] for j in range(N)] for i in range(N)]\n\n    # Rotate key 90 degrees clockwise\n    rotated = [[key[N - 1 - j][i] for j in range(N)] for i in range(N)]\n\n    # Cell size\n    region_h = re - rs + 1\n    region_w = ce - cs + 1\n    cell = region_h // N  # assume == region_w // N\n\n    # For each cell (i,j) in the rotated grid, if input cells are 8 in that block, replace with rotated[i][j]\n    for i in range(N):\n        for j in range(N):\n            color = rotated[i][j]\n            if color == 0:\n                continue\n            for dr in range(cell):\n                for dc in range(cell):\n                    r = rs + i * cell + dr\n                    c = cs + j * cell + dc\n                    if input_grid[r][c] == 8:\n                        out[r][c] = color\n\n    # Replace any remaining 8s with 0 (just in case)\n    for r in range(H):\n        for c in range(W):\n            if out[r][c] == 8:\n                out[r][c] = 0\n\n    return out\n",
+      "source": "claude_agent_batch_036_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "97c75046",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    five_pos = None\n    shape = set()\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v == 5:\n                five_pos = (r, c)\n            elif v == 0:\n                shape.add((r, c))\n\n    rows = sorted(set(r for r, c in shape))\n    cols = sorted(set(c for r, c in shape))\n\n    leftmost_per_row = {r: min(c for rr, c in shape if rr == r) for r in rows}\n    rightmost_per_row = {r: max(c for rr, c in shape if rr == r) for r in rows}\n    topmost_per_col = {c: min(r for r, cc in shape if cc == c) for c in cols}\n    bottommost_per_col = {c: max(r for r, cc in shape if cc == c) for c in cols}\n\n    fr, fc = five_pos\n    target = None\n\n    def try_smooth(values_dict, keys, primary_dir, axis, perpendicular_min):\n        \"\"\"\n        values_dict: maps key -> value (e.g., row -> rightmost col)\n        keys: sorted list of keys\n        primary_dir: expected diff between consecutive (e.g., +1 for rightmost going down)\n        Returns the cell to add to smooth an anomaly, or None.\n        axis: 'row' or 'col' for which dimension the keys are\n        \"\"\"\n        diffs = []\n        for i in range(len(keys) - 1):\n            k1, k2 = keys[i], keys[i+1]\n            if k2 == k1 + 1:\n                d = values_dict[k2] - values_dict[k1]\n                diffs.append((i, k1, k2, d))\n        # Count primary_dir matches\n        normal = [t for t in diffs if t[3] == primary_dir]\n        anomaly = [t for t in diffs if t[3] != primary_dir]\n        if len(normal) >= len(anomaly) and len(anomaly) == 1:\n            i, k1, k2, d = anomaly[0]\n            # Two candidate cells to add to smooth\n            if axis == 'row':\n                # k is a row, value is a col\n                # Option A: add cell to k1 at col v[k2] - primary_dir\n                cand_a = (k1, values_dict[k2] - primary_dir)\n                # Option B: add cell to k2 at col v[k1] + primary_dir\n                cand_b = (k2, values_dict[k1] + primary_dir)\n            else:\n                # k is a col, value is a row\n                cand_a = (values_dict[k2] - primary_dir, k1)\n                cand_b = (values_dict[k1] + primary_dir, k2)\n            # Pick the one not in shape\n            for cand in [cand_a, cand_b]:\n                if cand not in shape and 0 <= cand[0] < H and 0 <= cand[1] < W:\n                    return cand\n        return None\n\n    # Try rightmost-per-row anomaly (diff should be +1 or 0, irregularity is jump)\n    # Actually: find direction where most rows have d=+1, anomaly has d=0\n    # Generalize: try each primary_dir\n    for primary_dir in [+1, -1, 0]:\n        if target is None:\n            target = try_smooth(rightmost_per_row, rows, primary_dir, 'row', None)\n            if target is not None and target in shape:\n                target = None\n        if target is None:\n            target = try_smooth(leftmost_per_row, rows, primary_dir, 'row', None)\n            if target is not None and target in shape:\n                target = None\n        if target is None:\n            target = try_smooth(topmost_per_col, cols, primary_dir, 'col', None)\n            if target is not None and target in shape:\n                target = None\n        if target is None:\n            target = try_smooth(bottommost_per_col, cols, primary_dir, 'col', None)\n            if target is not None and target in shape:\n                target = None\n\n    if target is None:\n        # Extend the shape by 1 cell. Determine direction.\n        min_r, max_r = min(rows), max(rows)\n        min_c, max_c = min(cols), max(cols)\n\n        # Determine the \"natural\" extension direction.\n        # If shape's leftmost decreases going down (and rightmost constant), it shrinks going up. Extend up.\n        # If shape's rightmost increases going down (and leftmost constant), it shrinks going up. Extend up.\n        # If shape's rightmost decreases going down (and leftmost constant), it shrinks going down. Extend down.\n        # ... etc.\n\n        # Compute leftmost & rightmost diffs from top to bottom\n        l_diffs = [leftmost_per_row[rows[i+1]] - leftmost_per_row[rows[i]] for i in range(len(rows)-1)]\n        r_diffs = [rightmost_per_row[rows[i+1]] - rightmost_per_row[rows[i]] for i in range(len(rows)-1)]\n\n        # Pair 2 case: leftmost decreasing going down, rightmost constant. Means shape grows down-left.\n        # Natural extension: up (the apex). New cell at (min_r - 1, rightmost col)\n        # Pair 3 case: leftmost constant, rightmost not monotonic (diamond). Use 5's direction.\n\n        # Check if leftmost monotonic\n        l_decreasing = all(d == -1 for d in l_diffs)\n        l_increasing = all(d == +1 for d in l_diffs)\n        l_constant = all(d == 0 for d in l_diffs)\n        r_decreasing = all(d == -1 for d in r_diffs)\n        r_increasing = all(d == +1 for d in r_diffs)\n        r_constant = all(d == 0 for d in r_diffs)\n\n        if l_decreasing and r_constant:\n            # Shape grows down-left. Extend up: (min_r-1, rightmost of shape)\n            target = (min_r - 1, max(c for r, c in shape if r == min_r))\n        elif l_constant and r_increasing:\n            # Shape grows down-right. Extend up\n            target = (min_r - 1, min(c for r, c in shape if r == min_r))\n        elif l_increasing and r_constant:\n            # Shape grows up-left\n            target = (max_r + 1, max(c for r, c in shape if r == max_r))\n        elif l_constant and r_decreasing:\n            # Shape grows up-right\n            target = (max_r + 1, min(c for r, c in shape if r == max_r))\n        else:\n            # Symmetric or other - use 5's position\n            if fr > max_r:\n                # 5 below, extend down: pick the leftmost col of bottom row\n                bot_cols = sorted(c for r, c in shape if r == max_r)\n                target = (max_r + 1, bot_cols[0])\n            elif fr < min_r:\n                top_cols = sorted(c for r, c in shape if r == min_r)\n                target = (min_r - 1, top_cols[-1])\n            elif fc > max_c:\n                right_rows = sorted(r for r, c in shape if c == max_c)\n                target = (right_rows[0], max_c + 1)\n            else:\n                left_rows = sorted(r for r, c in shape if c == min_c)\n                target = (left_rows[-1], min_c - 1)\n\n    output = [row[:] for row in input_grid]\n    output[fr][fc] = 7\n    if target is not None:\n        tr, tc = target\n        output[tr][tc] = 5\n    return output\n",
+      "source": "claude_agent_batch_034_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

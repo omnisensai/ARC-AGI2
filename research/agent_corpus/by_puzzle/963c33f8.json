@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "963c33f8",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    grid = [row[:] for row in input_grid]\n    H = len(grid)\n    W = len(grid[0])\n\n    # Find the 3x3 key (region with 9s and 1s)\n    key_r, key_c = None, None\n    for r in range(H - 2):\n        for c in range(W - 2):\n            cells = [grid[r+dr][c+dc] for dr in range(3) for dc in range(3)]\n            if all(x in (9, 1) for x in cells) and 9 in cells:\n                key_r, key_c = r, c\n                break\n        if key_r is not None:\n            break\n\n    # Extract key pattern (3x3)\n    key = [[grid[key_r+dr][key_c+dc] for dc in range(3)] for dr in range(3)]\n\n    # Remove key from grid\n    for dr in range(3):\n        for dc in range(3):\n            grid[key_r+dr][key_c+dc] = 7\n\n    # Find connected components of 5s\n    def find_shapes():\n        visited = [[False]*W for _ in range(H)]\n        shapes = []\n        for r in range(H):\n            for c in range(W):\n                if grid[r][c] == 5 and not visited[r][c]:\n                    stack = [(r, c)]\n                    cells = []\n                    while stack:\n                        rr, cc = stack.pop()\n                        if rr < 0 or rr >= H or cc < 0 or cc >= W or visited[rr][cc] or grid[rr][cc] != 5:\n                            continue\n                        visited[rr][cc] = True\n                        cells.append((rr, cc))\n                        stack.extend([(rr+1, cc), (rr-1, cc), (rr, cc+1), (rr, cc-1)])\n                    shapes.append(cells)\n        return shapes\n\n    # For each col of the key, determine marker placement\n    placements = []  # list of (original_col, desired_col, marker_pattern, start_row)\n\n    for kc in range(3):\n        col_pattern = [key[r][kc] for r in range(3)]  # [top, mid, bottom]\n        grid_col = key_c + kc\n\n        if col_pattern[2] == 1:\n            # Has 1 at bottom: drop down, find first 5\n            first_5_row = None\n            for r in range(key_r + 3, H):\n                if grid[r][grid_col] == 5:\n                    first_5_row = r\n                    break\n\n            if first_5_row is not None:\n                start_row = first_5_row - 3\n                placements.append((grid_col, grid_col, col_pattern, start_row))\n            else:\n                start_row = H - 3\n                placements.append((grid_col, grid_col, col_pattern, start_row))\n        else:\n            # All 9s: place at bottom 3 rows, possibly shifted\n            start_row = H - 3\n\n            def count_5s(col):\n                if col < 0 or col >= W:\n                    return -1\n                return sum(1 for r in range(H-3, H) if grid[r][col] == 5)\n\n            original_count = count_5s(grid_col)\n            best_col = grid_col\n            best_count = original_count\n            for dc in [-1, 1]:\n                new_col = grid_col + dc\n                cnt = count_5s(new_col)\n                if cnt > best_count:\n                    best_col = new_col\n                    best_count = cnt\n\n            placements.append((grid_col, best_col, col_pattern, start_row))\n\n    # Resolve collisions: if two markers want the same col, original wins\n    final_cols = []\n    for i, (orig, desired, pattern, start) in enumerate(placements):\n        collision = False\n        for j, (orig_j, desired_j, _, _) in enumerate(placements):\n            if i != j and desired_j == desired and orig_j == desired_j and orig != desired:\n                collision = True\n                break\n        if collision:\n            final_cols.append(orig)\n        else:\n            final_cols.append(desired)\n\n    # Before placing markers, identify shapes (linear ones)\n    shapes_before = find_shapes()\n\n    def is_linear(shape):\n        rows = set(r for r, c in shape)\n        cols = set(c for r, c in shape)\n        return len(rows) == 1 or len(cols) == 1\n\n    # For each marker cell that overlaps with a 5, determine if shape is linear and absorb\n    # First, gather marker cells\n    marker_cells = []  # (row, col, value)\n    for i, (orig, _, pattern, start) in enumerate(placements):\n        col = final_cols[i]\n        for k in range(3):\n            row = start + k\n            if 0 <= row < H and 0 <= col < W:\n                marker_cells.append((row, col, pattern[k]))\n\n    # Determine cells to erase (become 7) due to linear shape absorption\n    cells_to_erase = set()\n\n    for mr, mc, mv in marker_cells:\n        if grid[mr][mc] == 5:\n            # Find shape containing (mr, mc)\n            for shape in shapes_before:\n                if (mr, mc) in shape:\n                    if is_linear(shape):\n                        # Absorb 3 cells of shape starting from (mr, mc) going along the line\n                        rows = set(r for r, c in shape)\n                        cols = set(c for r, c in shape)\n                        sorted_cells = []\n                        if len(rows) == 1:\n                            # Horizontal line, sort by col\n                            sorted_cells = sorted(shape, key=lambda x: x[1])\n                        else:\n                            # Vertical line, sort by row\n                            sorted_cells = sorted(shape, key=lambda x: x[0])\n\n                        # Find index of (mr, mc) in sorted\n                        idx = sorted_cells.index((mr, mc))\n                        # Absorb 3 cells starting from idx\n                        for i_off in range(3):\n                            if idx + i_off < len(sorted_cells):\n                                cells_to_erase.add(sorted_cells[idx + i_off])\n                    break\n\n    # Place markers (overwrite cells)\n    for mr, mc, mv in marker_cells:\n        grid[mr][mc] = mv\n\n    # Apply erasure (cells_to_erase that are not marker cells become 7)\n    marker_positions = set((mr, mc) for mr, mc, _ in marker_cells)\n    for (r, c) in cells_to_erase:\n        if (r, c) not in marker_positions:\n            grid[r][c] = 7\n\n    return grid\n",
+      "source": "claude_agent_batch_036_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

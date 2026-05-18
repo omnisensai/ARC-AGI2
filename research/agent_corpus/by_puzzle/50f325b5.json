@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "50f325b5",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    eights = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 8]\n    if not eights:\n        return grid\n\n    def normalize(cells):\n        minR = min(c[0] for c in cells)\n        minC = min(c[1] for c in cells)\n        return frozenset((r - minR, c - minC) for r, c in cells)\n\n    def rotate(shape):\n        maxR = max(r for r, c in shape)\n        return frozenset((c, maxR - r) for r, c in shape)\n\n    def reflect(shape):\n        maxC = max(c for r, c in shape)\n        return frozenset((r, maxC - c) for r, c in shape)\n\n    base = normalize(eights)\n\n    rot_variants = set()\n    s = base\n    for _ in range(4):\n        rot_variants.add(normalize(s))\n        s = rotate(s)\n\n    all_variants = set(rot_variants)\n    s = base\n    for _ in range(4):\n        all_variants.add(normalize(reflect(s)))\n        s = rotate(s)\n\n    refl_variants = all_variants - rot_variants\n\n    def find_matches(variants):\n        results = []\n        for variant in variants:\n            maxR = max(r for r, c in variant)\n            maxC = max(c for r, c in variant)\n            for r0 in range(H - maxR):\n                for c0 in range(W - maxC):\n                    if all(grid[r0 + r][c0 + c] == 3 for r, c in variant):\n                        cells = frozenset((r0 + r, c0 + c) for r, c in variant)\n                        results.append(cells)\n        return results\n\n    rot_matches = find_matches(rot_variants)\n    refl_matches = find_matches(refl_variants)\n\n    used_cells = set()\n    accepted = []\n    for cells in rot_matches:\n        accepted.append(cells)\n        used_cells |= cells\n    for cells in refl_matches:\n        if cells & used_cells:\n            continue\n        accepted.append(cells)\n        used_cells |= cells\n\n    for cells in accepted:\n        for r, c in cells:\n            grid[r][c] = 8\n\n    return grid\n",
+      "source": "claude_agent_batch_036_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

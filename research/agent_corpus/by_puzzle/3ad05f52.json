@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "3ad05f52",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import deque\n\n\ndef solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    color = None\n    for r in range(H):\n        for c in range(W):\n            v = grid[r][c]\n            if v != 0 and v != 8:\n                color = v\n                break\n        if color is not None:\n            break\n\n    if color is None:\n        return grid\n\n    def get(r, c):\n        if 0 <= r < H and 0 <= c < W:\n            return grid[r][c]\n        return -1\n\n    def is_vert_gap(r, c):\n        # gap allowing vertical passage; wall is horizontal-aligned (left/right are 8)\n        return get(r, c) == 0 and get(r, c - 1) == 8 and get(r, c + 1) == 8\n\n    def is_horiz_gap(r, c):\n        # gap allowing horizontal passage; wall is vertical-aligned (above/below are 8)\n        return get(r, c) == 0 and get(r - 1, c) == 8 and get(r + 1, c) == 8\n\n    def is_gap(r, c):\n        return is_vert_gap(r, c) or is_horiz_gap(r, c)\n\n    # Step 1: Identify cells (4-connected 0/color regions blocked by 8s AND wall-gaps).\n    cell_id = [[-1] * W for _ in range(H)]\n    cid = 0\n    for r in range(H):\n        for c in range(W):\n            v = grid[r][c]\n            if cell_id[r][c] == -1 and (v == 0 or v == color) and not (v == 0 and is_gap(r, c)):\n                q = deque([(r, c)])\n                cell_id[r][c] = cid\n                while q:\n                    cr, cc = q.popleft()\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        nr, nc = cr + dr, cc + dc\n                        if 0 <= nr < H and 0 <= nc < W:\n                            nv = grid[nr][nc]\n                            if cell_id[nr][nc] == -1 and (nv == 0 or nv == color) and not (nv == 0 and is_gap(nr, nc)):\n                                cell_id[nr][nc] = cid\n                                q.append((nr, nc))\n                cid += 1\n\n    cell_pixels = {}\n    for r in range(H):\n        for c in range(W):\n            if cell_id[r][c] != -1:\n                cell_pixels.setdefault(cell_id[r][c], []).append((r, c))\n\n    # Step 2: Classify cells. A \"background\" cell is one whose majority of pixels\n    # have no 8 in their 4-neighborhood (i.e., open air).\n    def has_8_neighbor(r, c):\n        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n            if get(r + dr, c + dc) == 8:\n                return True\n        return False\n\n    background_cells = set()\n    for cid_v, pixels in cell_pixels.items():\n        n_open = sum(1 for r, c in pixels if not has_8_neighbor(r, c))\n        if n_open > len(pixels) * 0.5:\n            background_cells.add(cid_v)\n\n    # Step 3: For each gap, find the two adjacent cells it connects.\n    gap_info = {}\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 0 and is_gap(r, c):\n                if is_vert_gap(r, c):\n                    # connects cell above (r-1, c) and cell below (r+1, c)\n                    c1 = cell_id[r - 1][c] if r > 0 and cell_id[r - 1][c] != -1 else None\n                    c2 = cell_id[r + 1][c] if r < H - 1 and cell_id[r + 1][c] != -1 else None\n                    gap_info[(r, c)] = ('V', c1, c2)\n                if is_horiz_gap(r, c):\n                    # connects cell left (r, c-1) and cell right (r, c+1)\n                    c1 = cell_id[r][c - 1] if c > 0 and cell_id[r][c - 1] != -1 else None\n                    c2 = cell_id[r][c + 1] if c < W - 1 and cell_id[r][c + 1] != -1 else None\n                    gap_info[(r, c)] = ('H', c1, c2)\n\n    # Step 4: Build cell adjacency through gaps and BFS from source cells.\n    source_cells = set()\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == color and cell_id[r][c] != -1:\n                source_cells.add(cell_id[r][c])\n\n    adj = {}\n    for gp, (gtype, c1, c2) in gap_info.items():\n        if c1 is None or c2 is None or c1 == c2:\n            continue\n        adj.setdefault(c1, []).append((c2, gp))\n        adj.setdefault(c2, []).append((c1, gp))\n\n    visited_cells = set()\n    visited_gaps = set()\n    q = deque()\n    for sc in source_cells:\n        visited_cells.add(sc)\n        q.append(sc)\n\n    while q:\n        c = q.popleft()\n        for nc, gp in adj.get(c, []):\n            visited_gaps.add(gp)\n            if nc not in visited_cells:\n                visited_cells.add(nc)\n                q.append(nc)\n\n    # Step 5: Fill bounded cells fully. Fill background cells as bounding rectangle of gaps.\n    fill = set()\n    for vc in visited_cells:\n        if vc in background_cells:\n            relevant_gaps = [gp for gp in visited_gaps\n                             if gp in gap_info and (gap_info[gp][1] == vc or gap_info[gp][2] == vc)]\n            if relevant_gaps:\n                rs = [g[0] for g in relevant_gaps]\n                cs = [g[1] for g in relevant_gaps]\n                min_r, max_r = min(rs), max(rs)\n                min_c, max_c = min(cs), max(cs)\n                for r, c in cell_pixels[vc]:\n                    if min_r <= r <= max_r and min_c <= c <= max_c:\n                        fill.add((r, c))\n        else:\n            for r, c in cell_pixels[vc]:\n                fill.add((r, c))\n\n    for gp in visited_gaps:\n        fill.add(gp)\n\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == color:\n                fill.add((r, c))\n\n    for r, c in fill:\n        grid[r][c] = color\n\n    return grid\n",
+      "source": "claude_agent_batch_035_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
