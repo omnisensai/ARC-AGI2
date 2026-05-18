@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "8886d717",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find the line of 9s and determine the direction toward it.\n    # The 9s form a full row or full column on an edge.\n    nine_row = None\n    nine_col = None\n    for r in range(H):\n        if all(grid[r][c] == 9 for c in range(W)):\n            nine_row = r\n            break\n    if nine_row is None:\n        for c in range(W):\n            if all(grid[r][c] == 9 for r in range(H)):\n                nine_col = c\n                break\n\n    # Direction toward the 9-edge: (dr, dc)\n    if nine_row is not None:\n        if nine_row == 0:\n            dr, dc = -1, 0\n        else:\n            dr, dc = 1, 0\n    else:\n        if nine_col == 0:\n            dr, dc = 0, -1\n        else:\n            dr, dc = 0, 1\n\n    # Collect all 8 positions and determine region from input neighbors.\n    # 2-region 8s -> replace with 2.\n    # 7-region 8s -> keep 8 and add 8 one step in (dr,dc) direction.\n    output = [row[:] for row in input_grid]\n\n    eights = []\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 8:\n                eights.append((r, c))\n\n    for (r, c) in eights:\n        # Inspect 4-neighbors in input grid.\n        has_2 = False\n        has_7 = False\n        for (nr, nc) in [(r-1, c), (r+1, c), (r, c-1), (r, c+1)]:\n            if 0 <= nr < H and 0 <= nc < W:\n                v = input_grid[nr][nc]\n                if v == 2:\n                    has_2 = True\n                elif v == 7:\n                    has_7 = True\n\n        if has_2:\n            # 2-region: replace 8 with 2.\n            output[r][c] = 2\n        else:\n            # 7-region: keep 8, add 8 one step toward the 9-edge.\n            nr, nc = r + dr, c + dc\n            if 0 <= nr < H and 0 <= nc < W:\n                if input_grid[nr][nc] != 9:\n                    output[nr][nc] = 8\n\n    return output\n",
+      "source": "claude_agent_batch_062_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

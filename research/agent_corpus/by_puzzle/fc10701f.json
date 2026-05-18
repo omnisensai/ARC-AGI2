@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "fc10701f",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    nines = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 9]\n    sevens = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 7]\n\n    if not nines or not sevens:\n        return grid\n\n    r9_min = min(r for r, _ in nines)\n    r9_max = max(r for r, _ in nines)\n    c9_min = min(c for _, c in nines)\n    c9_max = max(c for _, c in nines)\n\n    r7_min = min(r for r, _ in sevens)\n    r7_max = max(r for r, _ in sevens)\n    c7_min = min(c for _, c in sevens)\n    c7_max = max(c for _, c in sevens)\n\n    # Determine direction (axis where they differ).\n    # Channel along the axis perpendicular to motion = 9's footprint.\n    if (r9_min, r9_max) == (r7_min, r7_max) and (c9_min, c9_max) != (c7_min, c7_max):\n        # Horizontal motion. Channel rows = 9's rows.\n        ch_rows = list(range(r9_min, r9_max + 1))\n        if c7_min > c9_max:\n            cols_between = list(range(c9_max + 1, c7_min))\n        else:\n            cols_between = list(range(c7_max + 1, c9_min))\n        for c in cols_between:\n            # Check if this column has a \"gate\": 0s in cells above and below the channel rows.\n            has_above = any(grid[r][c] == 0 for r in range(0, ch_rows[0]))\n            has_below = any(grid[r][c] == 0 for r in range(ch_rows[-1] + 1, H))\n            # More specifically, check immediately adjacent perpendicular cells.\n            # Actually we need 0s directly perpendicular to channel cells.\n            gate = True\n            for r in ch_rows:\n                # Look for 0 anywhere above and below in column c that is \"near\"\n                pass\n            # Simpler: gate exists if there's a 0 above channel and a 0 below channel in this column.\n            if has_above and has_below:\n                for r in ch_rows:\n                    if grid[r][c] == 6:\n                        grid[r][c] = 2\n    elif (c9_min, c9_max) == (c7_min, c7_max) and (r9_min, r9_max) != (r7_min, r7_max):\n        # Vertical motion. Channel cols = 9's cols.\n        ch_cols = list(range(c9_min, c9_max + 1))\n        if r7_min > r9_max:\n            rows_between = list(range(r9_max + 1, r7_min))\n        else:\n            rows_between = list(range(r7_max + 1, r9_min))\n        for r in rows_between:\n            has_left = any(grid[r][c] == 0 for c in range(0, ch_cols[0]))\n            has_right = any(grid[r][c] == 0 for c in range(ch_cols[-1] + 1, W))\n            if has_left and has_right:\n                for c in ch_cols:\n                    if grid[r][c] == 6:\n                        grid[r][c] = 2\n\n    # Replace 7s with 6.\n    for r, c in sevens:\n        grid[r][c] = 6\n    # Replace 9s with 7.\n    for r, c in nines:\n        grid[r][c] = 7\n\n    return grid\n",
+      "source": "claude_agent_batch_062_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

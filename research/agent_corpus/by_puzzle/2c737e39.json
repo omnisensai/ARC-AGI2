@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "2c737e39",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find all 5 positions\n    fives = []\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == 5:\n                fives.append((r, c))\n    # Determine shape-5 (has nonzero neighbors within some radius) vs lone-5\n    def has_nonzero_neighbor(r, c):\n        for dr in range(-2, 3):\n            for dc in range(-2, 3):\n                if dr == 0 and dc == 0:\n                    continue\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < H and 0 <= nc < W:\n                    if input_grid[nr][nc] != 0 and input_grid[nr][nc] != 5:\n                        return True\n        return False\n\n    shape_five = None\n    lone_five = None\n    for f in fives:\n        if has_nonzero_neighbor(*f):\n            shape_five = f\n        else:\n            lone_five = f\n\n    # Find all cells of the shape via connected component (8-connected) including the shape_five\n    from collections import deque\n    visited = set()\n    q = deque([shape_five])\n    visited.add(shape_five)\n    shape_cells = []\n    while q:\n        r, c = q.popleft()\n        shape_cells.append((r, c))\n        for dr in range(-1, 2):\n            for dc in range(-1, 2):\n                if dr == 0 and dc == 0:\n                    continue\n                nr, nc = r + dr, c + dc\n                if 0 <= nr < H and 0 <= nc < W and (nr, nc) not in visited:\n                    if input_grid[nr][nc] != 0:\n                        visited.add((nr, nc))\n                        q.append((nr, nc))\n\n    # Copy output grid\n    output = [row[:] for row in input_grid]\n    # Remove lone 5\n    output[lone_five[0]][lone_five[1]] = 0\n    # Place the shape (excluding the shape_five itself) at the lone_five location\n    sr, sc = shape_five\n    lr, lc = lone_five\n    for (r, c) in shape_cells:\n        if (r, c) == shape_five:\n            continue\n        nr = lr + (r - sr)\n        nc = lc + (c - sc)\n        if 0 <= nr < H and 0 <= nc < W:\n            output[nr][nc] = input_grid[r][c]\n    return output\n",
+      "source": "claude_agent_batch_062_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

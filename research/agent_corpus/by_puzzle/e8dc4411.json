@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "e8dc4411",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find background color (most common)\n    from collections import Counter\n    cnt = Counter()\n    for row in input_grid:\n        for v in row:\n            cnt[v] += 1\n    bg = cnt.most_common(1)[0][0]\n\n    # Find shape cells (0s) and marker cell (non-bg, non-0)\n    shape_cells = []\n    marker_pos = None\n    marker_color = None\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v == bg:\n                continue\n            if v == 0:\n                shape_cells.append((r, c))\n            else:\n                marker_pos = (r, c)\n                marker_color = v\n\n    shape_set = set(shape_cells)\n\n    # Find translation (dr,dc) with |dr|=|dc|, marker = shape_cell + (dr,dc), shape+(dr,dc) disjoint from shape\n    candidates = []\n    mr, mc = marker_pos\n    for (sr, sc) in shape_cells:\n        dr = mr - sr\n        dc = mc - sc\n        if abs(dr) != abs(dc):\n            continue\n        if dr == 0 and dc == 0:\n            continue\n        # Check disjoint\n        translated = set((r + dr, c + dc) for (r, c) in shape_cells)\n        if translated.isdisjoint(shape_set):\n            candidates.append((abs(dr), dr, dc))\n\n    # Choose smallest magnitude diagonal\n    candidates.sort()\n    _, dr, dc = candidates[0]\n\n    # Output grid: copy input\n    out = [row[:] for row in input_grid]\n\n    # Stamp shape repeatedly with marker color\n    k = 1\n    while True:\n        any_in_grid = False\n        for (sr, sc) in shape_cells:\n            nr = sr + k * dr\n            nc = sc + k * dc\n            if 0 <= nr < H and 0 <= nc < W:\n                out[nr][nc] = marker_color\n                any_in_grid = True\n        if not any_in_grid:\n            break\n        k += 1\n        # Safety: prevent infinite loop\n        if k > max(H, W) + 10:\n            break\n\n    return out\n",
+      "source": "claude_agent_batch_062_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "fea12743",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    g = input_grid\n    H = len(g)\n    W = len(g[0])\n\n    # Each cell is 4x4 with a 1-cell separator. Grid layout: 3 rows x 2 cols of cells.\n    def extract_cells(g):\n        cells = {}\n        for r in range(3):\n            for c in range(2):\n                cell = tuple(\n                    tuple(1 if g[1 + 5 * r + i][1 + 5 * c + j] != 0 else 0 for j in range(4))\n                    for i in range(4)\n                )\n                cells[(r, c)] = cell\n        return cells\n\n    cells = extract_cells(g)\n    positions = list(cells.keys())\n\n    # Find a target cell whose pattern equals the OR of two other distinct cells'\n    # patterns (and the target itself is not equal to either contributor).\n    target_pos = None\n    contributors = None\n    for tc in positions:\n        target = cells[tc]\n        found = False\n        for i in range(len(positions)):\n            a = positions[i]\n            if a == tc:\n                continue\n            for j in range(i + 1, len(positions)):\n                b = positions[j]\n                if b == tc:\n                    continue\n                ored = tuple(\n                    tuple(cells[a][r][c] | cells[b][r][c] for c in range(4))\n                    for r in range(4)\n                )\n                if (ored == target\n                        and cells[a] != target\n                        and cells[b] != target):\n                    target_pos = tc\n                    contributors = (a, b)\n                    found = True\n                    break\n            if found:\n                break\n        if found:\n            break\n\n    new_g = [row[:] for row in g]\n\n    if target_pos is None:\n        return new_g\n\n    def recolor(cell_pos, new_color):\n        r0 = 1 + 5 * cell_pos[0]\n        c0 = 1 + 5 * cell_pos[1]\n        for i in range(4):\n            for j in range(4):\n                if new_g[r0 + i][c0 + j] != 0:\n                    new_g[r0 + i][c0 + j] = new_color\n\n    recolor(target_pos, 3)\n    recolor(contributors[0], 8)\n    recolor(contributors[1], 8)\n\n    return new_g\n",
+      "source": "claude_agent_batch_061_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
