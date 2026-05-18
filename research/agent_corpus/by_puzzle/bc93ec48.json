@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "bc93ec48",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    BG = 7\n\n    corners = {\n        'TL': (0, 0),\n        'TR': (0, W - 1),\n        'BR': (H - 1, W - 1),\n        'BL': (H - 1, 0),\n    }\n    next_cw = {'TL': 'TR', 'TR': 'BR', 'BR': 'BL', 'BL': 'TL'}\n\n    def find_component(r, c):\n        color = input_grid[r][c]\n        if color == BG:\n            return None, []\n        visited = set()\n        stack = [(r, c)]\n        cells = []\n        while stack:\n            x, y = stack.pop()\n            if (x, y) in visited:\n                continue\n            if x < 0 or x >= H or y < 0 or y >= W:\n                continue\n            if input_grid[x][y] != color:\n                continue\n            visited.add((x, y))\n            cells.append((x, y))\n            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                stack.append((x + dx, y + dy))\n        return color, cells\n\n    output = [row[:] for row in input_grid]\n\n    corner_shapes = {}\n    for name, (cr, cc) in corners.items():\n        if input_grid[cr][cc] != BG:\n            color, cells = find_component(cr, cc)\n            corner_shapes[name] = (color, cells)\n\n    for src_name, (color, cells) in corner_shapes.items():\n        dst_name = next_cw[src_name]\n        rs = [r for r, _ in cells]\n        cs = [c for _, c in cells]\n        min_r, max_r = min(rs), max(rs)\n        min_c, max_c = min(cs), max(cs)\n\n        if dst_name == 'TL':\n            dr = 0 - min_r\n            dc = 0 - min_c\n        elif dst_name == 'TR':\n            dr = 0 - min_r\n            dc = (W - 1) - max_c\n        elif dst_name == 'BR':\n            dr = (H - 1) - max_r\n            dc = (W - 1) - max_c\n        elif dst_name == 'BL':\n            dr = (H - 1) - max_r\n            dc = 0 - min_c\n\n        for (r, c) in cells:\n            nr, nc = r + dr, c + dc\n            if 0 <= nr < H and 0 <= nc < W:\n                output[nr][nc] = color\n\n    return output\n",
+      "source": "claude_agent_batch_019_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

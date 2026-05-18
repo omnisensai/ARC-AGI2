@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "39e1d7f9",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    sep_color = None\n    for r in range(H):\n        vals = set(input_grid[r])\n        if len(vals) == 1:\n            sep_color = input_grid[r][0]\n            break\n\n    sep_rows = []\n    for r in range(H):\n        if all(input_grid[r][c] == sep_color for c in range(W)):\n            sep_rows.append(r)\n    sep_cols = []\n    for c in range(W):\n        if all(input_grid[r][c] == sep_color for r in range(H)):\n            sep_cols.append(c)\n\n    def get_ranges(seps, total):\n        ranges = []\n        prev = 0\n        for s in seps:\n            if s > prev:\n                ranges.append((prev, s))\n            prev = s + 1\n        if prev < total:\n            ranges.append((prev, total))\n        return ranges\n\n    row_ranges = get_ranges(sep_rows, H)\n    col_ranges = get_ranges(sep_cols, W)\n\n    nR = len(row_ranges)\n    nC = len(col_ranges)\n\n    cell_color = [[0] * nC for _ in range(nR)]\n    for i, (r0, r1) in enumerate(row_ranges):\n        for j, (c0, c1) in enumerate(col_ranges):\n            cell_color[i][j] = input_grid[r0][c0]\n\n    visited = [[False] * nC for _ in range(nR)]\n    components = []\n    for i in range(nR):\n        for j in range(nC):\n            if cell_color[i][j] != 0 and not visited[i][j]:\n                stack = [(i, j)]\n                comp = []\n                while stack:\n                    ci, cj = stack.pop()\n                    if ci < 0 or ci >= nR or cj < 0 or cj >= nC:\n                        continue\n                    if visited[ci][cj] or cell_color[ci][cj] == 0:\n                        continue\n                    visited[ci][cj] = True\n                    comp.append((ci, cj))\n                    for di in [-1, 0, 1]:\n                        for dj in [-1, 0, 1]:\n                            if di == 0 and dj == 0:\n                                continue\n                            stack.append((ci + di, cj + dj))\n                components.append(comp)\n\n    template_comp = None\n    for comp in components:\n        colors = set(cell_color[i][j] for i, j in comp)\n        if len(colors) > 1:\n            template_comp = comp\n            break\n\n    color_counts = {}\n    for i, j in template_comp:\n        col = cell_color[i][j]\n        color_counts[col] = color_counts.get(col, 0) + 1\n\n    center_color = None\n    for col, cnt in color_counts.items():\n        if cnt == 1:\n            center_color = col\n            break\n\n    center_i, center_j = None, None\n    for i, j in template_comp:\n        if cell_color[i][j] == center_color:\n            center_i, center_j = i, j\n            break\n\n    template_pattern = {}\n    for i, j in template_comp:\n        template_pattern[(i - center_i, j - center_j)] = cell_color[i][j]\n\n    template_set = set(template_comp)\n    keys = []\n    for comp in components:\n        if comp == template_comp:\n            continue\n        for i, j in comp:\n            if cell_color[i][j] == center_color and (i, j) not in template_set:\n                keys.append((i, j))\n\n    output = [row[:] for row in input_grid]\n\n    for ki, kj in keys:\n        for (di, dj), col in template_pattern.items():\n            ni, nj = ki + di, kj + dj\n            if 0 <= ni < nR and 0 <= nj < nC:\n                r0, r1 = row_ranges[ni]\n                c0, c1 = col_ranges[nj]\n                for r in range(r0, r1):\n                    for c in range(c0, c1):\n                        output[r][c] = col\n\n    return output\n",
+      "source": "claude_agent_batch_019_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

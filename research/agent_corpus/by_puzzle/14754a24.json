@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "14754a24",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    h = len(input_grid)\n    w = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    out = [row[:] for row in input_grid]\n\n    # Find all 4s\n    fours = set()\n    for i in range(h):\n        for j in range(w):\n            if grid[i][j] == 4:\n                fours.add((i, j))\n\n    # Group 4s into 8-connected components\n    visited = set()\n    components = []\n    for f in fours:\n        if f in visited:\n            continue\n        comp = []\n        stack = [f]\n        while stack:\n            x = stack.pop()\n            if x in visited:\n                continue\n            visited.add(x)\n            comp.append(x)\n            i, j = x\n            for di in (-1, 0, 1):\n                for dj in (-1, 0, 1):\n                    if di == 0 and dj == 0:\n                        continue\n                    ni, nj = i + di, j + dj\n                    if (ni, nj) in fours and (ni, nj) not in visited:\n                        stack.append((ni, nj))\n        components.append(comp)\n\n    # For each component, find the plus-shape center\n    for comp in components:\n        comp_set = set(comp)\n        found_center = None\n        for ci in range(h):\n            for cj in range(w):\n                plus = [(ci, cj), (ci - 1, cj), (ci + 1, cj), (ci, cj - 1), (ci, cj + 1)]\n                ib_plus = [(r, c) for r, c in plus if 0 <= r < h and 0 <= c < w]\n                plus_set = set(ib_plus)\n                if not comp_set.issubset(plus_set):\n                    continue\n                if not all(grid[r][c] in (4, 5) for r, c in ib_plus):\n                    continue\n                found_center = (ci, cj)\n                break\n            if found_center:\n                break\n        if found_center:\n            ci, cj = found_center\n            plus = [(ci, cj), (ci - 1, cj), (ci + 1, cj), (ci, cj - 1), (ci, cj + 1)]\n            for r, c in plus:\n                if 0 <= r < h and 0 <= c < w and grid[r][c] == 5:\n                    out[r][c] = 2\n    return out\n",
+      "source": "claude_agent_batch_019_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

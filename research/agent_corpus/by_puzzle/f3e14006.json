@@ -1,0 +1,60 @@
+{
+  "puzzle_id": "f3e14006",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 5,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find horizontal line (row that has many non-zero cells)\n    h_row = None\n    for r in range(H):\n        non_zero = sum(1 for v in input_grid[r] if v != 0)\n        if non_zero >= W // 2:\n            h_row = r\n            break\n\n    # Find vertical line (col with many non-zero cells)\n    v_col = None\n    for c in range(W):\n        non_zero = sum(1 for r in range(H) if input_grid[r][c] != 0)\n        if non_zero >= H // 2:\n            v_col = c\n            break\n\n    # H-line cells (excluding intersection)\n    h_cells = [input_grid[h_row][c] for c in range(W) if c != v_col and input_grid[h_row][c] != 0]\n    # V-line cells (excluding intersection)\n    v_cells = [input_grid[r][v_col] for r in range(H) if r != h_row and input_grid[r][v_col] != 0]\n\n    # Determine base and marker colors by frequency (most common = base)\n    from collections import Counter\n    h_counter = Counter(h_cells)\n    h_base = h_counter.most_common(1)[0][0]\n    h_mark = None\n    for val, _ in h_counter.most_common():\n        if val != h_base:\n            h_mark = val\n            break\n\n    v_counter = Counter(v_cells)\n    v_base = v_counter.most_common(1)[0][0]\n    v_mark = None\n    for val, _ in v_counter.most_common():\n        if val != v_base:\n            v_mark = val\n            break\n\n    # H-markers (cols on h_row where value == h_mark)\n    h_markers = [c for c in range(W) if c != v_col and input_grid[h_row][c] == h_mark]\n    # V-markers (rows on v_col where value == v_mark)\n    v_markers = [r for r in range(H) if r != h_row and input_grid[r][v_col] == v_mark]\n\n    # h-line value at v_col (the intersection)\n    h_at_v = input_grid[h_row][v_col]\n\n    # Closer v_marker (closest in distance to h_row)\n    closer_v = min(v_markers, key=lambda r: abs(r - h_row))\n\n    # Leftmost h-marker\n    left_h = min(h_markers)\n    right_h = max(h_markers)\n\n    # Rect bounds\n    rect_r_min = min([h_row] + v_markers)\n    rect_r_max = max([h_row] + v_markers)\n    rect_c_min = left_h\n    rect_c_max = right_h\n\n    # Initialize output\n    out = [[0] * W for _ in range(H)]\n\n    # Determine h-band: rows strictly between h_row and closer_v (exclusive)\n    band_lo = min(h_row, closer_v)\n    band_hi = max(h_row, closer_v)\n\n    for r in range(rect_r_min, rect_r_max + 1):\n        dist_r = abs(r - h_row)\n        is_marker_row = (dist_r % 2 == 0)\n        for c in range(rect_c_min, rect_c_max + 1):\n            offset_c = c - left_h\n            is_marker_col = (offset_c % 2 == 0)\n            if is_marker_row:\n                if is_marker_col:\n                    # Determine h-mark or v-mark\n                    if r == h_row or (band_lo < r < band_hi):\n                        out[r][c] = h_mark\n                    else:\n                        out[r][c] = v_mark\n                else:\n                    # Spacer col on marker row\n                    if r == closer_v:\n                        out[r][c] = h_at_v\n                    else:\n                        out[r][c] = v_base\n            else:\n                # Spacer row\n                if is_marker_col:\n                    out[r][c] = h_base\n                else:\n                    out[r][c] = h_at_v\n\n    return out\n",
+      "source": "claude_agent_batch_019_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "db93a21d",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find connected rectangles of 9s\n    visited = [[False] * W for _ in range(H)]\n    rects = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 9 and not visited[r][c]:\n                stack = [(r, c)]\n                cells = []\n                while stack:\n                    x, y = stack.pop()\n                    if 0 <= x < H and 0 <= y < W and grid[x][y] == 9 and not visited[x][y]:\n                        visited[x][y] = True\n                        cells.append((x, y))\n                        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                            stack.append((x + dx, y + dy))\n                rs = [p[0] for p in cells]\n                cs = [p[1] for p in cells]\n                rects.append((min(rs), max(rs), min(cs), max(cs)))\n\n    out = [[0] * W for _ in range(H)]\n\n    # Draw 1-shadows first (extend downward from below the 3-frame, same columns as the rect)\n    for r0, r1, c0, c1 in rects:\n        h = r1 - r0 + 1\n        w = c1 - c0 + 1\n        t = max(h, w) // 2\n        shadow_start = r1 + t + 1\n        for rr in range(shadow_start, H):\n            for cc in range(c0, c1 + 1):\n                if 0 <= cc < W:\n                    out[rr][cc] = 1\n\n    # Draw 3-frames (thickness = max(h, w) // 2 around each rectangle)\n    for r0, r1, c0, c1 in rects:\n        h = r1 - r0 + 1\n        w = c1 - c0 + 1\n        t = max(h, w) // 2\n        for rr in range(r0 - t, r1 + t + 1):\n            for cc in range(c0 - t, c1 + t + 1):\n                if 0 <= rr < H and 0 <= cc < W:\n                    out[rr][cc] = 3\n\n    # Redraw original 9-rectangles on top\n    for r0, r1, c0, c1 in rects:\n        for rr in range(r0, r1 + 1):\n            for cc in range(c0, c1 + 1):\n                out[rr][cc] = 9\n\n    return out\n",
+      "source": "claude_agent_batch_019_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
