@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "981add89",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Determine background: most common color\n    cnt = Counter()\n    for r in range(H):\n        for c in range(W):\n            cnt[grid[r][c]] += 1\n    bg = cnt.most_common(1)[0][0]\n\n    # Top row markers: cells in row 0 not equal to bg\n    markers = {}  # col -> color\n    for c in range(W):\n        if grid[0][c] != bg:\n            markers[c] = grid[0][c]\n\n    # Find rectangles in the grid (rows 1..H-1).\n    # Each rectangle is a maximal connected (axis-aligned) block of a single\n    # non-background color. We assume rectangles are non-overlapping solid rects.\n    visited = [[False] * W for _ in range(H)]\n    rects = []  # list of (r0, r1, c0, c1, color)\n    for r in range(1, H):\n        for c in range(W):\n            if visited[r][c]:\n                continue\n            color = grid[r][c]\n            if color == bg:\n                continue\n            # Find maximal rectangle of this color starting here.\n            # Determine column extent: extend right while same color contiguous.\n            c1 = c\n            while c1 + 1 < W and grid[r][c1 + 1] == color:\n                c1 += 1\n            # Determine row extent: extend down while entire row from c..c1 is color\n            r1 = r\n            while r1 + 1 < H:\n                ok = True\n                for cc in range(c, c1 + 1):\n                    if grid[r1 + 1][cc] != color:\n                        ok = False\n                        break\n                if not ok:\n                    break\n                r1 += 1\n            # Mark visited\n            for rr in range(r, r1 + 1):\n                for cc in range(c, c1 + 1):\n                    visited[rr][cc] = True\n            rects.append((r, r1, c, c1, color))\n\n    # Build output: start as a copy\n    out = [row[:] for row in input_grid]\n\n    # For each marker column, paint full column based on rule.\n    # For each cell (r,c) where c is a marker column and r > 0:\n    #   find rectangle containing (r,c) if any\n    #   if no rect: set out[r][c] = marker color\n    #   if rect color == marker color: set out[r][c] = bg\n    #   else: set out[r][c] = marker color\n    # Row 0 stays unchanged.\n    # Also need: cell that is inside a rectangle but at marker column gets transformed.\n\n    # Precompute rect lookup\n    def find_rect(r, c):\n        for (r0, r1, c0, c1, color) in rects:\n            if r0 <= r <= r1 and c0 <= c <= c1:\n                return color\n        return None\n\n    for c, mcolor in markers.items():\n        for r in range(1, H):\n            rc = find_rect(r, c)\n            if rc is None:\n                out[r][c] = mcolor\n            elif rc == mcolor:\n                out[r][c] = bg\n            else:\n                out[r][c] = mcolor\n\n    return out\n",
+      "source": "claude_agent_batch_050_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

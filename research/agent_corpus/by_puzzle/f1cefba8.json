@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "f1cefba8",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find non-zero cells; determine two colors A (frame) and B (inner)\n    counts = {}\n    for r in range(H):\n        for c in range(W):\n            v = grid[r][c]\n            if v != 0:\n                counts[v] = counts.get(v, 0) + 1\n    # Two non-zero colors\n    colors = list(counts.keys())\n    # Frame color A has more (outer), inner B has fewer? Actually outer frame is thinner than inner block\n    # Better: B (inner) forms a near-rectangle filling most of the interior.\n    # Determine by finding bounding boxes.\n    bbox = {}\n    for col in colors:\n        rs = [r for r in range(H) for c in range(W) if grid[r][c] == col]\n        cs = [c for r in range(H) for c in range(W) if grid[r][c] == col]\n        bbox[col] = (min(rs), max(rs), min(cs), max(cs))\n\n    # A (frame) bounding box contains B's\n    # The frame's bbox should be strictly larger than inner's\n    A = None\n    B = None\n    for c1 in colors:\n        for c2 in colors:\n            if c1 == c2:\n                continue\n            r1a, r2a, c1a, c2a = bbox[c1]\n            r1b, r2b, c1b, c2b = bbox[c2]\n            if r1a <= r1b and r2a >= r2b and c1a <= c1b and c2a >= c2b and (r1a < r1b or r2a > r2b or c1a < c1b or c2a > c2b):\n                A = c1\n                B = c2\n                break\n        if A is not None:\n            break\n\n    # Frame bounding box\n    fr1, fr2, fc1, fc2 = bbox[A]\n    # Inner B bounding box (this includes any protrusions extending beyond a \"core\" rect)\n    br1, br2, bc1, bc2 = bbox[B]\n\n    # Determine the \"core\" rectangle of B (the most common rect), then find protrusions\n    # For each row in B's bbox, count B cells; the core rows are those with many; protrusions are rows/cols with 1\n    # Better: a protrusion is a B cell that sticks out beyond the core rectangle by exactly 1\n    # Find core rect: it's the rectangle that, if removed, leaves only the protrusion cells.\n    # Approach: for each row r in [br1,br2], find min/max col of B in that row.\n    row_extents = {}\n    for r in range(br1, br2 + 1):\n        cs = [c for c in range(W) if grid[r][c] == B]\n        if cs:\n            row_extents[r] = (min(cs), max(cs))\n    col_extents = {}\n    for c in range(bc1, bc2 + 1):\n        rs = [r for r in range(H) if grid[r][c] == B]\n        if rs:\n            col_extents[c] = (min(rs), max(rs))\n\n    # Core rect = mode of row extents\n    from collections import Counter\n    rc = Counter(row_extents.values())\n    core_cols = rc.most_common(1)[0][0]  # (cmin, cmax) for most rows\n    cc = Counter(col_extents.values())\n    core_rows = cc.most_common(1)[0][0]  # (rmin, rmax) for most cols\n\n    core_r1, core_r2 = core_rows\n    core_c1, core_c2 = core_cols\n\n    # Identify protrusions\n    top_cols = []     # cols with B at row core_r1 - 1\n    bot_cols = []     # cols with B at row core_r2 + 1\n    left_rows = []    # rows with B at col core_c1 - 1\n    right_rows = []   # rows with B at col core_c2 + 1\n\n    for c in range(W):\n        if core_r1 - 1 >= 0 and grid[core_r1 - 1][c] == B:\n            top_cols.append(c)\n        if core_r2 + 1 < H and grid[core_r2 + 1][c] == B:\n            bot_cols.append(c)\n    for r in range(H):\n        if core_c1 - 1 >= 0 and grid[r][core_c1 - 1] == B:\n            left_rows.append(r)\n        if core_c2 + 1 < W and grid[r][core_c2 + 1] == B:\n            right_rows.append(r)\n\n    # Build output:\n    # 1. Start with input.\n    out = [row[:] for row in input_grid]\n\n    # 2. Remove all B from inside frame area (rows fr1..fr2, cols fc1..fc2) -> set to A\n    for r in range(fr1, fr2 + 1):\n        for c in range(fc1, fc2 + 1):\n            if out[r][c] == B:\n                out[r][c] = A\n\n    # 3. Re-fill the core rectangle interior with B\n    for r in range(core_r1, core_r2 + 1):\n        for c in range(core_c1, core_c2 + 1):\n            out[r][c] = B\n\n    # 4. For each protrusion column (top/bottom), set the entire column inside core rect to A\n    protrusion_cols = set(top_cols) | set(bot_cols)\n    protrusion_rows = set(left_rows) | set(right_rows)\n\n    for c in protrusion_cols:\n        for r in range(core_r1, core_r2 + 1):\n            out[r][c] = A\n    for r in protrusion_rows:\n        for c in range(core_c1, core_c2 + 1):\n            out[r][c] = A\n\n    # 5. For protrusion rows: entire row inside frame becomes A (already done since frame is A)\n    #    Actually need to ensure: at protrusion row, the cells between core_c1 and core_c2 became A\n    #    which we did above. The cells fc1..core_c1-1 and core_c2+1..fc2 are already A.\n\n    # 6. For protrusion columns, similar - column inside frame is A.\n\n    # 7. Now extend protrusion lines through the 0 areas outside the frame\n    # For each protrusion column c: fill cells with B at:\n    #   - rows 0..fr1-1 (above frame)\n    #   - rows fr2+1..H-1 (below frame)\n    for c in protrusion_cols:\n        for r in range(0, fr1):\n            out[r][c] = B\n        for r in range(fr2 + 1, H):\n            out[r][c] = B\n\n    # For each protrusion row r: fill cells with B at:\n    #   - cols 0..fc1-1 (left of frame)\n    #   - cols fc2+1..W-1 (right of frame)\n    for r in protrusion_rows:\n        for c in range(0, fc1):\n            out[r][c] = B\n        for c in range(fc2 + 1, W):\n            out[r][c] = B\n\n    return out\n",
+      "source": "claude_agent_batch_050_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

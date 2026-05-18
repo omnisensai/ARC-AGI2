@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "dc46ea44",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find the 4-line row\n    sep_row = None\n    for r in range(H):\n        if all(input_grid[r][c] == 4 for c in range(W)):\n            sep_row = r\n            break\n    # Collect 6s and colored shape cells below the separator\n    sixes = []\n    shape_cells = []  # list of (r, c, color)\n    for r in range(sep_row + 1, H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v == 6:\n                sixes.append((r, c))\n            elif v != 7:\n                shape_cells.append((r, c, v))\n    # Build output: copy input, then clear below separator (all 7), then place\n    # shifted 6s and shifted shape in the upper half.\n    output = [row[:] for row in input_grid]\n    # Clear below separator\n    for r in range(sep_row + 1, H):\n        for c in range(W):\n            output[r][c] = 7\n    # Clear above separator (so we paint fresh)\n    for r in range(sep_row):\n        for c in range(W):\n            output[r][c] = 7\n    # Find shaft column: column with 3 collinear 6s\n    from collections import Counter\n    col_counts = Counter(c for (r, c) in sixes)\n    shaft_col = max(col_counts, key=lambda c: col_counts[c])\n    # Bottom of shaft: max row among 6s in shaft column\n    shaft_rows = [r for (r, c) in sixes if c == shaft_col]\n    shaft_bottom = max(shaft_rows)\n    # Wing is at (shaft_bottom, shaft_col - 2)\n    wing_in = (shaft_bottom, shaft_col - 2)\n    # Row shift: r -> r - (sep_row + 1)\n    row_shift = -(sep_row + 1)\n    # Place shifted 6s\n    for (r, c) in sixes:\n        nr = r + row_shift\n        if 0 <= nr < H and 0 <= c < W:\n            output[nr][c] = 6\n    # Wing position in output\n    wing_out = (wing_in[0] + row_shift, wing_in[1])\n    # Find bottom-right of shape bounding box\n    rs = [r for (r, c, v) in shape_cells]\n    cs = [c for (r, c, v) in shape_cells]\n    br_r = max(rs)\n    br_c = max(cs)\n    # Shift so BR of bbox aligns with wing_out\n    dr = wing_out[0] - br_r\n    dc = wing_out[1] - br_c\n    # Place shape cells, overwriting any 6s at those positions\n    for (r, c, v) in shape_cells:\n        nr = r + dr\n        nc = c + dc\n        if 0 <= nr < H and 0 <= nc < W:\n            output[nr][nc] = v\n    return output\n",
+      "source": "claude_agent_batch_050_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

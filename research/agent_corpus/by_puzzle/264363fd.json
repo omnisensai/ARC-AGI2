@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "264363fd",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    g = [row[:] for row in input_grid]\n\n    # Background = most common color\n    counts = Counter()\n    for r in range(H):\n        for c in range(W):\n            counts[g[r][c]] += 1\n    bg = counts.most_common(1)[0][0]\n\n    # Find connected components of non-bg cells (8-connected)\n    visited = [[False] * W for _ in range(H)]\n    components = []\n    for r in range(H):\n        for c in range(W):\n            if g[r][c] != bg and not visited[r][c]:\n                stack = [(r, c)]\n                comp = []\n                visited[r][c] = True\n                while stack:\n                    cr, cc = stack.pop()\n                    comp.append((cr, cc))\n                    for dr in (-1, 0, 1):\n                        for dc in (-1, 0, 1):\n                            if dr == 0 and dc == 0:\n                                continue\n                            nr, nc = cr + dr, cc + dc\n                            if 0 <= nr < H and 0 <= nc < W and not visited[nr][nc] and g[nr][nc] != bg:\n                                visited[nr][nc] = True\n                                stack.append((nr, nc))\n                components.append(comp)\n\n    # Separate rectangles vs key.\n    # Each component contains the rectangle's body cells + the marker cells.\n    # Actually, rectangles have a dominant fill color with markers of other colors inside.\n    # The key has multiple colors arranged in a small pattern with no dominant rectangle.\n    # Strategy: rectangles are large, key is small. Use size and shape.\n\n    # For each component, check if it forms a solid rectangle of some color (with possibly a few marker cells).\n    rect_info = []  # list of (r0, r1, c0, c1, fill_color, markers)\n    key_comp = None\n    key_cells = None\n\n    for comp in components:\n        rs = [p[0] for p in comp]\n        cs = [p[1] for p in comp]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        # Get dominant color in component\n        col_counts = Counter(g[r][c] for r, c in comp)\n        fill = col_counts.most_common(1)[0][0]\n        # Check if the bounding box is fully filled by non-bg cells (any color)\n        is_rect = True\n        for r in range(r0, r1 + 1):\n            for c in range(c0, c1 + 1):\n                if g[r][c] == bg:\n                    is_rect = False\n                    break\n            if not is_rect:\n                break\n        # Check dominance: rectangle should be mostly one color\n        size = (r1 - r0 + 1) * (c1 - c0 + 1)\n        if is_rect and col_counts[fill] > size * 0.5 and size >= 9:\n            markers = [(r, c) for r, c in comp if g[r][c] != fill]\n            rect_info.append((r0, r1, c0, c1, fill, markers))\n        else:\n            key_comp = comp\n\n    # Build key dict: offset (dr,dc) -> color, find center (color present elsewhere as marker)\n    # The center color is the marker color in rects\n    marker_color = None\n    for r0, r1, c0, c1, fill, markers in rect_info:\n        if markers:\n            marker_color = g[markers[0][0]][markers[0][1]]\n            break\n\n    # Find center of key = cell at the center of the key's bounding box\n    key_dict = {(r, c): g[r][c] for r, c in key_comp}\n    rs = [p[0] for p in key_comp]\n    cs = [p[1] for p in key_comp]\n    kr0, kr1 = min(rs), max(rs)\n    kc0, kc1 = min(cs), max(cs)\n    # Try center of bbox\n    candidates = [(r, c) for (r, c), v in key_dict.items() if v == marker_color]\n    # Pick candidate closest to bbox center\n    bbcr = (kr0 + kr1) / 2.0\n    bbcc = (kc0 + kc1) / 2.0\n    candidates.sort(key=lambda p: (p[0] - bbcr) ** 2 + (p[1] - bbcc) ** 2)\n    cr, cc = candidates[0]\n\n    # Build offset dict\n    offsets = {}\n    for (r, c), v in key_dict.items():\n        offsets[(r - cr, c - cc)] = v\n\n    # Determine extended arms: for each direction N,S,E,W, check if key has same color at distance 1 and 2\n    extend_dirs = {}  # 'N','S','E','W' -> color (or None)\n    for name, (dr, dc) in [('N', (-1, 0)), ('S', (1, 0)), ('E', (0, 1)), ('W', (0, -1))]:\n        v1 = offsets.get((dr, dc))\n        v2 = offsets.get((2 * dr, 2 * dc))\n        if v1 is not None and v1 == v2:\n            extend_dirs[name] = v1\n        else:\n            extend_dirs[name] = None\n\n    # For each rectangle, apply transformation\n    out = [row[:] for row in input_grid]\n    # First, erase the key from output (set to bg)\n    for (r, c) in key_comp:\n        out[r][c] = bg\n\n    for r0, r1, c0, c1, fill, markers in rect_info:\n        for mr, mc in markers:\n            # First, place the key locally\n            for (dr, dc), v in offsets.items():\n                nr, nc = mr + dr, mc + dc\n                if r0 <= nr <= r1 and c0 <= nc <= c1:\n                    out[nr][nc] = v\n            # Then extend arms\n            # North: column mc from r0 to mr-1\n            if extend_dirs['N'] is not None:\n                col_color = extend_dirs['N']\n                for rr in range(r0, mr):\n                    if out[rr][mc] == fill:\n                        out[rr][mc] = col_color\n            if extend_dirs['S'] is not None:\n                col_color = extend_dirs['S']\n                for rr in range(mr + 1, r1 + 1):\n                    if out[rr][mc] == fill:\n                        out[rr][mc] = col_color\n            if extend_dirs['E'] is not None:\n                row_color = extend_dirs['E']\n                for cc2 in range(mc + 1, c1 + 1):\n                    if out[mr][cc2] == fill:\n                        out[mr][cc2] = row_color\n            if extend_dirs['W'] is not None:\n                row_color = extend_dirs['W']\n                for cc2 in range(c0, mc):\n                    if out[mr][cc2] == fill:\n                        out[mr][cc2] = row_color\n\n    return out\n",
+      "source": "claude_agent_batch_050_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

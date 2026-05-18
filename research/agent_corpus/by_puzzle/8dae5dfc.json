@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "8dae5dfc",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    g = [row[:] for row in input_grid]\n    out = [row[:] for row in input_grid]\n\n    visited = [[False] * W for _ in range(H)]\n\n    def in_bounds(r, c):\n        return 0 <= r < H and 0 <= c < W\n\n    # Flood-fill same-color 4-connected components\n    def flood(sr, sc):\n        color = g[sr][sc]\n        stack = [(sr, sc)]\n        cells = []\n        local_visited = set()\n        local_visited.add((sr, sc))\n        while stack:\n            r, c = stack.pop()\n            cells.append((r, c))\n            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                nr, nc = r + dr, c + dc\n                if in_bounds(nr, nc) and (nr, nc) not in local_visited and g[nr][nc] == color:\n                    local_visited.add((nr, nc))\n                    stack.append((nr, nc))\n        return cells\n\n    # Find all components, group them into objects (nested rings sharing center)\n    components = []  # list of (color, cells, bbox)\n    comp_visited = [[False] * W for _ in range(H)]\n    for r in range(H):\n        for c in range(W):\n            if g[r][c] != 0 and not comp_visited[r][c]:\n                cells = flood(r, c)\n                for (rr, cc) in cells:\n                    comp_visited[rr][cc] = True\n                rs = [x[0] for x in cells]\n                cs = [x[1] for x in cells]\n                bbox = (min(rs), min(cs), max(rs), max(cs))\n                components.append((g[r][c], cells, bbox))\n\n    # Group components into objects: components belong to same object if their bboxes are nested with shared center area\n    # Simpler: find outer-most components (those whose bbox touches grid edge OR all outside-neighbors are 0)\n    # Then for each outer component, find inner components whose bbox is strictly inside.\n\n    def bbox_inside(inner, outer):\n        ir1, ic1, ir2, ic2 = inner\n        or1, oc1, or2, oc2 = outer\n        return or1 < ir1 and oc1 < ic1 and ir2 < or2 and ic2 < oc2\n\n    def bbox_strictly_within_or_eq(inner, outer):\n        ir1, ic1, ir2, ic2 = inner\n        or1, oc1, or2, oc2 = outer\n        return or1 <= ir1 and oc1 <= ic1 and ir2 <= or2 and ic2 <= oc2\n\n    # An object = a maximal set of components all sharing same \"center\" with nested bboxes.\n    # Use a more direct approach: for each component, determine if it's an \"outer\" (no other component contains it).\n    # Then for each outer, gather all components contained within (bbox strictly inside, recursively).\n\n    n = len(components)\n    contained_by = [[] for _ in range(n)]  # contained_by[i] = list of j where comp i contains comp j\n    contains_set = [set() for _ in range(n)]\n    for i in range(n):\n        for j in range(n):\n            if i != j and bbox_inside(components[j][2], components[i][2]):\n                contains_set[i].add(j)\n\n    # outer = components not contained by any other\n    is_inner = [False] * n\n    for i in range(n):\n        for j in contains_set[i]:\n            is_inner[j] = True\n\n    # For each outer i, collect all inner components (transitive) that share the same \"object\"\n    # Since rings are nested concentrically, all contained components belong to it.\n    # Order them by bbox area (descending) to get ring order from outer to inner.\n\n    def bbox_area(b):\n        return (b[2] - b[0] + 1) * (b[3] - b[1] + 1)\n\n    for i in range(n):\n        if is_inner[i]:\n            continue\n        # gather all components in this object: i and all contained\n        members = [i] + list(contains_set[i])\n        # sort by bbox area descending\n        members.sort(key=lambda k: -bbox_area(components[k][2]))\n        # colors in order outer->inner\n        colors = [components[k][0] for k in members]\n        reversed_colors = colors[::-1]\n        # rewrite\n        for idx, k in enumerate(members):\n            new_color = reversed_colors[idx]\n            for (r, c) in components[k][1]:\n                out[r][c] = new_color\n\n    return out\n",
+      "source": "claude_agent_batch_050_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
