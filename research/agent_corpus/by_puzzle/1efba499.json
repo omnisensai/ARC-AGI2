@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "1efba499",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    cnt = Counter()\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != 0:\n                cnt[v] += 1\n    main = cnt.most_common(1)[0][0]\n\n    out = [[0]*W for _ in range(H)]\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] == main:\n                out[r][c] = main\n\n    markers = []\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != 0 and v != main:\n                markers.append((r, c, v))\n\n    used = set()\n\n    for r in range(H):\n        shape_cols = [c for c in range(W) if input_grid[r][c] == main]\n        if not shape_cols:\n            continue\n        left_edge = min(shape_cols)\n        right_edge = max(shape_cols)\n        row_markers = [(c, v) for (rr, c, v) in markers if rr == r]\n        left_m = [(c, v) for (c, v) in row_markers if c < left_edge]\n        right_m = [(c, v) for (c, v) in row_markers if c > right_edge]\n        if left_m and right_m:\n            lc, lv = max(left_m, key=lambda x: x[0])\n            rc, rv = min(right_m, key=lambda x: x[0])\n            new_left = left_edge - 1\n            new_right = right_edge + 1\n            if 0 <= new_left < W:\n                out[r][new_left] = rv\n            if 0 <= new_right < W:\n                out[r][new_right] = lv\n            used.add((r, lc))\n            used.add((r, rc))\n\n    for c in range(W):\n        shape_rows = [r for r in range(H) if input_grid[r][c] == main]\n        if not shape_rows:\n            continue\n        top_edge = min(shape_rows)\n        bot_edge = max(shape_rows)\n        col_markers = [(rr, v) for (rr, cc, v) in markers if cc == c]\n        top_m = [(r, v) for (r, v) in col_markers if r < top_edge]\n        bot_m = [(r, v) for (r, v) in col_markers if r > bot_edge]\n        if top_m and bot_m:\n            tr, tv = max(top_m, key=lambda x: x[0])\n            br, bv = min(bot_m, key=lambda x: x[0])\n            new_top = top_edge - 1\n            new_bot = bot_edge + 1\n            if 0 <= new_top < H:\n                out[new_top][c] = bv\n            if 0 <= new_bot < H:\n                out[new_bot][c] = tv\n            used.add((tr, c))\n            used.add((br, c))\n\n    for (r, c, v) in markers:\n        if (r, c) not in used:\n            if out[r][c] == 0:\n                out[r][c] = v\n\n    return out\n",
+      "source": "claude_agent_batch_029_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
