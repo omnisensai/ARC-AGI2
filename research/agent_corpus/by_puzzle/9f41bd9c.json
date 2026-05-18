@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "9f41bd9c",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Copy\n    out = [row[:] for row in input_grid]\n\n    # Find the 5-shape bounding box\n    fives = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 5]\n    rmin = min(r for r, c in fives)\n    rmax = max(r for r, c in fives)\n    cmin = min(c for r, c in fives)\n    cmax = max(c for r, c in fives)\n    shape_w = cmax - cmin + 1  # should be 5\n\n    # Find the floor row (first row of 6s)\n    floor_row = None\n    for r in range(H):\n        if all(input_grid[r][c] == 6 for c in range(W)):\n            floor_row = r\n            break\n\n    # Find the solid (top) rows of the shape: rows where all cols cmin..cmax are 5\n    solid_rows = []\n    teeth_rows = []\n    for r in range(rmin, rmax + 1):\n        if all(input_grid[r][c] == 5 for c in range(cmin, cmax + 1)):\n            solid_rows.append(r)\n        else:\n            teeth_rows.append(r)\n\n    # Direction: if shape is on left side (cmin == 0), it rolls right; else rolls left.\n    if cmin == 0:\n        direction = 1  # rolls right\n        new_cmin = W - shape_w  # right edge\n    else:\n        direction = -1  # rolls left\n        new_cmin = 0  # left edge\n\n    # Clear the original shape positions to 1\n    for r in range(rmin, rmax + 1):\n        for c in range(cmin, cmax + 1):\n            if input_grid[r][c] == 5:\n                out[r][c] = 1\n\n    # Place the solid block at new position (same rows)\n    for r in solid_rows:\n        for c in range(new_cmin, new_cmin + shape_w):\n            out[r][c] = 5\n\n    # Place teeth diagonally: i-th teeth row (i from 0) shifts by -direction*i\n    # In training 1: rolls left (dir=-1), teeth shift +1 per row going down (i.e., -direction)\n    # In training 2: rolls right (dir=+1), teeth shift -1 per row going down\n    for i, r in enumerate(teeth_rows):\n        # offset: teeth shift opposite to roll direction as we go down\n        offset = -direction * i\n        # Place teeth pattern: 5 1 5 1 5 at cols new_cmin+offset .. new_cmin+offset+shape_w-1\n        for j in range(shape_w):\n            c = new_cmin + offset + j\n            if 0 <= c < W:\n                if j % 2 == 0:  # 5 at even positions\n                    out[r][c] = 5\n                # else leave as 1\n\n    # Now floor row: place 9s\n    # The bottom teeth row (last in teeth_rows)\n    last_teeth = teeth_rows[-1]\n    # Find positions of 5s in this row\n    fives_in_last = [c for c in range(W) if out[last_teeth][c] == 5]\n    if direction == -1:\n        # Rolls left: 9s from leftmost_5+1 to W-1\n        start_9 = min(fives_in_last) + 1\n        end_9 = W - 1\n    else:\n        # Rolls right: 9s from 0 to rightmost_5-1\n        start_9 = 0\n        end_9 = max(fives_in_last) - 1\n\n    for c in range(start_9, end_9 + 1):\n        out[floor_row][c] = 9\n\n    return out\n",
+      "source": "claude_agent_batch_063_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
