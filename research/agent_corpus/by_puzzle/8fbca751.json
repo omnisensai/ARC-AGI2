@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "8fbca751",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    visited = [[False] * W for _ in range(H)]\n\n    # Find 4-connected components of 8s.\n    components = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 8 and not visited[r][c]:\n                stack = [(r, c)]\n                cells = []\n                visited[r][c] = True\n                while stack:\n                    cr, cc = stack.pop()\n                    cells.append((cr, cc))\n                    for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):\n                        nr, nc = cr + dr, cc + dc\n                        if 0 <= nr < H and 0 <= nc < W and grid[nr][nc] == 8 and not visited[nr][nc]:\n                            visited[nr][nc] = True\n                            stack.append((nr, nc))\n                rs = [x[0] for x in cells]\n                cs = [x[1] for x in cells]\n                components.append([min(rs), max(rs), min(cs), max(cs)])\n\n    # Merge components whose bbox row-ranges overlap OR col-ranges overlap.\n    def overlap(a, b):\n        # rows or cols overlap\n        rows_overlap = not (a[1] < b[0] or b[1] < a[0])\n        cols_overlap = not (a[3] < b[2] or b[3] < a[2])\n        return rows_overlap or cols_overlap\n\n    changed = True\n    while changed:\n        changed = False\n        for i in range(len(components)):\n            for j in range(i + 1, len(components)):\n                if overlap(components[i], components[j]):\n                    a, b = components[i], components[j]\n                    merged = [min(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), max(a[3], b[3])]\n                    components = [components[k] for k in range(len(components)) if k != i and k != j]\n                    components.append(merged)\n                    changed = True\n                    break\n            if changed:\n                break\n\n    # Fill 0s inside each component's bbox with 2.\n    for r0, r1, c0, c1 in components:\n        for i in range(r0, r1 + 1):\n            for j in range(c0, c1 + 1):\n                if grid[i][j] == 0:\n                    grid[i][j] = 2\n    return grid\n",
+      "source": "claude_agent_batch_046_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

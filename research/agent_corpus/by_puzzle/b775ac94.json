@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "b775ac94",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    out = [row[:] for row in input_grid]\n\n    def get_component(start_r, start_c, color):\n        seen = set()\n        stack = [(start_r, start_c)]\n        cells = []\n        while stack:\n            rr, cc = stack.pop()\n            if rr < 0 or rr >= H or cc < 0 or cc >= W:\n                continue\n            if (rr, cc) in seen or input_grid[rr][cc] != color:\n                continue\n            seen.add((rr, cc))\n            cells.append((rr, cc))\n            for dr in (-1, 0, 1):\n                for dc in (-1, 0, 1):\n                    if dr == 0 and dc == 0:\n                        continue\n                    stack.append((rr + dr, cc + dc))\n        return cells\n\n    found_keys = []\n\n    for kr in range(H - 1):\n        for kc in range(W - 1):\n            cells_2x2 = [\n                ((0, 0), input_grid[kr][kc]),\n                ((0, 1), input_grid[kr][kc + 1]),\n                ((1, 0), input_grid[kr + 1][kc]),\n                ((1, 1), input_grid[kr + 1][kc + 1]),\n            ]\n            nonzero_vals = [v for _, v in cells_2x2 if v != 0]\n            colors = set(nonzero_vals)\n            if len(colors) < 2:\n                continue\n            # Each non-zero color must appear exactly once in the key\n            if len(nonzero_vals) != len(colors):\n                continue\n\n            window_cells = {(kr, kc), (kr, kc + 1), (kr + 1, kc), (kr + 1, kc + 1)}\n\n            shape_candidates = []\n            for (qi, qj), col in cells_2x2:\n                if col == 0:\n                    continue\n                cell_r = kr + qi\n                cell_c = kc + qj\n                comp = get_component(cell_r, cell_c, col)\n                external = [c for c in comp if c not in window_cells]\n                if len(external) == 0:\n                    continue\n                anchor_r, anchor_c = cell_r, cell_c\n                dr_dir = -1 if qi == 0 else 1\n                dc_dir = -1 if qj == 0 else 1\n                valid = True\n                for (er, ec) in external:\n                    rel_r = er - anchor_r\n                    rel_c = ec - anchor_c\n                    if dr_dir == -1 and rel_r > 0:\n                        valid = False\n                        break\n                    if dr_dir == 1 and rel_r < 0:\n                        valid = False\n                        break\n                    if dc_dir == -1 and rel_c > 0:\n                        valid = False\n                        break\n                    if dc_dir == 1 and rel_c < 0:\n                        valid = False\n                        break\n                if valid:\n                    shape_candidates.append(((qi, qj), col, comp))\n\n            if len(shape_candidates) == 1:\n                anchor_qpos, scolor, comp = shape_candidates[0]\n                found_keys.append((kr, kc, anchor_qpos, comp, scolor))\n\n    for (kr, kc, anchor_qpos, comp, scolor) in found_keys:\n        sqi, sqj = anchor_qpos\n        anchor_r = kr + sqi\n        anchor_c = kc + sqj\n        rel = [(r - anchor_r, c - anchor_c) for (r, c) in comp]\n\n        key_positions = {\n            (0, 0): (kr, kc),\n            (0, 1): (kr, kc + 1),\n            (1, 0): (kr + 1, kc),\n            (1, 1): (kr + 1, kc + 1),\n        }\n        key_colors = {qp: input_grid[p[0]][p[1]] for qp, p in key_positions.items()}\n\n        for qpos, kcol in key_colors.items():\n            if qpos == anchor_qpos or kcol == 0:\n                continue\n            qi, qj = qpos\n            tar, tac = key_positions[qpos]\n            flip_r = (qi != sqi)\n            flip_c = (qj != sqj)\n            for (dr, dc) in rel:\n                nr = -dr if flip_r else dr\n                nc = -dc if flip_c else dc\n                tr = tar + nr\n                tc = tac + nc\n                if 0 <= tr < H and 0 <= tc < W:\n                    out[tr][tc] = kcol\n\n    return out\n",
+      "source": "claude_agent_batch_043_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

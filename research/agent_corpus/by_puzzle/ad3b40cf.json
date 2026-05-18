@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "ad3b40cf",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    BG = 8\n    LINE = 1\n\n    # Find all line-1 cells\n    ones = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == LINE]\n\n    # Determine line orientation\n    rows_set = set(r for r, c in ones)\n    cols_set = set(c for r, c in ones)\n\n    def reflect(r, c):\n        if len(rows_set) == 1:\n            # horizontal line\n            r0 = next(iter(rows_set))\n            return (2 * r0 - r, c)\n        if len(cols_set) == 1:\n            # vertical line\n            c0 = next(iter(cols_set))\n            return (r, 2 * c0 - c)\n        # diagonal: check main vs anti\n        # main diagonal: r - c constant\n        diffs = set(r - c for r, c in ones)\n        sums = set(r + c for r, c in ones)\n        if len(diffs) == 1:\n            d = next(iter(diffs))\n            # reflection across r - c = d: (r,c) -> (c+d, r-d)\n            return (c + d, r - d)\n        if len(sums) == 1:\n            s = next(iter(sums))\n            # reflection across r + c = s: (r,c) -> (s-c, s-r)\n            return (s - c, s - r)\n        return None\n\n    # Find all non-background, non-line cells grouped by color\n    from collections import defaultdict\n    color_cells = defaultdict(list)\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != BG and v != LINE:\n                color_cells[v].append((r, c))\n\n    # Find color with smallest total cell count\n    min_color = min(color_cells.keys(), key=lambda k: len(color_cells[k]))\n\n    # Build output by copying input\n    out = [row[:] for row in input_grid]\n\n    # Reflect all cells of min_color\n    for (r, c) in color_cells[min_color]:\n        rr, cc = reflect(r, c)\n        if 0 <= rr < H and 0 <= cc < W:\n            if out[rr][cc] == BG:\n                out[rr][cc] = min_color\n\n    return out\n",
+      "source": "claude_agent_batch_046_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

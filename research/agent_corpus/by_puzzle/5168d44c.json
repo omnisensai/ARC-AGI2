@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "5168d44c",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find the 3x3 box of 2s with a 3 in center\n    box_r = box_c = None\n    for r in range(H - 2):\n        for c in range(W - 2):\n            if (grid[r][c] == 2 and grid[r][c+1] == 2 and grid[r][c+2] == 2 and\n                grid[r+1][c] == 2 and grid[r+1][c+1] == 3 and grid[r+1][c+2] == 2 and\n                grid[r+2][c] == 2 and grid[r+2][c+1] == 2 and grid[r+2][c+2] == 2):\n                box_r = r\n                box_c = c\n                break\n        if box_r is not None:\n            break\n\n    cr = box_r + 1  # center row\n    cc = box_c + 1  # center col\n\n    # Determine orientation of line of 3s through center\n    # Check horizontal: count 3s in row cr excluding the center\n    # Check vertical: count 3s in col cc excluding the center\n    horiz_3s = sum(1 for c in range(W) if c != cc and grid[cr][c] == 3 and not (box_r <= cr <= box_r+2 and box_c <= c <= box_c+2))\n    vert_3s = sum(1 for r in range(H) if r != cr and grid[r][cc] == 3 and not (box_r <= r <= box_r+2 and box_c <= cc <= box_c+2))\n\n    # Clear the box from the grid\n    for dr in range(3):\n        for dc in range(3):\n            grid[box_r+dr][box_c+dc] = 0\n\n    if horiz_3s >= vert_3s:\n        # Horizontal line\n        # Restore 3 at center position (since the line of 3s passes through)\n        grid[cr][cc] = 3\n        # Count 3s to left and right of center along row cr\n        left = sum(1 for c in range(cc) if grid[cr][c] == 3)\n        right = sum(1 for c in range(cc+1, W) if grid[cr][c] == 3)\n        # Move box by 2 in direction of more 3s; tie -> right\n        if right >= left:\n            new_cc = cc + 2\n        else:\n            new_cc = cc - 2\n        new_cr = cr\n    else:\n        grid[cr][cc] = 3\n        up = sum(1 for r in range(cr) if grid[r][cc] == 3)\n        down = sum(1 for r in range(cr+1, H) if grid[r][cc] == 3)\n        if down >= up:\n            new_cr = cr + 2\n        else:\n            new_cr = cr - 2\n        new_cc = cc\n\n    # Place box at new position\n    new_box_r = new_cr - 1\n    new_box_c = new_cc - 1\n    for dr in range(3):\n        for dc in range(3):\n            grid[new_box_r+dr][new_box_c+dc] = 2\n    grid[new_cr][new_cc] = 3\n\n    return grid\n",
+      "source": "claude_agent_batch_046_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
