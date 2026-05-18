@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "984d8a3e",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Determine col modes\n    col_modes = []\n    for c in range(W):\n        col = [input_grid[r][c] for r in range(H)]\n        mc = Counter(col).most_common(1)[0][0]\n        col_modes.append(mc)\n    A = col_modes[0]\n    B = col_modes[-1]\n    # M = the third color (not A, not B)\n    M = None\n    for v in col_modes:\n        if v != A and v != B:\n            M = v\n            break\n    if M is None:\n        # Fallback: find any other color\n        all_vals = set()\n        for row in input_grid:\n            for v in row:\n                all_vals.add(v)\n        for v in all_vals:\n            if v != A and v != B:\n                M = v\n                break\n    M_width = col_modes.count(M)\n    # Output canonical: A at col 0, M at cols 1..M_width, A at col M_width+1, B at cols M_width+2..W-1\n    M_threshold = M_width + 1  # cols >= M_threshold are \"after M region\"\n\n    result = []\n    for r in range(H):\n        row = input_grid[r]\n        a_positions = [c for c in range(W) if row[c] == A]\n        m_positions = [c for c in range(W) if row[c] == M]\n        m_after = [c for c in m_positions if c >= M_threshold]\n        n_swaps = min(len(a_positions), len(m_after))\n        if n_swaps > 0:\n            a_to_swap = a_positions[-n_swaps:]\n            m_to_swap = m_after[-n_swaps:]\n        else:\n            a_to_swap = []\n            m_to_swap = []\n        new_row = list(row)\n        for c in a_to_swap:\n            new_row[c] = M\n        for c in m_to_swap:\n            new_row[c] = A\n        result.append(new_row)\n    return result\n",
+      "source": "claude_agent_batch_066_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

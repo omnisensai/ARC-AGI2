@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "25d487eb",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find non-zero cells and their colors\n    cells = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != 0:\n                cells.append((r, c, grid[r][c]))\n\n    color_counts = Counter(v for _, _, v in cells)\n    # Arrow color = majority, marker color = minority (unique single cell)\n    sorted_colors = sorted(color_counts.items(), key=lambda x: x[1])\n    marker_color = sorted_colors[0][0]\n    arrow_color = sorted_colors[-1][0]\n\n    # Find marker position\n    mr, mc = None, None\n    for r, c, v in cells:\n        if v == marker_color:\n            mr, mc = r, c\n            break\n\n    # Arrow cells (including marker, since marker is on the arrow)\n    arrow_cells = [(r, c) for r, c, v in cells]\n\n    # Determine direction: find bounding box of arrow\n    rows = [r for r, c in arrow_cells]\n    cols = [c for r, c in arrow_cells]\n    min_r, max_r = min(rows), max(rows)\n    min_c, max_c = min(cols), max(cols)\n\n    # The arrow is a triangle. The base is the wide side, the tip is opposite.\n    # Count cells per row and per column to find direction\n    row_counts = Counter(r for r, c in arrow_cells)\n    col_counts = Counter(c for r, c in arrow_cells)\n\n    # If marker is at extreme row or column, base is on that side\n    # Direction of ray = from tip outward, opposite of base\n\n    # Determine if arrow is horizontal or vertical based on marker position\n    # The marker sits at the center of the base line\n\n    # Check which side has the widest part\n    # If marker_row is min_r or max_r and that row has multiple arrow cells: horizontal base (vertical arrow)\n    # Otherwise check columns\n\n    if mr == min_r and row_counts[min_r] > 1:\n        # base at top, tip at bottom, ray goes down beyond tip\n        tip_r = max_r\n        tip_c = mc  # tip column = marker column (centered)\n        # ray extends downward from tip_r+1 to H-1\n        for rr in range(tip_r + 1, H):\n            grid[rr][tip_c] = marker_color\n    elif mr == max_r and row_counts[max_r] > 1:\n        # base at bottom, tip at top, ray goes up\n        tip_r = min_r\n        tip_c = mc\n        for rr in range(0, tip_r):\n            grid[rr][tip_c] = marker_color\n    elif mc == min_c and col_counts[min_c] > 1:\n        # base at left, tip at right, ray goes right\n        tip_c = max_c\n        tip_r = mr\n        for cc in range(tip_c + 1, W):\n            grid[tip_r][cc] = marker_color\n    elif mc == max_c and col_counts[max_c] > 1:\n        # base at right, tip at left, ray goes left\n        tip_c = min_c\n        tip_r = mr\n        for cc in range(0, tip_c):\n            grid[tip_r][cc] = marker_color\n\n    return grid\n",
+      "source": "claude_agent_batch_067_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

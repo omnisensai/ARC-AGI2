@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "ad173014",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    import math\n    grid = [row[:] for row in input_grid]\n    H = len(grid)\n    W = len(grid[0]) if H else 0\n\n    # Find all boxes: rectangles bordered by 2s\n    visited = [[False] * W for _ in range(H)]\n    boxes = []  # (r1, c1, r2, c2, color)\n\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 2 and not visited[r][c]:\n                c2 = c\n                while c2 + 1 < W and grid[r][c2 + 1] == 2:\n                    c2 += 1\n                r2 = r\n                while r2 + 1 < H and grid[r2 + 1][c] == 2:\n                    r2 += 1\n                if c2 == c or r2 == r:\n                    visited[r][c] = True\n                    continue\n                ok = True\n                for cc in range(c, c2 + 1):\n                    if grid[r2][cc] != 2:\n                        ok = False\n                        break\n                if ok:\n                    for rr in range(r, r2 + 1):\n                        if grid[rr][c2] != 2:\n                            ok = False\n                            break\n                if not ok:\n                    visited[r][c] = True\n                    continue\n                color = 0\n                for rr in range(r + 1, r2):\n                    for cc in range(c + 1, c2):\n                        v = grid[rr][cc]\n                        if v != 0 and v != 2:\n                            color = v\n                            break\n                    if color:\n                        break\n                boxes.append((r, c, r2, c2, color))\n                for cc in range(c, c2 + 1):\n                    visited[r][cc] = True\n                    visited[r2][cc] = True\n                for rr in range(r, r2 + 1):\n                    visited[rr][c] = True\n                    visited[rr][c2] = True\n\n    if not boxes:\n        return grid\n\n    # Centers of each box\n    centers = [((r1 + r2) / 2.0, (c1 + c2) / 2.0) for (r1, c1, r2, c2, _) in boxes]\n\n    # Centroid\n    cy = sum(p[0] for p in centers) / len(centers)\n    cx = sum(p[1] for p in centers) / len(centers)\n\n    # Sort boxes clockwise around centroid\n    def angle(i):\n        r, c = centers[i]\n        dy = r - cy\n        dx = c - cx\n        return math.atan2(dx, -dy)\n\n    order_cw = sorted(range(len(boxes)), key=angle)\n\n    # Each box receives color from next clockwise box\n    new_colors = {}\n    for idx, bi in enumerate(order_cw):\n        next_bi = order_cw[(idx + 1) % len(order_cw)]\n        new_colors[bi] = boxes[next_bi][4]\n\n    out = [row[:] for row in grid]\n    for i, (r1, c1, r2, c2, old_color) in enumerate(boxes):\n        nc = new_colors[i]\n        for rr in range(r1 + 1, r2):\n            for cc in range(c1 + 1, c2):\n                if out[rr][cc] == old_color:\n                    out[rr][cc] = nc\n\n    return out\n",
+      "source": "claude_agent_batch_067_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
