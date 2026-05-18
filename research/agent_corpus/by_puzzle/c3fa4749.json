@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "c3fa4749",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    output = [row[:] for row in input_grid]\n\n    candidate_clusters = []  # list of (component_set, proposal, size)\n\n    MIN_SIZE = 3\n\n    for X in range(10):\n        visited = [[False]*W for _ in range(H)]\n        for r in range(H):\n            for c in range(W):\n                if input_grid[r][c] != X and not visited[r][c]:\n                    # BFS to find connected component of non-X cells\n                    component = []\n                    stack = [(r, c)]\n                    visited[r][c] = True\n                    while stack:\n                        rr, cc = stack.pop()\n                        component.append((rr, cc))\n                        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                            nr, nc = rr + dr, cc + dc\n                            if 0 <= nr < H and 0 <= nc < W and not visited[nr][nc] and input_grid[nr][nc] != X:\n                                visited[nr][nc] = True\n                                stack.append((nr, nc))\n\n                    if len(component) < MIN_SIZE:\n                        continue\n\n                    # Reject if bbox covers entire grid (trivial \"enclosure\")\n                    rs = [p[0] for p in component]\n                    cs = [p[1] for p in component]\n                    r1, r2 = min(rs), max(rs)\n                    c1, c2 = min(cs), max(cs)\n                    if r1 == 0 and r2 == H-1 and c1 == 0 and c2 == W-1:\n                        continue\n\n                    # Check that cluster is X-enclosed (all non-cluster neighbors are X or grid edges)\n                    component_set = set(component)\n                    is_enclosed = True\n                    for (rr, cc) in component:\n                        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                            nr, nc = rr + dr, cc + dc\n                            if 0 <= nr < H and 0 <= nc < W:\n                                if (nr, nc) not in component_set and input_grid[nr][nc] != X:\n                                    is_enclosed = False\n                                    break\n                        if not is_enclosed:\n                            break\n\n                    if not is_enclosed:\n                        continue\n\n                    # Expand cluster to include X cells fully surrounded by cluster cells (in bbox)\n                    changed = True\n                    while changed:\n                        changed = False\n                        rs2 = [p[0] for p in component_set]\n                        cs2 = [p[1] for p in component_set]\n                        for rr in range(min(rs2), max(rs2)+1):\n                            for cc in range(min(cs2), max(cs2)+1):\n                                if (rr, cc) in component_set:\n                                    continue\n                                if input_grid[rr][cc] != X:\n                                    continue\n                                all_in = True\n                                for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                                    nr, nc = rr + dr, cc + dc\n                                    if 0 <= nr < H and 0 <= nc < W:\n                                        if (nr, nc) not in component_set:\n                                            all_in = False\n                                            break\n                                if all_in:\n                                    component_set.add((rr, cc))\n                                    changed = True\n\n                    # Determine \"edge proposal\" \u2014 value of cluster cell at grid edge\n                    edge_values = []\n                    for (rr, cc) in component_set:\n                        if rr == 0 or rr == H - 1 or cc == 0 or cc == W - 1:\n                            edge_values.append(input_grid[rr][cc])\n\n                    if not edge_values:\n                        continue  # No edge cell; cluster does not propose a fill color\n\n                    proposal = Counter(edge_values).most_common(1)[0][0]\n\n                    candidate_clusters.append((component_set, proposal, len(component_set)))\n\n    if not candidate_clusters:\n        return output\n\n    # Determine global fill color Y: the most common proposal across clusters\n    proposal_counts = Counter(p for (_, p, _) in candidate_clusters)\n    max_count = max(proposal_counts.values())\n    top_proposals = [p for p, cnt in proposal_counts.items() if cnt == max_count]\n\n    if len(top_proposals) == 1:\n        Y = top_proposals[0]\n    else:\n        # Tie: pick proposal from largest cluster\n        best_size = -1\n        best_proposal = top_proposals[0]\n        for (component, proposal, size) in candidate_clusters:\n            if proposal in top_proposals and size > best_size:\n                best_size = size\n                best_proposal = proposal\n        Y = best_proposal\n\n    # Fill cluster cells in clusters whose proposal matches Y\n    for (component, proposal, size) in candidate_clusters:\n        if proposal == Y:\n            for (r, c) in component:\n                output[r][c] = Y\n\n    return output\n",
+      "source": "claude_agent_batch_041_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

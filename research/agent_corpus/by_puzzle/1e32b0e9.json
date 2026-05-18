@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "1e32b0e9",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find separator color: rows that are entirely the same non-zero color\n    sep = None\n    for r in range(H):\n        vals = set(input_grid[r])\n        if len(vals) == 1:\n            v = next(iter(vals))\n            if v != 0:\n                sep = v\n                break\n    if sep is None:\n        # fallback: find most common color that appears in full row/col\n        for c in range(W):\n            vals = set(input_grid[r][c] for r in range(H))\n            if len(vals) == 1 and next(iter(vals)) != 0:\n                sep = next(iter(vals))\n                break\n\n    # Identify separator rows and columns\n    sep_rows = [r for r in range(H) if all(input_grid[r][c] == sep for c in range(W))]\n    sep_cols = [c for c in range(W) if all(input_grid[r][c] == sep for r in range(H))]\n\n    # Determine cell boundaries (between separators / grid edges)\n    row_bounds = []\n    prev = 0\n    for sr in sep_rows:\n        row_bounds.append((prev, sr))\n        prev = sr + 1\n    row_bounds.append((prev, H))\n\n    col_bounds = []\n    prev = 0\n    for sc in sep_cols:\n        col_bounds.append((prev, sc))\n        prev = sc + 1\n    col_bounds.append((prev, W))\n\n    n_rows = len(row_bounds)\n    n_cols = len(col_bounds)\n\n    # For each cell, extract the inner non-separator non-background pattern\n    # We treat each cell's \"content\" as positions where value != 0 and != sep.\n    # The \"shape coordinates\" are relative to the cell. We need a canonical reference frame.\n    # The cell sizes might differ at edges. Find the inner region (excluding border 0s).\n    # Actually, for this puzzle each cell is 5x5 and the inner 3x3 contains the pattern.\n    # Let's find the inner shape region: for each cell, the bounding box may vary.\n    # Instead, normalize: the cell's full size minus 1-pixel border (since border is always 0).\n    # We'll work with the inner region of each cell, assuming the border is always 0.\n\n    def get_inner(r0, r1, c0, c1):\n        # Return inner region excluding 1-pixel border\n        if r1 - r0 < 3 or c1 - c0 < 3:\n            return None, (r0, r1, c0, c1)\n        return [[input_grid[r][c] for c in range(c0 + 1, c1 - 1)]\n                for r in range(r0 + 1, r1 - 1)], (r0 + 1, r1 - 1, c0 + 1, c1 - 1)\n\n    # Gather all cell inner patterns\n    cells = {}\n    inner_bounds = {}\n    for ci in range(n_rows):\n        for cj in range(n_cols):\n            r0, r1 = row_bounds[ci]\n            c0, c1 = col_bounds[cj]\n            inner, bnds = get_inner(r0, r1, c0, c1)\n            cells[(ci, cj)] = inner\n            inner_bounds[(ci, cj)] = bnds\n\n    # Determine canonical shape: positions (relative to inner 3x3) where any cell has non-zero\n    # Find the largest set of positions across cells.\n    # We assume all inner regions have the same shape (3x3 typically).\n    canonical = None\n    best_count = -1\n    for ck, cell in cells.items():\n        if cell is None:\n            continue\n        rows = len(cell)\n        cols = len(cell[0])\n        positions = frozenset(\n            (r, c) for r in range(rows) for c in range(cols) if cell[r][c] != 0\n        )\n        if len(positions) > best_count:\n            best_count = len(positions)\n            canonical = positions\n\n    if canonical is None:\n        canonical = frozenset()\n\n    # Build output: start with input, then for each cell, apply canonical\n    output = [row[:] for row in input_grid]\n    for ci in range(n_rows):\n        for cj in range(n_cols):\n            cell = cells[(ci, cj)]\n            if cell is None:\n                continue\n            ir0, ir1, ic0, ic1 = inner_bounds[(ci, cj)]\n            rows = ir1 - ir0\n            cols = ic1 - ic0\n            for r in range(rows):\n                for c in range(cols):\n                    if (r, c) in canonical:\n                        if cell[r][c] != 0:\n                            output[ir0 + r][ic0 + c] = cell[r][c]\n                        else:\n                            output[ir0 + r][ic0 + c] = sep\n                    # else keep as-is (original value, likely 0)\n    return output\n",
+      "source": "claude_agent_batch_047_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

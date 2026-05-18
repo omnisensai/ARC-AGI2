@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "7d419a02",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    six_rows = set()\n    six_cols = set()\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 6:\n                six_rows.add(r)\n                six_cols.add(c)\n\n    sep_rows = [r for r in range(H) if all(grid[r][c] == 0 for c in range(W))]\n    sep_cols = [c for c in range(W) if all(grid[r][c] == 0 for r in range(H))]\n\n    has_row_seps = len(sep_rows) > 2\n    has_col_seps = len(sep_cols) > 2\n\n    if has_row_seps and not has_col_seps:\n        strips = []\n        prev = sep_rows[0]\n        for sr in sep_rows[1:]:\n            if sr - prev > 1:\n                strips.append((prev + 1, sr - 1))\n            prev = sr\n        six_strip_idx = None\n        for i, (s, e) in enumerate(strips):\n            if any(r in six_rows for r in range(s, e + 1)):\n                six_strip_idx = i\n                break\n        for i, (s, e) in enumerate(strips):\n            if i == six_strip_idx:\n                continue\n            d = abs(i - six_strip_idx)\n            ext = 2 * (d - 1)\n            for r in range(s, e + 1):\n                for c in range(W):\n                    if grid[r][c] == 8:\n                        col_dist = min(abs(c - sc) for sc in six_cols)\n                        if col_dist > ext:\n                            grid[r][c] = 4\n    elif has_col_seps and not has_row_seps:\n        strips = []\n        prev = sep_cols[0]\n        for sc in sep_cols[1:]:\n            if sc - prev > 1:\n                strips.append((prev + 1, sc - 1))\n            prev = sc\n        six_strip_idx = None\n        for i, (s, e) in enumerate(strips):\n            if any(c in six_cols for c in range(s, e + 1)):\n                six_strip_idx = i\n                break\n        for i, (s, e) in enumerate(strips):\n            if i == six_strip_idx:\n                continue\n            d = abs(i - six_strip_idx)\n            ext = 2 * (d - 1)\n            for c in range(s, e + 1):\n                for r in range(H):\n                    if grid[r][c] == 8:\n                        row_dist = min(abs(r - sr) for sr in six_rows)\n                        if row_dist > ext:\n                            grid[r][c] = 4\n    return grid\n",
+      "source": "claude_agent_batch_047_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

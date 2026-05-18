@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "9b365c51",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Extract palette from columns that are uniformly the same non-zero color.\n    palette = []\n    for c in range(W):\n        col_vals = [grid[r][c] for r in range(H)]\n        if all(v != 0 for v in col_vals) and len(set(col_vals)) == 1:\n            palette.append(col_vals[0])\n\n    # Find rectangles. A rectangle's top edge is a maximal run of 8s in some row\n    # where the cell directly above each is 0 (or it's the top row).\n    rects = []\n    used = [[False] * W for _ in range(H)]\n\n    for r in range(H):\n        c = 0\n        while c < W:\n            if (grid[r][c] == 8\n                    and (r == 0 or grid[r - 1][c] == 0)\n                    and not used[r][c]):\n                c_start = c\n                while (c < W\n                       and grid[r][c] == 8\n                       and (r == 0 or grid[r - 1][c] == 0)):\n                    c += 1\n                c_end = c - 1\n                # Extend the rectangle downward while the full row strip is 8.\n                r_end = r\n                while (r_end + 1 < H\n                       and all(grid[r_end + 1][cc] == 8\n                               for cc in range(c_start, c_end + 1))):\n                    r_end += 1\n                rects.append((r, r_end, c_start, c_end))\n                for rr in range(r, r_end + 1):\n                    for cc in range(c_start, c_end + 1):\n                        used[rr][cc] = True\n            else:\n                c += 1\n\n    # Sort rectangles by their leftmost column and assign palette colors in order.\n    rects.sort(key=lambda x: x[2])\n\n    output = [[0] * W for _ in range(H)]\n    for i, (r0, r1, c0, c1) in enumerate(rects):\n        color = palette[i]\n        for r in range(r0, r1 + 1):\n            for c in range(c0, c1 + 1):\n                output[r][c] = color\n\n    return output\n",
+      "source": "claude_agent_batch_047_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

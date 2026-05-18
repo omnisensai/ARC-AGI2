@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "ad38a9d0",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    h = len(input_grid)\n    w = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n    visited = [[False] * w for _ in range(h)]\n\n    def neighbors4(r, c):\n        for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):\n            nr, nc = r + dr, c + dc\n            if 0 <= nr < h and 0 <= nc < w:\n                yield nr, nc\n\n    # Find components using 4-connectivity\n    components = []\n    for r in range(h):\n        for c in range(w):\n            if input_grid[r][c] == 6 and not visited[r][c]:\n                stack = [(r, c)]\n                visited[r][c] = True\n                cells = []\n                while stack:\n                    cr, cc = stack.pop()\n                    cells.append((cr, cc))\n                    for nr, nc in neighbors4(cr, cc):\n                        if not visited[nr][nc] and input_grid[nr][nc] == 6:\n                            visited[nr][nc] = True\n                            stack.append((nr, nc))\n                components.append(cells)\n\n    # Merge components that are diagonally adjacent (zigzag pieces)\n    # A zigzag in the data is two pairs of 2 cells offset diagonally.\n    merged = True\n    while merged:\n        merged = False\n        for i in range(len(components)):\n            for j in range(i + 1, len(components)):\n                ci = set(components[i])\n                cj = set(components[j])\n                # Check diagonal adjacency\n                touching = False\n                for (r, c) in ci:\n                    for dr, dc in ((-1, -1), (-1, 1), (1, -1), (1, 1)):\n                        if (r + dr, c + dc) in cj:\n                            touching = True\n                            break\n                    if touching:\n                        break\n                if touching:\n                    # Only merge if combined would form a zigzag (4 cells, 2+2)\n                    if len(components[i]) == 2 and len(components[j]) == 2:\n                        components[i] = components[i] + components[j]\n                        components.pop(j)\n                        merged = True\n                        break\n            if merged:\n                break\n\n    def classify(cells):\n        n = len(cells)\n        rs = [r for r, c in cells]\n        cs = [c for r, c in cells]\n        minr, maxr = min(rs), max(rs)\n        minc, maxc = min(cs), max(cs)\n        hh = maxr - minr + 1\n        ww = maxc - minc + 1\n        cellset = set(cells)\n\n        if n == 5 and hh == 3 and ww == 3:\n            cr, cc = minr + 1, minc + 1\n            expected = {(cr, cc), (cr - 1, cc), (cr + 1, cc), (cr, cc - 1), (cr, cc + 1)}\n            if cellset == expected:\n                return 3\n\n        if n == 6 and ((hh == 2 and ww == 3) or (hh == 3 and ww == 2)):\n            if all((r, c) in cellset for r in range(minr, maxr + 1) for c in range(minc, maxc + 1)):\n                return 5\n\n        if n == 9 and hh == 3 and ww == 3:\n            return 5\n\n        if n == 4:\n            return 8\n\n        if n == 3 and ((hh == 3 and ww == 1) or (hh == 1 and ww == 3)):\n            return 2\n\n        if n == 3 and hh == 2 and ww == 2:\n            return 4\n\n        if n == 2:\n            return 9\n\n        return None\n\n    for cells in components:\n        color = classify(cells)\n        if color is not None:\n            for cr, cc in cells:\n                grid[cr][cc] = color\n\n    return grid\n",
+      "source": "claude_agent_batch_047_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
