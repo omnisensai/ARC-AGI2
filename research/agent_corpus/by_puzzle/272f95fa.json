@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "272f95fa",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    h = len(input_grid)\n    w = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find rows that are entirely 8\n    h_lines = [r for r in range(h) if all(grid[r][c] == 8 for c in range(w))]\n    # Find columns that are entirely 8\n    v_lines = [c for c in range(w) if all(grid[r][c] == 8 for r in range(h))]\n\n    # Build row segments (between/around horizontal lines)\n    row_bounds = [-1] + h_lines + [h]\n    row_segments = []\n    for i in range(len(row_bounds) - 1):\n        a = row_bounds[i] + 1\n        b = row_bounds[i + 1]\n        if a < b:\n            row_segments.append((a, b))\n\n    col_bounds = [-1] + v_lines + [w]\n    col_segments = []\n    for i in range(len(col_bounds) - 1):\n        a = col_bounds[i] + 1\n        b = col_bounds[i + 1]\n        if a < b:\n            col_segments.append((a, b))\n\n    # Find center segment: the one with 8-lines on both sides\n    # i.e., not the first or last segment\n    n_rows = len(row_segments)\n    n_cols = len(col_segments)\n    # Center row segment index = the middle one bounded by lines on both sides\n    # For these puzzles, there are 3 row segments and 3 col segments\n    # Center = index 1\n    center_r = 1\n    center_c = 1\n\n    # Color regions:\n    # center (cr, cc): 6\n    # above center (same col): 2\n    # below center (same col): 1\n    # left of center (same row): 4\n    # right of center (same row): 3\n    color_map = {}\n    color_map[(center_r, center_c)] = 6\n    color_map[(center_r - 1, center_c)] = 2\n    color_map[(center_r + 1, center_c)] = 1\n    color_map[(center_r, center_c - 1)] = 4\n    color_map[(center_r, center_c + 1)] = 3\n\n    for (ri, ci), color in color_map.items():\n        if 0 <= ri < n_rows and 0 <= ci < n_cols:\n            r0, r1 = row_segments[ri]\n            c0, c1 = col_segments[ci]\n            for r in range(r0, r1):\n                for c in range(c0, c1):\n                    grid[r][c] = color\n\n    return grid\n",
+      "source": "claude_agent_batch_044_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "6ca952ad",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter, defaultdict\n\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    counts = Counter()\n    for row in input_grid:\n        for v in row:\n            counts[v] += 1\n    bg = counts.most_common(1)[0][0]\n\n    seen = [[False] * W for _ in range(H)]\n    objs = []\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] != bg and not seen[r][c]:\n                stack = [(r, c)]\n                cells = []\n                while stack:\n                    rr, cc = stack.pop()\n                    if (rr < 0 or rr >= H or cc < 0 or cc >= W\n                            or seen[rr][cc] or input_grid[rr][cc] == bg):\n                        continue\n                    seen[rr][cc] = True\n                    cells.append((rr, cc, input_grid[rr][cc]))\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        stack.append((rr + dr, cc + dc))\n                objs.append(cells)\n\n    out = [[bg] * W for _ in range(H)]\n\n    for cells in objs:\n        row_counts = defaultdict(int)\n        for r, c, v in cells:\n            row_counts[r] += 1\n        wide_rows = sum(1 for cnt in row_counts.values() if cnt >= 2)\n\n        if wide_rows >= 2:\n            max_r = max(r for r, c, v in cells)\n            shift = (H - 1) - max_r\n        else:\n            shift = 0\n\n        for r, c, v in cells:\n            out[r + shift][c] = v\n\n    return out\n",
+      "source": "claude_agent_batch_043_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

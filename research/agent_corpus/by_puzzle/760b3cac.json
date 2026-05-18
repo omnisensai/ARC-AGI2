@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "760b3cac",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    eights = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 8]\n    fours = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 4]\n\n    er0 = min(r for r, c in eights); er1 = max(r for r, c in eights)\n    ec0 = min(c for r, c in eights); ec1 = max(c for r, c in eights)\n    fr0 = min(r for r, c in fours); fr1 = max(r for r, c in fours)\n    fc0 = min(c for r, c in fours); fc1 = max(c for r, c in fours)\n\n    fh = fr1 - fr0 + 1\n    fw = fc1 - fc0 + 1\n    fmask = [[1 if grid[fr0 + r][fc0 + c] == 4 else 0 for c in range(fw)] for r in range(fh)]\n\n    extra = None\n    for (rr, cc) in [(0, 0), (0, fw - 1), (fh - 1, 0), (fh - 1, fw - 1)]:\n        if fmask[rr][cc] == 1:\n            extra = (rr, cc)\n            break\n\n    eh = er1 - er0 + 1\n    ew = ec1 - ec0 + 1\n    eshape = [[grid[er0 + r][ec0 + c] for c in range(ew)] for r in range(eh)]\n\n    reflected_h = [list(reversed(row)) for row in eshape]\n    reflected_v = list(reversed(eshape))\n\n    if extra[1] == 0:\n        new_c0 = ec0 - ew\n        new_r0 = er0\n        shape = reflected_h\n    elif extra[1] == fw - 1:\n        new_c0 = ec1 + 1\n        new_r0 = er0\n        shape = reflected_h\n    elif extra[0] == 0:\n        new_r0 = er0 - eh\n        new_c0 = ec0\n        shape = reflected_v\n    else:\n        new_r0 = er1 + 1\n        new_c0 = ec0\n        shape = reflected_v\n\n    for r in range(len(shape)):\n        for c in range(len(shape[0])):\n            if shape[r][c] != 0:\n                nr, nc = new_r0 + r, new_c0 + c\n                if 0 <= nr < H and 0 <= nc < W:\n                    grid[nr][nc] = shape[r][c]\n\n    return grid\n",
+      "source": "claude_agent_batch_044_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

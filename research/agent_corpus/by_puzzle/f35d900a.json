@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "f35d900a",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    out = [[0] * W for _ in range(H)]\n\n    # Find non-zero cells\n    pts = []\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != 0:\n                pts.append((r, c, v))\n\n    # Should be 4 points forming a rectangle\n    rows = sorted(set(p[0] for p in pts))\n    cols = sorted(set(p[1] for p in pts))\n    r1, r2 = rows[0], rows[1]\n    c1, c2 = cols[0], cols[1]\n    color_at = {(p[0], p[1]): p[2] for p in pts}\n    # Two distinct colors; opposite corners have same color\n    corners = [(r1, c1), (r1, c2), (r2, c1), (r2, c2)]\n\n    # Draw 3x3 boxes at each corner: outer = other color, center = original color\n    # The \"other color\" for a corner is the color of the horizontally/vertically adjacent corner\n    for (r, c) in corners:\n        own = color_at[(r, c)]\n        # Find the other color (different from own)\n        other = None\n        for (rr, cc) in corners:\n            if color_at[(rr, cc)] != own:\n                other = color_at[(rr, cc)]\n                break\n        for dr in (-1, 0, 1):\n            for dc in (-1, 0, 1):\n                rr, cc = r + dr, c + dc\n                if 0 <= rr < H and 0 <= cc < W:\n                    if dr == 0 and dc == 0:\n                        out[rr][cc] = own\n                    else:\n                        out[rr][cc] = other\n\n    # Place 5s in gaps\n    # Horizontal gaps: between left and right boxes on each row pair\n    # For top row (r1): between c1+1 and c2-1 boxes ends -> gap cols (c1+2) to (c2-2)\n    def gap_positions(length):\n        # Returns set of positions (0..length-1) to fill with 5\n        if length <= 0:\n            return set()\n        s = set()\n        # From start: positions 0 and 2 (if fit)\n        s.add(0)\n        if 2 < length:\n            s.add(2)\n        # From end: positions length-1 and length-3\n        s.add(length - 1)\n        if length - 3 >= 0:\n            s.add(length - 3)\n        return s\n\n    # Horizontal: along rows r1 and r2, between cols c1+2 and c2-2\n    gap_start_c = c1 + 2\n    gap_end_c = c2 - 2  # inclusive\n    glen_h = gap_end_c - gap_start_c + 1\n    positions_h = gap_positions(glen_h)\n    for r in (r1, r2):\n        if 0 <= r < H:\n            for p in positions_h:\n                cc = gap_start_c + p\n                if 0 <= cc < W:\n                    out[r][cc] = 5\n\n    # Vertical: along cols c1 and c2, between rows r1+2 and r2-2\n    gap_start_r = r1 + 2\n    gap_end_r = r2 - 2\n    glen_v = gap_end_r - gap_start_r + 1\n    positions_v = gap_positions(glen_v)\n    for c in (c1, c2):\n        if 0 <= c < W:\n            for p in positions_v:\n                rr = gap_start_r + p\n                if 0 <= rr < H:\n                    out[rr][c] = 5\n\n    return out\n",
+      "source": "claude_agent_batch_044_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

@@ -1,0 +1,39 @@
+{
+  "puzzle_id": "9ddd00f0",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find non-zero columns (any non-zero cell in the column)\n    nz_col = [any(input_grid[r][c] != 0 for r in range(H)) for c in range(W)]\n    nz_row = [any(input_grid[r][c] != 0 for c in range(W)) for r in range(H)]\n\n    # Find color\n    color = 0\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] != 0:\n                color = input_grid[r][c]\n                break\n        if color != 0:\n            break\n\n    # Determine block width from runs of non-zero columns\n    def first_run_length(flags):\n        # find first True, then count consecutive True\n        i = 0\n        n = len(flags)\n        while i < n and not flags[i]:\n            i += 1\n        if i >= n:\n            return None, None\n        j = i\n        while j < n and flags[j]:\n            j += 1\n        return i, j - i  # start, length\n\n    start_c, bw = first_run_length(nz_col)\n    start_r, bh = first_run_length(nz_row)\n\n    # If no non-zero rows (shouldn't happen), fallback\n    if bw is None:\n        return [row[:] for row in input_grid]\n    if bh is None:\n        bh = bw  # assume square\n\n    # Period = block_size + 1 separator\n    period_c = bw + 1\n    period_r = bh + 1\n\n    # Find first block column start: align start_c to grid\n    # blocks start at start_c % period_c, then every period_c\n    first_bc = start_c % period_c\n    first_br = (start_r if start_r is not None else first_bc) % period_r\n\n    # Enumerate all block positions\n    block_col_starts = []\n    c = first_bc\n    while c + bw <= W:\n        block_col_starts.append(c)\n        c += period_c\n\n    block_row_starts = []\n    r = first_br\n    while r + bh <= H:\n        block_row_starts.append(r)\n        r += period_r\n\n    nbr = len(block_row_starts)\n    nbc = len(block_col_starts)\n\n    # Output: copy input then fill all blocks\n    out = [row[:] for row in input_grid]\n\n    for bi, r0 in enumerate(block_row_starts):\n        for bj, c0 in enumerate(block_col_starts):\n            # Block (bi, bj) - all cells = color except internal cell (bi, bj) = 0\n            for dr in range(bh):\n                for dc in range(bw):\n                    if dr == bi and dc == bj:\n                        out[r0 + dr][c0 + dc] = 0\n                    else:\n                        out[r0 + dr][c0 + dc] = color\n\n    return out\n",
+      "source": "claude_agent_batch_044_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
