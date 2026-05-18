@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "e4941b18",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find 2 and 8 positions and the rectangle of 5s\n    pos2 = None\n    pos8 = None\n    fives = []\n    for r in range(H):\n        for c in range(W):\n            v = grid[r][c]\n            if v == 2:\n                pos2 = (r, c)\n            elif v == 8:\n                pos8 = (r, c)\n            elif v == 5:\n                fives.append((r, c))\n\n    r_min = min(r for r, c in fives)\n    r_max = max(r for r, c in fives)\n    c_min = min(c for r, c in fives)\n    c_max = max(c for r, c in fives)\n\n    # Determine which side the 2/8 are on relative to the rect\n    r2, c2 = pos2\n    r8, c8 = pos8\n\n    # Vertical relation: above or below rect\n    if r2 < r_min:\n        opposite_row = r_max  # 8 ends on bottom row of rect\n    else:\n        opposite_row = r_min  # 8 ends on top row of rect\n\n    # Horizontal: 8 relative to 2\n    if c8 > c2:\n        # 8 was to the right of 2 -> go to right-outside\n        opposite_col = c_max + 1\n    elif c8 < c2:\n        # 8 was to the left of 2 -> go to left-outside\n        opposite_col = c_min - 1\n    else:\n        # same column - check row relation\n        if r8 > r2:\n            opposite_col = c_max + 1\n        else:\n            opposite_col = c_min - 1\n\n    # Clear original 2 and 8\n    grid[r2][c2] = 7\n    grid[r8][c8] = 7\n\n    # Place 2 where 8 was\n    grid[r8][c8] = 2\n\n    # Place 8 at opposite corner\n    grid[opposite_row][opposite_col] = 8\n\n    return grid\n",
+      "source": "claude_agent_batch_053_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

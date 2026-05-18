@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "1478ab18",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find all 5s\n    fives = []\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] == 5:\n                fives.append((r, c))\n    five_set = set(fives)\n\n    # Find pairs of 5s on a diagonal (|dr| == |dc|, > 0)\n    candidates = []\n    for i in range(len(fives)):\n        for j in range(i + 1, len(fives)):\n            r1, c1 = fives[i]\n            r2, c2 = fives[j]\n            dr = r2 - r1\n            dc = c2 - c1\n            if abs(dr) == abs(dc) and dr != 0:\n                candidates.append((abs(dr), (r1, c1), (r2, c2)))\n\n    # Pick the longest diagonal\n    candidates.sort(key=lambda x: -x[0])\n    _, p1, p2 = candidates[0]\n    r1, c1 = p1\n    r2, c2 = p2\n\n    # The two possible right-angle vertices:\n    v_a = (r1, c2)\n    v_b = (r2, c1)\n\n    # Pick the one that is NOT a 5\n    if v_a in five_set:\n        vertex = v_b\n    else:\n        vertex = v_a\n\n    vr, vc = vertex\n\n    # Draw 8s along: the diagonal from p1 to p2, the edge from p1 to vertex,\n    # and the edge from p2 to vertex. Don't overwrite 5s.\n\n    def draw_line(a, b):\n        ar, ac = a\n        br, bc = b\n        steps = max(abs(br - ar), abs(bc - ac))\n        if steps == 0:\n            return\n        dr = (br - ar) // steps if br != ar else 0\n        dc = (bc - ac) // steps if bc != ac else 0\n        for k in range(steps + 1):\n            rr = ar + dr * k\n            cc = ac + dc * k\n            if grid[rr][cc] != 5:\n                grid[rr][cc] = 8\n\n    draw_line(p1, p2)\n    draw_line(p1, vertex)\n    draw_line(p2, vertex)\n\n    return grid\n",
+      "source": "claude_agent_batch_053_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

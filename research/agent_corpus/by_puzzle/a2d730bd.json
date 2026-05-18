@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "a2d730bd",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import Counter\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # background = most common color\n    cnt = Counter()\n    for row in input_grid:\n        for v in row:\n            cnt[v] += 1\n    bg = cnt.most_common(1)[0][0]\n\n    grid = [row[:] for row in input_grid]\n    out = [row[:] for row in input_grid]\n\n    # Find connected components (4-connected) of non-background cells, group by color\n    visited = [[False]*W for _ in range(H)]\n    components = []  # list of (color, cells)\n    for r in range(H):\n        for c in range(W):\n            if grid[r][c] != bg and not visited[r][c]:\n                color = grid[r][c]\n                stack = [(r,c)]\n                visited[r][c] = True\n                cells = []\n                while stack:\n                    rr, cc = stack.pop()\n                    cells.append((rr,cc))\n                    for dr,dc in [(-1,0),(1,0),(0,-1),(0,1)]:\n                        nr, nc = rr+dr, cc+dc\n                        if 0 <= nr < H and 0 <= nc < W and not visited[nr][nc] and grid[nr][nc] == color:\n                            visited[nr][nc] = True\n                            stack.append((nr,nc))\n                components.append((color, cells))\n\n    # Separate rectangles (big) from dots (single cells), grouped by color\n    rects_by_color = {}\n    dots = []  # (color, r, c)\n    for color, cells in components:\n        if len(cells) == 1:\n            r, c = cells[0]\n            dots.append((color, r, c))\n        else:\n            rs = [x[0] for x in cells]\n            cs = [x[1] for x in cells]\n            rects_by_color.setdefault(color, []).append((min(rs), max(rs), min(cs), max(cs)))\n\n    # For each dot, find the rectangle of the same color that the dot aligns with\n    for color, dr, dc in dots:\n        rects = rects_by_color.get(color, [])\n        target = None\n        direction = None  # 'up', 'down', 'left', 'right'\n        for (r0, r1, c0, c1) in rects:\n            # vertical alignment: dot col within rect cols\n            if c0 <= dc <= c1:\n                if dr < r0:\n                    target = (r0, r1, c0, c1); direction = 'up'; break\n                elif dr > r1:\n                    target = (r0, r1, c0, c1); direction = 'down'; break\n            if r0 <= dr <= r1:\n                if dc < c0:\n                    target = (r0, r1, c0, c1); direction = 'left'; break\n                elif dc > c1:\n                    target = (r0, r1, c0, c1); direction = 'right'; break\n        if target is None:\n            continue\n        r0, r1, c0, c1 = target\n\n        if direction == 'right':\n            # bump at col c1+1, rows dr-1,dr,dr+1\n            bump_c = c1 + 1\n            for rr in (dr-1, dr, dr+1):\n                if 0 <= rr < H:\n                    out[rr][bump_c] = color\n            # line at row dr, cols from c1+2 to dc-1\n            for cc in range(c1+2, dc):\n                out[dr][cc] = color\n            # blank old dot\n            out[dr][dc] = bg\n            # arrowhead: (dr-1,dc), (dr+1,dc); new dot at (dr, dc+1)\n            if dr-1 >= 0: out[dr-1][dc] = color\n            if dr+1 < H: out[dr+1][dc] = color\n            if dc+1 < W: out[dr][dc+1] = color\n        elif direction == 'left':\n            bump_c = c0 - 1\n            for rr in (dr-1, dr, dr+1):\n                if 0 <= rr < H:\n                    out[rr][bump_c] = color\n            for cc in range(dc+1, c0-1):\n                out[dr][cc] = color\n            out[dr][dc] = bg\n            if dr-1 >= 0: out[dr-1][dc] = color\n            if dr+1 < H: out[dr+1][dc] = color\n            if dc-1 >= 0: out[dr][dc-1] = color\n        elif direction == 'up':\n            bump_r = r0 - 1\n            for cc in (dc-1, dc, dc+1):\n                if 0 <= cc < W:\n                    out[bump_r][cc] = color\n            for rr in range(dr+1, r0-1):\n                out[rr][dc] = color\n            out[dr][dc] = bg\n            if dc-1 >= 0: out[dr][dc-1] = color\n            if dc+1 < W: out[dr][dc+1] = color\n            if dr-1 >= 0: out[dr-1][dc] = color\n        elif direction == 'down':\n            bump_r = r1 + 1\n            for cc in (dc-1, dc, dc+1):\n                if 0 <= cc < W:\n                    out[bump_r][cc] = color\n            for rr in range(r1+2, dr):\n                out[rr][dc] = color\n            out[dr][dc] = bg\n            if dc-1 >= 0: out[dr][dc-1] = color\n            if dc+1 < W: out[dr][dc+1] = color\n            if dr+1 < H: out[dr+1][dc] = color\n\n    return out\n",
+      "source": "claude_agent_batch_053_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

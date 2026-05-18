@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "e95e3d8e",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find row period: smallest pr such that grid is periodic in rows (ignoring 0 holes)\n    def find_period(size, get_line_compat):\n        for p in range(1, size + 1):\n            ok = True\n            for i in range(size):\n                j = i % p\n                # check compatibility of \"row\" i with \"row\" j (representative)\n                if not get_line_compat(i, j):\n                    ok = False\n                    break\n            if ok:\n                return p\n        return size\n\n    # Try to find (pr, pc) such that grid[i][j] == grid[i % pr][j % pc] for all non-zero cells.\n    # Actually, the pattern is periodic in both dims. Find pr, pc.\n    def consistent(pr, pc):\n        # Group cells by (i % pr, j % pc); all non-zero values in a group must agree.\n        groups = {}\n        for i in range(H):\n            for j in range(W):\n                v = input_grid[i][j]\n                if v == 0:\n                    continue\n                key = (i % pr, j % pc)\n                if key in groups:\n                    if groups[key] != v:\n                        return False\n                else:\n                    groups[key] = v\n        # Also: every group must have at least one non-zero (so we can fill it)\n        for a in range(pr):\n            for b in range(pc):\n                if (a, b) not in groups:\n                    return False\n        return True\n\n    best = None\n    for pr in range(1, H + 1):\n        for pc in range(1, W + 1):\n            if consistent(pr, pc):\n                best = (pr, pc)\n                break\n        if best:\n            break\n\n    pr, pc = best\n    groups = {}\n    for i in range(H):\n        for j in range(W):\n            v = input_grid[i][j]\n            if v != 0:\n                groups[(i % pr, j % pc)] = v\n\n    out = [[groups[(i % pr, j % pc)] for j in range(W)] for i in range(H)]\n    return out\n",
+      "source": "claude_agent_batch_053_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

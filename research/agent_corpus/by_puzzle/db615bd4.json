@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "db615bd4",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    from collections import defaultdict\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Background and pattern colors\n    bg = input_grid[0][0]\n    pattern = input_grid[1][1]\n\n    # Group non-bg, non-pattern cells by color\n    color_cells = defaultdict(list)\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v != bg and v != pattern:\n                color_cells[v].append((r, c))\n\n    # Identify the frame (rectangle border) vs small blocks\n    frame_color = None\n    frame_box = None\n    blocks = {}\n    for col, cells in color_cells.items():\n        rows = sorted(set(r for r, c in cells))\n        cols = sorted(set(c for r, c in cells))\n        r_min, r_max = rows[0], rows[-1]\n        c_min, c_max = cols[0], cols[-1]\n        on_border = all(r in (r_min, r_max) or c in (c_min, c_max) for r, c in cells)\n        is_frame = on_border and (r_max - r_min >= 4) and (c_max - c_min >= 4)\n        if is_frame:\n            frame_color = col\n            frame_box = (r_min, c_min, r_max, c_max)\n        else:\n            blocks[col] = (r_min, c_min, r_max, c_max)\n\n    # Sort blocks by spatial arrangement\n    block_list = list(blocks.items())\n    rows_centers = [(b[1][0] + b[1][2]) / 2 for b in block_list]\n    cols_centers = [(b[1][1] + b[1][3]) / 2 for b in block_list]\n    row_range = max(rows_centers) - min(rows_centers) if rows_centers else 0\n    col_range = max(cols_centers) - min(cols_centers) if cols_centers else 0\n    vertical = row_range > col_range\n\n    if vertical:\n        block_list.sort(key=lambda x: x[1][0])\n    else:\n        block_list.sort(key=lambda x: x[1][1])\n\n    # Build output starting from input\n    output = [row[:] for row in input_grid]\n\n    # Reset all small block cells to background\n    for col, cells in color_cells.items():\n        if col == frame_color:\n            continue\n        for r, c in cells:\n            output[r][c] = bg\n\n    # Reset frame cells in input (we'll redraw the solid frame)\n    fr_min, fc_min, fr_max, fc_max = frame_box\n    for r in range(fr_min, fr_max + 1):\n        for c in range(fc_min, fc_max + 1):\n            if input_grid[r][c] == frame_color:\n                if r % 2 == 0 or c % 2 == 0:\n                    output[r][c] = bg\n                else:\n                    output[r][c] = pattern\n\n    # Draw solid frame border\n    for c in range(fc_min, fc_max + 1):\n        output[fr_min][c] = frame_color\n        output[fr_max][c] = frame_color\n    for r in range(fr_min, fr_max + 1):\n        output[r][fc_min] = frame_color\n        output[r][fc_max] = frame_color\n\n    # Clear interior pattern cells to background\n    for r in range(fr_min + 1, fr_max):\n        for c in range(fc_min + 1, fc_max):\n            output[r][c] = bg\n\n    # Interior dimensions\n    int_h = fr_max - fr_min - 1\n    int_w = fc_max - fc_min - 1\n\n    # Compute block sizes (in cells = bounding box dimensions)\n    block_sizes = []\n    for col, box in block_list:\n        br_min, bc_min, br_max, bc_max = box\n        bh = br_max - br_min + 1\n        bw = bc_max - bc_min + 1\n        block_sizes.append((col, bh, bw))\n\n    if vertical:\n        total_h = sum(bh for _, bh, _ in block_sizes)\n        n = len(block_sizes)\n        gap = (int_h - total_h) // (n + 1) if (n + 1) > 0 else 0\n        cur_r = fr_min + 1 + gap\n        for col, bh, bw in block_sizes:\n            start_c = fc_min + 1 + (int_w - bw) // 2\n            for dr in range(bh):\n                for dc in range(bw):\n                    output[cur_r + dr][start_c + dc] = col\n            cur_r += bh + gap\n    else:\n        total_w = sum(bw for _, _, bw in block_sizes)\n        n = len(block_sizes)\n        gap = (int_w - total_w) // (n + 1) if (n + 1) > 0 else 0\n        cur_c = fc_min + 1 + gap\n        for col, bh, bw in block_sizes:\n            start_r = fr_min + 1 + (int_h - bh) // 2\n            for dr in range(bh):\n                for dc in range(bw):\n                    output[start_r + dr][cur_c + dc] = col\n            cur_c += bw + gap\n\n    return output\n",
+      "source": "claude_agent_batch_052_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

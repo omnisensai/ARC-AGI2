@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "184a9768",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    g = [row[:] for row in input_grid]\n    H = len(g)\n    W = len(g[0])\n\n    # Find 4-connected components of nonzero same-color cells\n    vis = [[False] * W for _ in range(H)]\n    comps = []\n    for r in range(H):\n        for c in range(W):\n            if g[r][c] != 0 and not vis[r][c]:\n                col = g[r][c]\n                stk = [(r, c)]\n                cells = []\n                while stk:\n                    rr, cc = stk.pop()\n                    if rr < 0 or rr >= H or cc < 0 or cc >= W:\n                        continue\n                    if vis[rr][cc] or g[rr][cc] != col:\n                        continue\n                    vis[rr][cc] = True\n                    cells.append((rr, cc))\n                    for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):\n                        stk.append((rr + dr, cc + dc))\n                if cells:\n                    rs = [x[0] for x in cells]\n                    cs = [x[1] for x in cells]\n                    comps.append((col, min(rs), max(rs), min(cs), max(cs), len(cells), cells))\n\n    # Separate into frames (non-rectangular, not color 5) and loose rectangular shapes\n    frames = []\n    loose = []\n    for c in comps:\n        col, r0, r1, c0, c1, n, cells = c\n        if col == 5:\n            continue\n        h = r1 - r0 + 1\n        w = c1 - c0 + 1\n        if h * w != n:\n            frames.append(c)\n        else:\n            loose.append((col, r0, r1, c0, c1, n, cells, h, w))\n\n    # Initialize output: just draw frames (filled cells only)\n    out = [[0] * W for _ in range(H)]\n    for f in frames:\n        col, r0, r1, c0, c1, n, cells = f\n        for (r, c) in cells:\n            out[r][c] = col\n\n    def candidate_placements(ls, used):\n        lcol, _, _, _, _, _, _, lh, lw = ls\n        results = []\n        for f in frames:\n            fcol, fr0, fr1, fc0, fc1, _, _ = f\n            if fcol == lcol:\n                continue\n            for pr in range(fr0 + 1, fr1 - lh + 1):\n                for pc in range(fc0 + 1, fc1 - lw + 1):\n                    ok = True\n                    for dr in range(lh):\n                        if not ok:\n                            break\n                        for dc in range(lw):\n                            if g[pr + dr][pc + dc] != 0 or (pr + dr, pc + dc) in used:\n                                ok = False\n                                break\n                    if not ok:\n                        continue\n                    # Score how many sides of the placed rectangle abut frame color cells\n                    score = 0\n                    if all(g[pr - 1][pc + dc] == fcol for dc in range(lw)):\n                        score += 1\n                    if all(g[pr + lh][pc + dc] == fcol for dc in range(lw)):\n                        score += 1\n                    if all(g[pr + dr][pc - 1] == fcol for dr in range(lh)):\n                        score += 1\n                    if all(g[pr + dr][pc + lw] == fcol for dr in range(lh)):\n                        score += 1\n                    results.append((score, pr, pc, fcol))\n        return results\n\n    used = set()\n    remaining = list(range(len(loose)))\n\n    while remaining:\n        best = None  # (key, shape_idx, pr, pc)\n        for si in remaining:\n            ls = loose[si]\n            for (score, pr, pc, _fcol) in candidate_placements(ls, used):\n                key = (score, -ls[5])  # prefer higher border score, then larger shape\n                if best is None or key > best[0]:\n                    best = (key, si, pr, pc)\n        if best is None:\n            break\n        _, si, pr, pc = best\n        ls = loose[si]\n        lcol, _, _, _, _, _, _, lh, lw = ls\n        for dr in range(lh):\n            for dc in range(lw):\n                out[pr + dr][pc + dc] = lcol\n                used.add((pr + dr, pc + dc))\n        remaining.remove(si)\n\n    return out\n",
+      "source": "claude_agent_batch_053_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
