@@ -1,0 +1,53 @@
+{
+  "puzzle_id": "3490cc26",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    grid = [row[:] for row in input_grid]\n\n    # Find all 2x2 blocks\n    seen = [[False]*W for _ in range(H)]\n    blocks = []\n    for r in range(H-1):\n        for c in range(W-1):\n            if seen[r][c]:\n                continue\n            v = grid[r][c]\n            if v != 0 and grid[r][c+1] == v and grid[r+1][c] == v and grid[r+1][c+1] == v:\n                blocks.append((r, c, v))\n                seen[r][c] = seen[r][c+1] = seen[r+1][c] = seen[r+1][c+1] = True\n\n    # Find the 2-block (start)\n    start_idx = None\n    for i, b in enumerate(blocks):\n        if b[2] == 2:\n            start_idx = i\n            break\n    if start_idx is None:\n        return grid\n\n    n = len(blocks)\n\n    # Greedy: from current block, go to nearest unvisited aligned block\n    # (same row or column), where no already-visited block lies strictly\n    # between current and candidate.\n    path = [start_idx]\n    visited_set = {start_idx}\n    while True:\n        cur = path[-1]\n        rc, cc, _ = blocks[cur]\n        best = None\n        best_dist = None\n        for j in range(n):\n            if j in visited_set:\n                continue\n            rj, cj, _ = blocks[j]\n            if rj == rc:\n                d = abs(cj - cc)\n                c_lo, c_hi = min(cc, cj), max(cc, cj)\n                blocked = False\n                for k in visited_set:\n                    if k == cur:\n                        continue\n                    rk, ck, _ = blocks[k]\n                    if rk == rc and c_lo < ck < c_hi:\n                        blocked = True\n                        break\n                if blocked:\n                    continue\n            elif cj == cc:\n                d = abs(rj - rc)\n                r_lo, r_hi = min(rc, rj), max(rc, rj)\n                blocked = False\n                for k in visited_set:\n                    if k == cur:\n                        continue\n                    rk, ck, _ = blocks[k]\n                    if ck == cc and r_lo < rk < r_hi:\n                        blocked = True\n                        break\n                if blocked:\n                    continue\n            else:\n                continue\n            if best_dist is None or d < best_dist:\n                best_dist = d\n                best = j\n        if best is None:\n            break\n        path.append(best)\n        visited_set.add(best)\n\n    # Draw 7s between consecutive blocks in path\n    for i in range(len(path) - 1):\n        a = blocks[path[i]]\n        b = blocks[path[i+1]]\n        r1, c1 = a[0], a[1]\n        r2, c2 = b[0], b[1]\n        if r1 == r2:\n            c_min = min(c1, c2) + 2\n            c_max = max(c1, c2)\n            for cc in range(c_min, c_max):\n                grid[r1][cc] = 7\n                grid[r1+1][cc] = 7\n        elif c1 == c2:\n            r_min = min(r1, r2) + 2\n            r_max = max(r1, r2)\n            for rr in range(r_min, r_max):\n                grid[rr][c1] = 7\n                grid[rr][c1+1] = 7\n\n    return grid\n",
+      "source": "claude_agent_batch_048_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

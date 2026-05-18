@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "212895b5",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0]) if H else 0\n    out = [row[:] for row in input_grid]\n\n    # Find 3x3 block of 8s\n    r8 = c8 = -1\n    for r in range(H - 2):\n        for c in range(W - 2):\n            ok = True\n            for dr in range(3):\n                for dc in range(3):\n                    if input_grid[r + dr][c + dc] != 8:\n                        ok = False\n                        break\n                if not ok:\n                    break\n            if ok:\n                r8, c8 = r, c\n                break\n        if r8 != -1:\n            break\n\n    R_top = r8\n    R_bot = r8 + 2\n    C_left = c8\n    C_right = c8 + 2\n\n    def in_grid(r, c):\n        return 0 <= r < H and 0 <= c < W\n\n    def is_5(r, c):\n        return in_grid(r, c) and input_grid[r][c] == 5\n\n    # Diagonals of 2 from each corner of the 8 block\n    corners = [\n        (R_top, C_left, -1, -1),   # TL\n        (R_top, C_right, -1, +1),  # TR\n        (R_bot, C_left, +1, -1),   # BL\n        (R_bot, C_right, +1, +1),  # BR\n    ]\n\n    for (R, C, dr, dc) in corners:\n        prev_r, prev_c = R, C\n        for n in range(1, max(H, W) + 1):\n            nr = R + n * dr\n            nc = C + n * dc\n            if not in_grid(nr, nc):\n                break\n            if input_grid[nr][nc] == 5:\n                break\n            # Stop if both \"step corners\" are 5\n            corner1 = (prev_r + dr, prev_c)\n            corner2 = (prev_r, prev_c + dc)\n            if is_5(*corner1) and is_5(*corner2):\n                break\n            if out[nr][nc] == 0:\n                out[nr][nc] = 2\n            prev_r, prev_c = nr, nc\n\n    # Zigzag paths of 4 from each corner. The path is a single sequence:\n    # initial 1-cell step (perpendicular) then alternating 2-cell segments.\n    def zigzag(start_r, start_c, moves):\n        cur_r, cur_c = start_r, start_c\n        if not in_grid(cur_r, cur_c):\n            return\n        if input_grid[cur_r][cur_c] == 5:\n            return\n        if out[cur_r][cur_c] == 0:\n            out[cur_r][cur_c] = 4\n        for (dr, dc, cnt) in moves:\n            for _ in range(cnt):\n                cur_r += dr\n                cur_c += dc\n                if not in_grid(cur_r, cur_c):\n                    return\n                if input_grid[cur_r][cur_c] == 5:\n                    return\n                if out[cur_r][cur_c] == 0:\n                    out[cur_r][cur_c] = 4\n\n    max_steps = 2 * max(H, W)\n\n    # TR: start (R_top-1, C_right-1), pattern U1, R2, U2, R2, U2, ...\n    moves_tr = [(-1, 0, 1)]\n    for _ in range(max_steps):\n        moves_tr.append((0, +1, 2))\n        moves_tr.append((-1, 0, 2))\n    zigzag(R_top - 1, C_right - 1, moves_tr)\n\n    # TL: start (R_top+1, C_left-1), pattern L1, U2, L2, U2, L2, ...\n    moves_tl = [(0, -1, 1)]\n    for _ in range(max_steps):\n        moves_tl.append((-1, 0, 2))\n        moves_tl.append((0, -1, 2))\n    zigzag(R_top + 1, C_left - 1, moves_tl)\n\n    # BL: start (R_bot+1, C_left+1), pattern D1, L2, D2, L2, D2, ...\n    moves_bl = [(+1, 0, 1)]\n    for _ in range(max_steps):\n        moves_bl.append((0, -1, 2))\n        moves_bl.append((+1, 0, 2))\n    zigzag(R_bot + 1, C_left + 1, moves_bl)\n\n    # BR: start (R_bot-1, C_right+1), pattern R1, D2, R2, D2, R2, ...\n    moves_br = [(0, +1, 1)]\n    for _ in range(max_steps):\n        moves_br.append((+1, 0, 2))\n        moves_br.append((0, +1, 2))\n    zigzag(R_bot - 1, C_right + 1, moves_br)\n\n    return out\n",
+      "source": "claude_agent_batch_046_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}

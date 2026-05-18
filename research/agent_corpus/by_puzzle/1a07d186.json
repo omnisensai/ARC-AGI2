@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "1a07d186",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n    # Find full-line rows and cols (every cell same non-zero color)\n    row_lines = {}  # row_idx -> color\n    col_lines = {}  # col_idx -> color\n    for r in range(H):\n        v = input_grid[r][0]\n        if v != 0 and all(input_grid[r][c] == v for c in range(W)):\n            row_lines[r] = v\n    for c in range(W):\n        v = input_grid[0][c]\n        if v != 0 and all(input_grid[r][c] == v for r in range(H)):\n            col_lines[c] = v\n    # Build output: start with zeros, then add back lines\n    out = [[0] * W for _ in range(H)]\n    for r, v in row_lines.items():\n        for c in range(W):\n            out[r][c] = v\n    for c, v in col_lines.items():\n        for r in range(H):\n            out[r][c] = v\n    # Find stray pixels: non-zero cells not part of a line\n    for r in range(H):\n        for c in range(W):\n            v = input_grid[r][c]\n            if v == 0:\n                continue\n            if r in row_lines or c in col_lines:\n                # Cell is on a line. Skip if it equals the line color (it IS part of the line)\n                on_row_line = r in row_lines and row_lines[r] == v\n                on_col_line = c in col_lines and col_lines[c] == v\n                if on_row_line or on_col_line:\n                    continue\n                # else it's a stray on a line cell (unlikely) - treat as stray\n            # Stray pixel of color v at (r,c). Find matching line.\n            # Check col_lines\n            target_col = None\n            for cc, cv in col_lines.items():\n                if cv == v:\n                    target_col = cc\n                    break\n            target_row = None\n            for rr, rv in row_lines.items():\n                if rv == v:\n                    target_row = rr\n                    break\n            if target_col is not None:\n                # Move along row r toward target_col, adjacent\n                if c < target_col:\n                    out[r][target_col - 1] = v\n                elif c > target_col:\n                    out[r][target_col + 1] = v\n            elif target_row is not None:\n                if r < target_row:\n                    out[target_row - 1][c] = v\n                elif r > target_row:\n                    out[target_row + 1][c] = v\n            # else: no matching line, pixel disappears\n    return out\n",
+      "source": "claude_agent_batch_049_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
