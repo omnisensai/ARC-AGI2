@@ -34,6 +34,197 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "# Test input\ntest_input = [\n    [0, 4, 4, 4, 0, 0, 0, 0, 0, 0],\n    [0, 1, 4, 4, 0, 0, 5, 5, 5, 0],\n    [0, 1, 4, 1, 0, 0, 5, 5, 5, 0],\n    [0, 1, 1, 1, 0, 0, 5, 5, 5, 0],\n    [0, 0, 0, 0, 0, 0, 5, 5, 5, 0],\n    [0, 0, 5, 5, 5, 0, 0, 0, 0, 0],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 0, 0, 0, 0, 0, 5, 5, 5]\n]\n\n# Solve the puzzle\noutput = solve(test_input)\n\n# Print the output\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 54,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 50,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 66,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the width of the grid\n    width = len(input_grid[0])\n    \n    # Calculate the vertical midpoint\n    mid = width // 2\n    \n    # Initialize the output grid with the same dimensions as the input grid\n    output_grid = [[0] * width for _ in range(len(input_grid))]\n    \n    # Iterate through each row of the input grid\n    for row_index, row in enumerate(input_grid):\n        # Iterate through each column up to the midpoint\n        for col_index in range(mid):\n            # Mirror the value across the vertical midpoint\n            output_grid[row_index][col_index] = input_grid[row_index][width - col_index - 1]\n            output_grid[row_index][width - col_index - 1] = input_grid[row_index][col_index]\n    \n    return output_grid\n\n# Test the solution with the provided test input\ntest_input = [\n    [0, 4, 4, 4, 0, 0, 0, 0, 0, 0],\n    [0, 1, 4, 4, 0, 0, 5, 5, 5, 0],\n    [0, 1, 4, 1, 0, 0, 5, 5, 5, 0],\n    [0, 1, 1, 1, 0, 0, 5, 5, 5, 0],\n    [0, 0, 0, 0, 0, 0, 5, 5, 5, 0],\n    [0, 0, 5, 5, 5, 0, 0, 0, 0, 0],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 0, 0, 0, 0, 0, 5, 5, 5]\n]\n\n# Call the function and print the result\noutput_grid = solve(test_input)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 104)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Transpose the grid to work with columns easily\n    transposed_grid = list(zip(*input_grid))\n    \n    # Initialize the result grid\n    output_grid = []\n    \n    for col in transposed_grid:\n        # Find the maximum value in the column\n        max_value = max(col)\n        \n        # Create the new column by shifting values\n        new_col = [0] * col.count(max_value) + sorted(col, reverse=True)[:col.count(max_value)]\n        \n        # Append the new column to the output grid\n        output_grid.append(new_col)\n    \n    # Transpose back to get the final grid\n    return list(map(list, zip(*output_grid)))\n\n# Test the function with the provided input\ntest_input = [\n    [0, 4, 4, 4, 0, 0, 0, 0, 0, 0],\n    [0, 1, 4, 4, 0, 0, 5, 5, 5, 0],\n    [0, 1, 4, 1, 0, 0, 5, 5, 5, 0],\n    [0, 1, 1, 1, 0, 0, 5, 5, 5, 0],\n    [0, 0, 0, 0, 0, 0, 5, 5, 5, 0],\n    [0, 0, 5, 5, 5, 0, 0, 0, 0, 0],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 0, 0, 0, 0, 0, 5, 5, 5]\n]\n\nresult = solve(test_input)\nprint(result)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 54,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 50,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 66,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Get the number of rows and columns in the input grid\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Create an empty output grid with the same dimensions\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Iterate through each row and reflect it\n    for i in range(rows):\n        # Iterate through each cell in the row\n        for j in range(cols // 2):\n            # Swap the values from the original and reflected positions\n            output_grid[i][j], output_grid[i][cols - j - 1] = input_grid[i][cols - j - 1], input_grid[i][j]\n    \n    return output_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [0, 4, 4, 4, 0, 0, 0, 0, 0, 0],\n    [0, 1, 4, 4, 0, 0, 5, 5, 5, 0],\n    [0, 1, 4, 1, 0, 0, 5, 5, 5, 0],\n    [0, 1, 1, 1, 0, 0, 5, 5, 5, 0],\n    [0, 0, 0, 0, 0, 0, 5, 5, 5, 0],\n    [0, 0, 5, 5, 5, 0, 0, 0, 0, 0],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 0, 0, 0, 0, 0, 5, 5, 5]\n]\n\n# Print the output grid\noutput_grid = solve(test_input)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 104)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "test_input = [\n    [0, 4, 4, 4, 0, 0, 0, 0, 0, 0],\n    [0, 1, 4, 4, 0, 0, 5, 5, 5, 0],\n    [0, 1, 4, 1, 0, 0, 5, 5, 5, 0],\n    [0, 1, 1, 1, 0, 0, 5, 5, 5, 0],\n    [0, 0, 0, 0, 0, 0, 5, 5, 5, 0],\n    [0, 0, 5, 5, 5, 0, 0, 0, 0, 0],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 0, 0, 0, 0, 0, 5, 5, 5]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 28,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 33,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 47,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Transpose the grid\n    transposed_grid = [list(row) for row in zip(*input_grid)]\n    \n    # Identify the pattern change rows\n    pattern_change_rows = [0] * len(transposed_grid)\n    for i in range(len(transposed_grid)):\n        if set(transposed_grid[i]) != {0}:\n            pattern_change_rows[i] = 1\n    \n    # Identify the repeating pattern\n    repeating_pattern = []\n    current_value = None\n    current_length = 0\n    \n    for cell in transposed_grid[0]:\n        if cell == 0:\n            if current_value is not None:\n                repeating_pattern.append((current_value, current_length))\n                current_value = None\n                current_length = 0\n        else:\n            if current_value is None:\n                current_value = cell\n            current_length += 1\n    \n    repeating_pattern.append((current_value, current_length))\n    \n    # Apply the transformation\n    for row_index, change_row in enumerate(pattern_change_rows):\n        if change_row == 1:\n            for col_index, (value, length) in enumerate(repeating_pattern):\n                transposed_grid[row_index][col_index] = value\n                if col_index + 1 < len(transposed_grid[0]):\n                    if value == 0 or length <= col_index:\n                        transposed_grid[row_index][col_index + 1] = 0\n                    else:\n                        transposed_grid[row_index][col_index + 1] = value\n    \n    # Transpose back to original orientation\n    output_grid = [list(row) for row in zip(*transposed_grid)]\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 61)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "# Given Input\ntest_input = [\n    [0, 4, 4, 4, 0, 0, 0, 0, 0, 0],\n    [0, 1, 4, 4, 0, 0, 5, 5, 5, 0],\n    [0, 1, 4, 1, 0, 0, 5, 5, 5, 0],\n    [0, 1, 1, 1, 0, 0, 5, 5, 5, 0],\n    [0, 0, 0, 0, 0, 0, 5, 5, 5, 0],\n    [0, 0, 5, 5, 5, 0, 0, 0, 0, 0],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 0, 0, 0, 0, 0, 5, 5, 5]\n]\n\n# Applying the function\ntest_result = solve(test_input)\nprint(test_result)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 31,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 46,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 59,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the first non-zero element in each row\n    peaks = []\n    for row in input_grid:\n        for i, val in enumerate(row):\n            if val != 0:\n                peaks.append((len(peaks), i))\n                break\n    \n    # Determine the starting and ending positions of the peaks\n    start_col = min([p[1] for p in peaks])\n    end_col = max([p[1] for p in peaks]) + 1\n    \n    # Create the output grid based on the transformation rule\n    output_grid = []\n    for row in input_grid:\n        new_row = [0] * len(row)\n        for i, val in enumerate(row[start_col:end_col]):\n            if val != 0:\n                index = (i - start_col) + peaks[0][1]\n                if index < len(new_row):\n                    new_row[index] = val\n        output_grid.append(new_row)\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 77)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "# Training pair 1\ninput_grid1 = [\n    [0]*10,\n    [0,2,2,2,0,0,0,0,0,0],\n    [0,2,4,4,0,0,0,0,0,0],\n    [0,4,4,4,0,0,0,0,0,0],\n    [0]*3 + [0,0,0,5,5,5,0],\n    [0]*6 + [0,0,0,5,5,5,0],\n    [0]*9 + [0,0,0,5,5,5,0],\n    [0]*4 + [0,0,5,5,5,0,0],\n    [0]*4 + [0,0,5,5,5,0,0],\n    [0]*4 + [0,0,5,5,5,0,0]\n]\n\n# Expected output for training pair 1\nexpected_output1 = [\n    [0]*10,\n    [0,2,2,2,0,0,0,0,0,0],\n    [0,2,4,4,0,0,0,0,0,0],\n    [0,4,4,4,0,0,0,0,0,0],\n    [0]*3 + [0,0,0,2,2,2,0],\n    [0]*6 + [0,0,0,2,4,4,0],\n    [0]*9 + [0,0,0,4,4,4,0],\n    [0]*4 + [0,0,2,2,2,0,0],\n    [0]*4 + [0,0,2,4,4,0,0],\n    [0]*4 + [0,0,4,4,4,0,0]\n]\n\n# Training pair 2\ninput_grid2 = [\n    [0]*10,\n    [0,6,6,6,6,0,5,5,5,5],\n    [0,8,8,6,8,0,5,5,5,5],\n    [0,6,8,8,8,0,0,0,0,0],\n    [0]*5 + [0,0,0,0,0,0,0,0],\n    [0]*5 + [0,0,5,5,5,0,0,0],\n    [0]*5 + [0,0,5,5,5,0,0,0],\n    [0]*5 + [0,0,5,5,5,0,0,0],\n    [0]*5 + [0,0,0,0,0,0,0,0],\n    [0]*5 + [0,0,0,0,0,0,0,0]\n]\n\n# Expected output for training pair 2\nexpected_output2 = [\n    [0]*10,\n    [0,6,6,6,6,0,8,8,6,8],\n    [0,8,8,6,8,0,6,8,8,8],\n    [0,6,8,8,8,0,0,0,0,0],\n    [0]*5 + [0,0,0,0,0,0,0,0],\n    [0]*5 + [0,0,6,6,6,0,0,0],\n    [0]*5 + [0,0,8,8,6,0,0,0],\n    [0]*5 + [0,0,6,8,8,0,0,0],\n    [0]*5 + [0,0,0,0,0,0,0,0],\n    [0]*5 + [0,0,0,0,0,0,0,0]\n]\n\n# Test input\ntest_input = [\n    [0,4,4,4,0,0,0,0,0,0],\n    [0,1,4,4,0,0,5,5,5,0],\n    [0,1,4,1,0,0,5,5,5,0],\n    [0,1,1,1,0,0,5,5,5,0],\n    [0]*5 + [0,0,0,0,0,0,5,5,5,0],\n    [0]*5 + [0,0,5,5,5,0,0,0,0,0],\n    [0]*5 + [0,0,5,5,5,0,0,5,5,5],\n    [0]*5 + [0,0,5,5,5,0,0,5,5,5],\n    [0]*5 + [0,0,5,5,5,0,0,5,5,5],\n    [0]*5 + [0,0,0,0,0,0,0,5,5,5]\n]\n\n# Function to check the solution\ndef check_solution(input_grid, expected_output):\n    output_grid = solve(input_grid)\n    return output_grid == expected_output\n\n# Check the solution for training pairs and test input\nprint(\"Training pair 1:\", check_solution(input_grid1, expected_output1))\nprint(\"Training pair 2:\", check_solution(input_grid2, expected_output2))\nprint(\"Test input:\", check_solution(test_input, [\n    [0,1,1,1,0,0,0,0,0,0],\n    [0,1,1,1,0,0,1,1,1,0],\n    [0,1,1,1,0,0,1,1,1,0],\n    [0,1,1,1,0,0,1,1,1,0],\n    [0]*5 + [0,0,0,0,0,0,1,1,1,0],\n    [0]*5 + [0,0,1,1,1,0,0,0,0,0],\n    [0]*5 + [0,0,1,1,1,0,0,1,1,1],\n    [0]*5 + [0,0,1,1,1,0,0,1,1,1],\n    [0]*5 + [0,0,1,1,1,0,0,1,1,1],\n    [0]*5 + [0,0,0,0,0,0,0,1,1,1]\n]))",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: IndexError: list assignment index out of range",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    # Find the maximum row and column indices\n    max_row = len(input_grid)\n    max_col = len(input_grid[0]) if input_grid else 0\n    \n    # Create an empty output grid with the same dimensions as the input grid\n    output_grid = [[0] * max_col for _ in range(max_row)]\n    \n    # Iterate over each cell in the input grid\n    for i in range(max_row):\n        for j in range(max_col):\n            if input_grid[i][j] != 0:\n                # Determine the corresponding position in the output grid\n                new_i = i + (i > 0) - (max_row - i - 1 > 0)\n                new_j = j + (j > 0) - (max_col - j - 1 > 0)\n                \n                # Assign the value from the input grid to the corresponding position in the output grid\n                output_grid[new_i][new_j] = input_grid[i][j]\n    \n    return output_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [0, 4, 4, 4, 0, 0, 0, 0, 0, 0],\n    [0, 1, 4, 4, 0, 0, 5, 5, 5, 0],\n    [0, 1, 4, 1, 0, 0, 5, 5, 5, 0],\n    [0, 1, 1, 1, 0, 0, 5, 5, 5, 0],\n    [0, 0, 0, 0, 0, 0, 5, 5, 5, 0],\n    [0, 0, 5, 5, 5, 0, 0, 0, 0, 0],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 5, 5, 5, 0, 0, 5, 5, 5],\n    [0, 0, 0, 0, 0, 0, 0, 5, 5, 5]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: IndexError: list assignment index out of range)"
+    }
+  ],
   "judging": null
 }

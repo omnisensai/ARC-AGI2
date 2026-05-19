@@ -41,6 +41,290 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 13,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 9,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 12,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 11,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the dimensions of the input grid\n    rows, cols = len(input_grid), len(input_grid[0])\n    \n    # Create an empty output grid with the same dimensions as the input grid\n    output_grid = [[0 for _ in range(cols)] for _ in range(rows)]\n    \n    # Iterate through each cell in the grid\n    for r in range(rows):\n        for c in range(cols):\n            if input_grid[r][c] == 1:\n                # Initialize count of consecutive 1s\n                consecutive_ones = 0\n                \n                # Count how many consecutive 1s are there horizontally to the right\n                while c + consecutive_ones < cols and input_grid[r][c + consecutive_ones] == 1:\n                    consecutive_ones += 1\n                    \n                # If there are no more consecutive 1s or we reach the boundary, update the value\n                if c + consecutive_ones == cols or input_grid[r][c + consecutive_ones] != 1:\n                    if consecutive_ones == 1:\n                        output_grid[r][c] = 1\n                    else:\n                        # Calculate the value based on the number of consecutive ones\n                        # The value is the count of consecutive ones minus one\n                        output_grid[r][c] = consecutive_ones - 1\n                \n                # Handle the case where there are no more 1s to the right\n                elif consecutive_ones > 0:\n                    # Move to the next group of 1s\n                    c += consecutive_ones - 1\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 34)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "# Test input\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 1, 1, 1, 1, 0],\n    [0, 0, 0, 1, 0, 0, 0, 0, 1],\n    [1, 1, 1, 0, 0, 0, 0, 0, 0],\n    [1, 1, 1, 0, 0, 0, 0, 0, 1],\n    [0, 0, 0, 1, 0, 0, 0, 0, 1],\n    [0, 0, 0, 0, 1, 1, 1, 1, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0]\n]\n\n# Apply the solve function\nresult = solve(test_input)\n\n# Print the result\nfor row in result:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 11,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 8,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    M = len(input_grid)\n    N = len(input_grid[0])\n    \n    # Create a copy of the input grid to modify\n    output_grid = [[0] * N for _ in range(M)]\n    \n    def mark_sequence(x, y, num):\n        while x < M and y < N and input_grid[x][y] == 1:\n            output_grid[x][y] = num\n            if num > 1:\n                y += 1\n            else:\n                x += 1\n    \n    for x in range(M):\n        for y in range(N):\n            if input_grid[x][y] == 1:\n                current_num = 1\n                if x > 0 and input_grid[x-1][y] == 1:  # Continue previous sequence\n                    current_num = output_grid[x-1][y]\n                mark_sequence(x, y, current_num)\n    \n    return output_grid\n\n# Test the function with the given test input\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0],\n    [0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0],\n    [1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0],\n    [1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0],\n    [0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0],\n    [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 29)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 20,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 14,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 18,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 16,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    height = len(input_grid)\n    width = len(input_grid[0]) if height > 0 else 0\n    \n    # Create an output grid initialized with zeros\n    output_grid = [[0] * width for _ in range(height)]\n    \n    # Iterate through each cell in the input grid\n    for i in range(height):\n        for j in range(width):\n            if input_grid[i][j] == 1:\n                # Count the number of consecutive ones horizontally on the left\n                count = 0\n                while j + count < width and input_grid[i][j + count] == 1:\n                    count += 1\n                \n                # If there are consecutive ones, apply the transformation rule\n                if count >= 2:\n                    start = j + count // 2\n                    for k in range(count // 2):\n                        output_grid[i][start - k] = count // 2 + 1\n                \n                # Reset the counter for the next potential sequence\n                count = 0\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 52)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 22,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 16,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 20,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 20,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Initialize the output grid with the same size as the input grid\n    output_grid = [[0] * len(row) for row in input_grid]\n    \n    # Dictionary to keep track of the current value to be assigned\n    value_tracker = {1: 0}\n    \n    # Iterate through each cell in the grid\n    for i in range(len(input_grid)):\n        for j in range(len(input_grid[0])):\n            if input_grid[i][j] == 1:\n                # If the current cell contains a '1', we need to traverse right and down to assign values\n                value = value_tracker[input_grid[i][j]]\n                while i < len(input_grid) and input_grid[i][j] == 1:\n                    output_grid[i][j] = value\n                    input_grid[i][j] = 0  # Mark as processed\n                    i += 1\n                i -= 1  # Move back to the original position\n                while j < len(input_grid[0]) - 1 and input_grid[i][j + 1] == 1:\n                    output_grid[i][j + 1] = value\n                    input_grid[i][j + 1] = 0  # Mark as processed\n                    j += 1\n                value += 1\n                value_tracker[input_grid[i][j]] = value\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 58)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 18,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 12,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    output_grid = []\n    for row in input_grid:\n        output_row = []\n        prev_index = -1\n        count = 1\n        for i, val in enumerate(row):\n            if val == 1:\n                if prev_index != -1:\n                    # Calculate the distance from the last '1' found\n                    distance = i - prev_index\n                    # Increment the value based on the distance\n                    output_row.append(distance * count)\n                else:\n                    output_row.append(val)\n                prev_index = i\n                count += 1\n            else:\n                output_row.append(val)\n        output_grid.append(output_row)\n    return output_grid\n\n# Test the function\ninput_grid = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 1, 1, 1, 1, 0],\n    [0, 0, 0, 1, 0, 0, 0, 0, 1],\n    [1, 1, 1, 0, 0, 0, 0, 0, 0],\n    [1, 1, 1, 0, 0, 0, 0, 0, 1],\n    [0, 0, 0, 1, 0, 0, 0, 0, 1],\n    [0, 0, 0, 0, 1, 1, 1, 1, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0]\n]\n\noutput_grid = solve(input_grid)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 45)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "def check_solution():\n    test_cases = [\n        ([[0, 1, 1, 1, 1, 1, 0], [0, 1, 0, 1, 0, 1, 0], [0, 1, 0, 1, 0, 1, 0], [0, 1, 0, 1, 0, 1, 0], [0, 1, 0, 1, 0, 1, 0], [0, 1, 1, 1, 1, 1, 0], [0, 0, 0, 0, 0, 0, 0]], [[0, 1, 1, 1, 1, 1, 0], [0, 1, 0, 1, 0, 1, 0], [0, 1, 0, 1, 0, 1, 0], [0, 2, 0, 2, 0, 2, 0], [0, 2, 0, 2, 0, 2, 0], [0, 2, 2, 2, 2, 2, 0], [0, 0, 0, 0, 0, 0, 0]]),\n        ([[0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 1, 1, 1, 1, 0, 0, 0, 0], [0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 1, 1, 1, 1, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0]], [[0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 1, 1, 1, 1, 0, 0, 0, 0], [0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 1, 0, 0, 1, 0, 0, 0, 0], [0, 2, 0, 0, 2, 0, 0, 0, 0], [0, 2, 0, 0, 2, 0, 0, 0, 0], [0, 2, 2, 2, 2, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0]]),\n        ([[0, 0, 0, 1, 0, 0, 0, 0, 0], [0, 1, 1, 1, 1, 1, 0, 0, 0], [0, 0, 1, 0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 1, 0, 0, 0, 0], [0, 1, 1, 1, 1, 1, 0, 0, 0], [0, 0, 0, 1, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0]], [[0, 0, 0, 1, 0, 0, 0, 0, 0], [0, 1, 1, 1, 1, 1, 0, 0, 0], [0, 0, 1, 0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 1, 0, 0, 0, 0], [0, 0, 2, 0, 2, 0, 0, 0, 0], [0, 0, 2, 0, 2, 0, 0, 0, 0], [0, 2, 2, 2, 2, 2, 0, 0, 0], [0, 0, 0, 2, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0]])\n    ]\n    \n    for i, (input_grid, expected_output) in enumerate(test_cases):\n        result = solve(input_grid)\n        assert result == expected_output, f\"Test case {i+1} failed\"\n        print(f\"Test case {i+1} passed!\")\n\ncheck_solution()",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 16,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 13,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 14,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if rows > 0 else 0\n    \n    for r in range(rows):\n        ones_count = 0\n        for c in range(cols):\n            if input_grid[r][c] == 1:\n                input_grid[r][c] = 1 + ones_count\n                ones_count += 1\n    \n    return input_grid\n\n# Test the function\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0],\n    [0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0],\n    [1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0],\n    [1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0],\n    [0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0],\n    [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 39)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 21,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 20,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 36,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 30,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform_row(row, start_index, increment):\n        for i in range(start_index, len(row), increment + 1):\n            if row[i] == 1:\n                for j in range(i, min(len(row), i + increment + 1)):\n                    if row[j] != 2:\n                        row[j] += 1\n                break\n    \n    # Transform each row\n    for i in range(len(input_grid)):\n        transform_row(input_grid[i], 2, 2)\n        transform_row(input_grid[i], 3, 2)\n        transform_row(input_grid[i], 4, 2)\n        transform_row(input_grid[i], 5, 2)\n    \n    return input_grid\n\n# Test input\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 1, 1, 1, 1, 0],\n    [0, 0, 0, 1, 0, 0, 0, 0, 1],\n    [1, 1, 1, 0, 0, 0, 0, 0, 1],\n    [1, 1, 1, 0, 0, 0, 0, 0, 1],\n    [0, 0, 0, 1, 0, 0, 0, 0, 1],\n    [0, 0, 0, 0, 1, 1, 1, 1, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0]\n]\n\n# Solve the test input\noutput_grid = solve(test_input)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 77)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: IndexError: list assignment index out of range",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    # Get the dimensions of the grid\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Create a copy of the grid to store the result\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Traverse the grid\n    for i in range(rows):\n        ones_count = 0\n        for j in range(cols):\n            if input_grid[i][j] == 1:\n                ones_count += 1\n            else:\n                # Replace each 1 with the count of consecutive 1s seen so far\n                if ones_count > 0:\n                    output_grid[i][:j] = [ones_count] * ones_count\n                    ones_count = 0\n                else:\n                    output_grid[i][j] = 0\n    \n    return output_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 1, 1, 1, 1, 0],\n    [0, 0, 0, 1, 0, 0, 0, 0, 1],\n    [1, 1, 1, 0, 0, 0, 0, 0, 0],\n    [1, 1, 1, 0, 0, 0, 0, 0, 1],\n    [0, 0, 0, 1, 0, 0, 0, 0, 1],\n    [0, 0, 0, 0, 1, 1, 1, 1, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: IndexError: list assignment index out of range)"
+    }
+  ],
   "judging": null
 }

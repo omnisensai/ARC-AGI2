@@ -34,6 +34,307 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def get_center(x, y, size):\n        return x + size // 2, y + size // 2\n    \n    output_grid = []\n    \n    for row_idx, row in enumerate(input_grid):\n        new_row = []\n        i = 0\n        while i < len(row):\n            if row[i] == 1:\n                size = 0\n                while i + size < len(row) and row[i + size] == 1:\n                    size += 1\n                \n                center_x, center_y = get_center(row_idx, i, size)\n                \n                # Replace the center cell(s) with 8s\n                if size % 2 == 1:  # If the block size is odd, replace single center cell\n                    row[center_y] = 8\n                else:  # If the block size is even, replace two middle cells\n                    row[center_y] = 8\n                    row[center_y + 1] = 8\n                \n                i += size\n            else:\n                new_row.append(row[i])\n                i += 1\n        \n        output_grid.append(new_row)\n    \n    return output_grid\n\n# Test the function with the given inputs\ninput_grid_1 = [\n    [0]*17 + [1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0] + [0]*17,\n    [0]*17 + [1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0] + [0]*17,\n    [0]*17 + [1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0] + [0]*17,\n    [0]*35,\n    [0]*35,\n    [0]*35,\n    [0]*17 + [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] + [0]*17,\n    [0]*17 + [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] + [0]*17,\n    [0]*17 + [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] + [0]*17,\n    [0]*35,\n    [0]*35,\n    [0]*35,\n    [0]*17 + [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] + [0]*17,\n    [0]*17 + [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] + [0]*17,\n    [0]*17 + [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] + [0]*17,\n    [0]*35,\n    [0]*35,\n    [0]*35,\n    [0]*17 + [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] + [0]*17,\n    [0]*17 + [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] + [0]*17,\n    [0]*17 + [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] + [0]*17,\n    [0]*35,\n    [0]*35\n]\n\noutput_grid_1 = solve(input_grid_1)\n\nprint(output_grid_1)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 134,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 171,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 255,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the dimensions of the input grid\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if rows > 0 else 0\n    \n    # Create an empty output grid with the same dimensions as input_grid\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Loop through each cell in the input grid\n    for i in range(rows):\n        for j in range(cols):\n            # If the cell contains a 1, propagate it to the surrounding cells\n            if input_grid[i][j] == 1:\n                # Propagate to the left\n                if j > 0:\n                    output_grid[i][j-1] = 8\n                \n                # Propagate to the right\n                if j < cols - 1:\n                    output_grid[i][j+1] = 8\n                \n                # Propagate upwards\n                if i > 0:\n                    output_grid[i-1][j] = 8\n                \n                # Propagate downwards\n                if i < rows - 1:\n                    output_grid[i+1][j] = 8\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 305)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 144,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 173,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 271,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the size of the grid\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if rows > 0 else 0\n    \n    # Create an output grid initialized to 0\n    output_grid = [[0 for _ in range(cols)] for _ in range(rows)]\n    \n    # Define the transformation rule\n    def transform(row, col):\n        if (row == 0 or row == rows - 1) and (col == 0 or col == cols - 1):\n            return 0\n        elif (row == 0 or row == rows - 1) or (col == 0 or col == cols - 1):\n            return 8\n        else:\n            count_1 = 0\n            for dr, dc in [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]:\n                r, c = row + dr, col + dc\n                if 0 <= r < rows and 0 <= c < cols and input_grid[r][c] == 1:\n                    count_1 += 1\n            if count_1 >= 4:\n                return 8\n            else:\n                return 0\n            \n    # Apply the transformation rule to each cell\n    for row in range(rows):\n        for col in range(cols):\n            output_grid[row][col] = transform(row, col)\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 317)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 90,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 110,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 185,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def apply_rule(row, col):\n        if row == 0:\n            return 0\n        if col == 0 or col == len(input_grid[0]) - 1:\n            return 0\n        \n        # Check if the current cell has exactly 3 neighbors (including diagonals) with a value of 1\n        neighbor_count = 0\n        for dr in range(-1, 2):\n            for dc in range(-1, 2):\n                if dr == 0 and dc == 0:\n                    continue\n                if 0 <= row + dr < len(input_grid) and 0 <= col + dc < len(input_grid[0]):\n                    if input_grid[row + dr][col + dc] == 1:\n                        neighbor_count += 1\n        \n        if neighbor_count == 3:\n            return 8\n        else:\n            return 0\n    \n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    output_grid = [[0 for _ in range(cols)] for _ in range(rows)]\n    \n    for row in range(rows):\n        for col in range(cols):\n            output_grid[row][col] = apply_rule(row, col)\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 200)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 77,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 102,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 168,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Get the dimensions of the grid\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if rows > 0 else 0\n    \n    # Create an output grid with the same dimensions\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Iterate over each cell in the grid\n    for r in range(rows):\n        for c in range(cols):\n            if input_grid[r][c] == 1:\n                # Find the bounding box of the rectangle of 1's\n                top = r\n                while top > 0 and input_grid[top-1][c] == 1:\n                    top -= 1\n                \n                left = c\n                while left > 0 and input_grid[r][left-1] == 1:\n                    left -= 1\n                \n                bottom = r\n                right = c\n                while bottom < rows - 1 and input_grid[bottom+1][c] == 1:\n                    bottom += 1\n                while right < cols - 1 and input_grid[r][right+1] == 1:\n                    right += 1\n                \n                # Fill the bounding box with the number of cells processed so far\n                num_processed = r * cols + c + 1\n                for i in range(top, bottom + 1):\n                    for j in range(left, right + 1):\n                        output_grid[i][j] = num_processed\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 179)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 115,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 153,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 304,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    width = len(input_grid[0])\n    height = len(input_grid)\n    \n    # Create an empty output grid with the same dimensions as the input grid\n    output_grid = [[0] * width for _ in range(height)]\n    \n    for y in range(height):\n        for x in range(width):\n            if input_grid[y][x] == 1:\n                # Find the first occurrence of 1 starting from the current position\n                for i in range(x + 1, width):\n                    if input_grid[y][i] == 1:\n                        break\n                \n                # Calculate the distance between the current position and the first occurrence of 1\n                distance = i - x\n                \n                # Fill the output grid with the calculated distance\n                for j in range(x, i + 1):\n                    output_grid[y][j] = distance\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 268)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 52,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 72,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 128,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    output_grid = []\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    for i in range(rows):\n        output_row = []\n        for j in range(cols):\n            if input_grid[i][j] == 1:\n                count_ones = 0\n                count_zeros = 0\n                for di in [-1, 0, 1]:\n                    for dj in [-1, 0, 1]:\n                        ni, nj = i + di, j + dj\n                        if 0 <= ni < rows and 0 <= nj < cols:\n                            if input_grid[ni][nj] == 1:\n                                count_ones += 1\n                            else:\n                                count_zeros += 1\n                if count_ones > 5 or count_zeros > 5:\n                    output_row.append(8)\n                else:\n                    output_row.append(1)\n            else:\n                output_row.append(0)\n        output_grid.append(output_row)\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 124)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 70,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 94,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 154,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def check_and_transform(grid, r, c):\n        # Check right direction\n        if c + 2 < len(grid[0]) and grid[r][c] == 1 and grid[r][c+1] == 1 and grid[r][c+2] == 1:\n            grid[r][c-1] = 8 if c > 0 else 0  # Left cell becomes 8 if not out of bounds\n            grid[r][c+3] = 8 if c+3 < len(grid[0]) else 0  # Right cell becomes 8 if not out of bounds\n        \n        # Check down direction\n        if r + 2 < len(grid) and grid[r][c] == 1 and grid[r+1][c] == 1 and grid[r+2][c] == 1:\n            grid[r-1][c] = 8 if r > 0 else 0  # Top cell becomes 8 if not out of bounds\n            grid[r+3][c] = 8 if r+3 < len(grid) else 0  # Bottom cell becomes 8 if not out of bounds\n    \n    # Transform the grid\n    for r in range(len(input_grid)):\n        for c in range(len(input_grid[0])):\n            check_and_transform(input_grid, r, c)\n    \n    return input_grid\n\n# Example usage\ninput_grid = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0],\n    [0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0],\n    [0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\n]\n\noutput_grid = solve(input_grid)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 164)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 72,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 96,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 160,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the dimensions of the input grid\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if rows > 0 else 0\n    \n    # Initialize the output grid with the same dimensions\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Iterate over each cell in the input grid\n    for r in range(rows):\n        for c in range(cols):\n            # Check if the current cell is part of a '1' block\n            if input_grid[r][c] == 1:\n                # Determine the neighbors (right and below)\n                right = c + 1 < cols and input_grid[r][c + 1] == 1\n                below = r + 1 < rows and input_grid[r + 1][c] == 1\n                \n                # If there's no right neighbor or no below neighbor, replace with 8\n                if not right or not below:\n                    output_grid[r][c] = 8\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 168)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform_row(row):\n        result = []\n        i = 0\n        while i < len(row):\n            count = 0\n            while i < len(row) and row[i] == 1:\n                count += 1\n                i += 1\n            if count > 0:\n                if i < len(row) and row[i] == 1:\n                    # Found another '1' ahead\n                    count += 1\n                    i += 1\n                result.append(count)\n                result.append(8)\n            else:\n                result.append(row[i])\n                i += 1\n        return result\n\n    transformed_grid = []\n    for row in input_grid:\n        transformed_grid.append(transform_row(row))\n    \n    return transformed_grid\n\n# Test input\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0],\n    [0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\n]\n\nresult = solve(test_input)\nfor row in result:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 0)"
+    }
+  ],
   "judging": null
 }

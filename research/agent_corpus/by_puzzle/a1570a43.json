@@ -48,6 +48,303 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "exec_error",
+      "exec_error": "timeout after 20s",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Identify the outermost 3s\n    top = 0\n    bottom = rows - 1\n    left = 0\n    right = cols - 1\n    \n    while top < bottom and left < right:\n        for i in range(left, right + 1):\n            if input_grid[top][i] == 3:\n                top += 1\n                break\n            elif input_grid[bottom][i] == 3:\n                bottom -= 1\n                break\n        for j in range(top, bottom + 1):\n            if input_grid[j][left] == 3:\n                left += 1\n                break\n            elif input_grid[j][right] == 3:\n                right -= 1\n                break\n    \n    # Fill the inner grid with 2s\n    for i in range(top, bottom + 1):\n        for j in range(left, right + 1):\n            if input_grid[i][j] == 0:\n                input_grid[i][j] = 2\n    \n    return input_grid\n\n# Test case\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0],\n    [3, 0, 0, 0, 0, 0, 3, 0],\n    [2, 0, 0, 0, 0, 0, 0, 0],\n    [2, 2, 0, 0, 0, 0, 0, 0],\n    [2, 2, 2, 0, 0, 0, 0, 0],\n    [2, 2, 2, 2, 2, 0, 0, 0],\n    [2, 0, 0, 0, 0, 0, 0, 0],\n    [3, 0, 0, 0, 0, 0, 3, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0]\n]\n\nprint(solve(test_input))",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (timeout after 20s)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: ValueError: list.remove(x): x not in list",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Find the indices of '3's\n    three_indices = [(i, j) for i in range(rows) for j in range(cols) if input_grid[i][j] == 3]\n    \n    # For each row, move '2's to the leftmost possible positions\n    transformed_grid = []\n    for row in input_grid:\n        new_row = [0] * (cols - len(three_indices))\n        two_count = 0\n        for i, val in enumerate(row):\n            if val == 2:\n                two_count += 1\n            elif val == 3:\n                transformed_grid.append(new_row + [2] * two_count + [3])\n                three_indices.remove((len(transformed_grid) - 1, i))\n                new_row = [0] * (cols - len(three_indices))\n                two_count = 0\n            else:\n                new_row.append(val)\n        \n        if two_count > 0:\n            transformed_grid.append(new_row + [2] * two_count)\n    \n    return transformed_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0],\n    [3, 0, 0, 0, 0, 0, 3, 0],\n    [2, 0, 0, 0, 0, 0, 0, 0],\n    [2, 2, 0, 0, 0, 0, 0, 0],\n    [2, 2, 2, 0, 0, 0, 0, 0],\n    [2, 2, 2, 2, 2, 0, 0, 0],\n    [2, 0, 0, 0, 0, 0, 0, 0],\n    [3, 0, 0, 0, 0, 0, 3, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0]\n]\n\nprint(solve(test_input))",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: ValueError: list.remove(x): x not in list)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 16,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 14,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 16,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Helper function to check if a cell should be zeroed out\n    def should_zero_out(row, col):\n        if row == 0 or row == rows - 1 or col == 0 or col == cols - 1:\n            return True\n        # Check top-right diagonal\n        if row - 1 >= 0 and col + 1 < cols and input_grid[row-1][col+1] == 2:\n            return True\n        # Check top-left diagonal\n        if row - 1 >= 0 and col - 1 >= 0 and input_grid[row-1][col-1] == 2:\n            return True\n        return False\n    \n    # Process the grid\n    for row in range(rows):\n        for col in range(cols):\n            if input_grid[row][col] == 2:\n                # Zero out adjacent cells around the '2's\n                if should_zero_out(row, col):\n                    input_grid[row][col] = 0\n                    # Zero out the entire row and column where '2' is located\n                    for r in range(rows):\n                        input_grid[r][col] = 0\n                    for c in range(cols):\n                        input_grid[row][c] = 0\n    \n    return input_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 4/4 training pairs (total cell-diff 61)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 18,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 32,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 26,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 28,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 22,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Initialize the output grid with the same dimensions as input_grid\n    output_grid = [[0] * len(input_grid[0]) for _ in range(len(input_grid))]\n    \n    # Helper function to determine if a cell should be changed\n    def should_change(x, y):\n        return input_grid[x][y] != 0\n    \n    # Iterate over each cell in the input grid\n    for x in range(len(input_grid)):\n        for y in range(len(input_grid[0])):\n            # If the current cell is not zero, check the cells above and below it\n            if input_grid[x][y] != 0:\n                # Check the row above\n                if x > 0 and input_grid[x-1][y] == 0:\n                    output_grid[x-1][y] = input_grid[x][y]\n                # Check the row below\n                if x < len(input_grid) - 1 and input_grid[x+1][y] == 0:\n                    output_grid[x+1][y] = input_grid[x][y]\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 4/4 training pairs (total cell-diff 104)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 17,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 17,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 18,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Create a mask to preserve certain '2' values\n    mask = [[False] * cols for _ in range(rows)]\n    \n    # Identify positions to preserve\n    for r in range(rows):\n        for c in range(cols):\n            if input_grid[r][c] == 3:\n                # Mark surrounding cells as valid if they are '2'\n                if r > 0 and input_grid[r-1][c] == 2:\n                    mask[r-1][c] = True\n                if r < rows - 1 and input_grid[r+1][c] == 2:\n                    mask[r+1][c] = True\n                if c > 0 and input_grid[r][c-1] == 2:\n                    mask[r][c-1] = True\n                if c < cols - 1 and input_grid[r][c+1] == 2:\n                    mask[r][c+1] = True\n    \n    # Apply the mask to the original grid\n    result_grid = []\n    for r in range(rows):\n        row = []\n        for c in range(cols):\n            if mask[r][c]:\n                row.append(input_grid[r][c])\n            else:\n                row.append(0)\n        result_grid.append(row)\n    \n    return result_grid\n\n# Test the function with the given input\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0],\n    [3, 0, 0, 0, 0, 0, 3, 0],\n    [2, 0, 0, 0, 0, 0, 0, 0],\n    [2, 2, 0, 0, 0, 0, 0, 0],\n    [2, 2, 2, 0, 0, 0, 0, 0],\n    [2, 2, 2, 2, 2, 0, 0, 0],\n    [2, 0, 0, 0, 0, 0, 0, 0],\n    [3, 0, 0, 0, 0, 0, 3, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0]\n]\n\nresult = solve(test_input)\nfor row in result:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 4/4 training pairs (total cell-diff 64)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 14,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 16,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 18,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the dimensions of the input grid\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Initialize the output grid with the same dimensions\n    output_grid = [[0 for _ in range(cols)] for _ in range(rows)]\n    \n    # Iterate through each cell in the input grid\n    for r in range(rows):\n        for c in range(cols):\n            if input_grid[r][c] != 0:\n                # Identify the leftmost and rightmost columns with non-zero values\n                leftmost = None\n                rightmost = None\n                \n                # Find leftmost column with non-zero value\n                for i in range(c, -1, -1):\n                    if input_grid[r][i] != 0:\n                        leftmost = i\n                        break\n                \n                # Find rightmost column with non-zero value\n                for i in range(c, cols):\n                    if input_grid[r][i] != 0:\n                        rightmost = i\n                        break\n                \n                # If there's no change in the column, keep the original value\n                if leftmost == rightmost:\n                    output_grid[r][c] = input_grid[r][c]\n                else:\n                    # Transform the column range\n                    for col in range(leftmost, rightmost + 1):\n                        output_grid[r][col] = input_grid[r][c]\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 4/4 training pairs (total cell-diff 58)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "timeout after 20s",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    # Define the transformation rules based on the training data\n    def transform_row(row):\n        new_row = []\n        i = 0\n        while i < len(row):\n            if row[i] == 3:\n                new_row.append(3)\n                while i < len(row) and row[i] == 0:\n                    new_row.append(0)\n                    i += 1\n                if i < len(row) and row[i] == 2:\n                    new_row.extend([2] * (row[i:].count(2)))\n                    i += row[i:].index(2) + row[i:].count(2)\n            else:\n                i += 1\n        return new_row\n    \n    # Apply the transformation to each row\n    output_grid = [transform_row(row) for row in input_grid]\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (timeout after 20s)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: IndexError: list assignment index out of range",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Find the bounding box of the inner region\n    top, bottom, left, right = rows, -1, cols, -1\n    \n    for i in range(rows):\n        for j in range(cols):\n            if input_grid[i][j] == 3:\n                top = min(top, i)\n                bottom = max(bottom, i)\n                left = min(left, j)\n                right = max(right, j)\n    \n    # Create an output grid with initial values set to 0\n    output_grid = [[0 for _ in range(cols)] for _ in range(rows)]\n    \n    # Copy the inner region to the new position\n    for i in range(top, bottom + 1):\n        for j in range(left, right + 1):\n            if input_grid[i][j] != 3:\n                output_grid[(i - top) + (bottom - top) // 2][(j - left) + (right - left) // 2] = input_grid[i][j]\n    \n    return output_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0],\n    [3, 0, 0, 0, 0, 0, 3, 0],\n    [2, 0, 0, 0, 0, 0, 0, 0],\n    [2, 2, 0, 0, 0, 0, 0, 0],\n    [2, 2, 2, 0, 0, 0, 0, 0],\n    [2, 2, 2, 2, 2, 0, 0, 0],\n    [2, 0, 0, 0, 0, 0, 0, 0],\n    [3, 0, 0, 0, 0, 0, 3, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0]\n]\n\noutput_grid = solve(test_input)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: IndexError: list assignment index out of range)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 29,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 45,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 47,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 41,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 46,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Create a result grid initialized with zeros\n    output_grid = [[0 for _ in range(cols)] for _ in range(rows)]\n    \n    # Iterate over each cell in the grid\n    for r in range(rows):\n        for c in range(cols):\n            if input_grid[r][c] != 0:\n                # Fill the row above or below the non-zero cell with the value of the cell\n                # If there's already a non-zero value in the same column, skip filling\n                for i in range(r+1):\n                    if output_grid[i][c] == 0:\n                        output_grid[i][c] = input_grid[r][c]\n                for i in range(r+1, rows):\n                    if output_grid[i][c] == 0:\n                        output_grid[i][c] = input_grid[r][c]\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 4/4 training pairs (total cell-diff 162)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 14,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 16,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 18,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    if not input_grid or not input_grid[0]:\n        return []\n\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    output_grid = [[0] * cols for _ in range(rows)]\n\n    # Define the boundary condition: keep elements if they are on the boundary or have a value of 2 or 3\n    for i in range(rows):\n        for j in range(cols):\n            if input_grid[i][j] == 3 or input_grid[i][j] == 2:\n                output_grid[i][j] = input_grid[i][j]\n            elif i == 0 or i == rows - 1 or j == 0 or j == cols - 1:\n                output_grid[i][j] = input_grid[i][j]\n\n    return output_grid\n\n# Test the function with the given test input\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0],\n    [3, 0, 0, 0, 0, 0, 3, 0],\n    [2, 0, 0, 0, 0, 0, 0, 0],\n    [2, 2, 0, 0, 0, 0, 0, 0],\n    [2, 2, 2, 0, 0, 0, 0, 0],\n    [2, 2, 2, 2, 2, 0, 0, 0],\n    [2, 0, 0, 0, 0, 0, 0, 0],\n    [3, 0, 0, 0, 0, 0, 3, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 4/4 training pairs (total cell-diff 58)"
+    }
+  ],
   "judging": null
 }

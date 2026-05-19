@@ -34,6 +34,307 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 23,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 30,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 28,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Initialize the output grid with the same dimensions as the input grid\n    output_grid = [[0 for _ in range(len(input_grid[0]))] for _ in range(len(input_grid))]\n    \n    # Find the position of the number 8 in the input grid\n    for i in range(len(input_grid)):\n        for j in range(len(input_grid[0])):\n            if input_grid[i][j] == 8:\n                break\n        else:\n            continue  # Continue if 8 is not found in the current row\n        break  # Break out of the outer loop once 8 is found\n    \n    # If 8 was not found, return the original grid\n    if not i or not j:\n        return input_grid\n    \n    # Define the size of the block\n    block_size = 5\n    \n    # Calculate the starting point of the block\n    start_row = i - (block_size - 1) // 2\n    start_col = j - (block_size - 1) // 2\n    \n    # Set the values in the block\n    for r in range(start_row, start_row + block_size):\n        for c in range(start_col, start_col + block_size):\n            output_grid[r][c] = 5\n    \n    # Set the value at the center of the block to 8\n    output_grid[start_row + (block_size - 1) // 2][start_col + (block_size - 1) // 2] = 8\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 53)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 22,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 20,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Find the position of the '8'\n    for r in range(rows):\n        for c in range(cols):\n            if input_grid[r][c] == 8:\n                start_row, start_col = r, c\n                break\n    \n    # Calculate the size of the pattern that needs to be copied\n    height = rows - start_row\n    width = cols - start_col\n    \n    # Initialize the output grid with zeros\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Copy the pattern\n    for dr in range(height):\n        for dc in range(width):\n            output_grid[start_row + dr][start_col + dc] = input_grid[start_row + dr][start_col + dc]\n    \n    # Set the starting point to the value of '8'\n    output_grid[start_row][start_col] = 8\n    \n    # Fill the rest of the columns starting from the right side\n    for col in range(start_col + width, cols):\n        for row in range(start_row, start_row + height):\n            output_grid[row][col] = input_grid[row][start_col + width - 1]\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 37)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Iterate over each row in the grid\n    for i in range(len(input_grid)):\n        # Find the index of the first non-zero element in the current row\n        first_non_zero_index = -1\n        for j in range(len(input_grid[i])):\n            if input_grid[i][j] != 0:\n                first_non_zero_index = j\n                break\n        \n        # If there is no non-zero element, continue to the next row\n        if first_non_zero_index == -1:\n            continue\n        \n        # Shift all elements to the left starting from the first non-zero element\n        shift_amount = len(input_grid[i]) - first_non_zero_index - 1\n        input_grid[i] = [0] * shift_amount + input_grid[i][:first_non_zero_index] + [0] * (len(input_grid[i]) - first_non_zero_index - 1)\n    \n    return input_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\n]\n\noutput_grid = solve(test_input)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 33,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list index out of range"
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list assignment index out of range"
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the position of the '8' in the input grid\n    for y in range(len(input_grid)):\n        for x in range(len(input_grid[0])):\n            if input_grid[y][x] == 8:\n                break\n        else:\n            continue\n        break\n    \n    # Calculate the size of the pattern based on the '8' position\n    height = len(input_grid)\n    width = len(input_grid[0])\n    \n    # Initialize the output grid with zeros\n    output_grid = [[0] * width for _ in range(height)]\n    \n    # Determine the size of the pattern\n    pattern_size = min(y + 1, height - y, x + 1, width - x) * 2 - 1\n    \n    # Fill the output grid based on the pattern\n    for i in range(pattern_size):\n        for j in range(i + 1):\n            output_grid[y - i + j][x - i + j] = 5\n            output_grid[y - i + j][x + i - j] = 5\n            output_grid[y + i - j][x - i + j] = 5\n            output_grid[y + i - j][x + i - j] = 5\n    \n    # Set the '8' cell in the center\n    output_grid[y][x] = 8\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 33)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 103,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 105,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 103,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the index of the 8 in the input grid\n    for i, row in enumerate(input_grid):\n        try:\n            eight_index = row.index(8)\n            break\n        except ValueError:\n            continue\n    \n    # Calculate the width and height of the input grid\n    height = len(input_grid)\n    width = len(input_grid[0])\n    \n    # Create the output grid with zeros\n    output_grid = [[0] * width for _ in range(height)]\n    \n    # Fill the output grid according to the pattern observed in the training pairs\n    for r in range(height):\n        for c in range(width):\n            if (r < eight_index and c <= eight_index) or (r >= eight_index and c > eight_index):\n                output_grid[r][c] = 5\n            else:\n                output_grid[r][c] = 0\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 208)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 20,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 27,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 25,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the position of the '8'\n    for i, row in enumerate(input_grid):\n        if 8 in row:\n            x = row.index(8)\n            break\n    \n    output_grid = [[0] * len(input_grid[0]) for _ in range(len(input_grid))]\n    \n    # Initialize the pattern based on input_grid\n    pattern = [5, 5, 5, 0]\n    \n    # Calculate the starting point for the pattern\n    start_y = max(0, i - 2)\n    end_y = min(len(input_grid), i + 3)\n    start_x = max(0, x - 2)\n    end_x = min(len(input_grid[0]), x + 3)\n    \n    # Apply the pattern\n    for y in range(start_y, end_y):\n        for x in range(start_x, end_x):\n            if y == i and (x == x - 2 or x == x - 1 or x == x or x == x + 1 or x == x + 2):\n                output_grid[y][x] = 5\n            elif y == i and x == x:\n                output_grid[y][x] = 8\n            else:\n                output_grid[y][x] = 0\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 47)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 54,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 83,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 75,
+          "error": null
+        }
+      ],
+      "code": "def find_first_eight(grid):\n    for i, row in enumerate(grid):\n        if 8 in row:\n            return i, row.index(8)\n    return None\n\ndef solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Find the position of the '8'\n    start_row, start_col = find_first_eight(input_grid)\n    \n    # Calculate the center of the grid\n    center_row = (rows // 2) - 1 + (rows % 2 == 1)\n    center_col = (cols // 2) - 1 + (cols % 2 == 1)\n    \n    # Calculate the shift needed for the first row\n    shift_row = center_row - start_row\n    \n    # Create the output grid\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Fill the output grid based on the rules\n    for r in range(rows):\n        for c in range(cols):\n            new_r = r - shift_row\n            if new_r < 0 or new_r >= rows:\n                new_r = r\n            new_c = c - center_col\n            if new_c < 0 or new_c >= cols:\n                new_c = c\n            if input_grid[r][c] != 0:\n                output_grid[new_r][new_c] = input_grid[r][c]\n            elif new_r == start_row and new_c == start_col:\n                output_grid[new_r][new_c] = 8\n            else:\n                output_grid[new_r][new_c] = 5\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 137)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 135,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 130,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 131,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    height = len(input_grid)\n    width = len(input_grid[0])\n    \n    # Find the position of the '8'\n    for y in range(height):\n        for x in range(width):\n            if input_grid[y][x] == 8:\n                # Calculate new coordinates after shifting left by one position\n                new_x = (x - 1) % width\n                \n                # Create the output grid\n                output_grid = [[0] * width for _ in range(height)]\n                \n                # Fill the output grid with zeros\n                for i in range(height):\n                    for j in range(width):\n                        output_grid[i][j] = 5 if (i < y or i > y + 1 or (i == y and j < new_x)) else 0\n                \n                # Place the '8' at the new position\n                output_grid[y][new_x] = 8\n                \n                return output_grid\n\n# Example usage:\ninput_grid = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\n]\n\noutput_grid = solve(input_grid)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 265)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list assignment index out of range"
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list assignment index out of range"
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list assignment index out of range"
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the position of the '8' in the input grid\n    for i, row in enumerate(input_grid):\n        if 8 in row:\n            eight_row = i\n            eight_col = row.index(8)\n            break\n    \n    # Calculate the size of the grid\n    n = len(input_grid)\n    \n    # Create the output grid\n    output_grid = [[0] * n for _ in range(n)]\n    \n    # Copy the original grid except for the '8' position\n    for i in range(n):\n        for j in range(n):\n            if i != eight_row or j != eight_col:\n                output_grid[i][j] = input_grid[i][j]\n    \n    # Fill in the pattern around the '8'\n    output_grid[eight_row][eight_col + 1:eight_col + 4] = [5, 5, 5]\n    output_grid[eight_row + 1:eight_row + 3][eight_col] = [5, 5, 5]\n    output_grid[eight_row + 1:eight_row + 3][eight_col + 1:eight_col + 3] = [[5], [0]]\n    output_grid[eight_row + 3][eight_col:eight_col + 4] = [5, 5, 5]\n    output_grid[eight_row + 4:eight_row + 6][eight_col] = [5, 5, 5]\n    output_grid[eight_row + 4:eight_row + 6][eight_col + 1] = [0, 0, 0]\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 154,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 147,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 149,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    n = len(input_grid)\n    max_val = max(max(row) for row in input_grid) if any(any(cell != 0 for cell in row) for row in input_grid) else 0\n    \n    # Find the position of the first non-zero value\n    for i in range(n):\n        for j in range(n):\n            if input_grid[i][j] == max_val:\n                break\n        else:\n            continue\n        break\n    \n    # Create the output grid\n    output_grid = [[5 for _ in range(n)] for _ in range(n)]\n    output_grid[i-1:i+2][j-1:j+2] = [[max_val if cell == max_val else 5 for cell in row] for row in input_grid[i-1:i+2]]\n    \n    return output_grid\n\n# Example usage:\ninput_grid = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\n]\n\noutput_grid = solve(input_grid)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 301)"
+    }
+  ],
   "judging": null
 }

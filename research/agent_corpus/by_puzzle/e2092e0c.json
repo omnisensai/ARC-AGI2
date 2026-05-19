@@ -41,6 +41,319 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 129,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 121,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 127,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 127,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def apply_rule(grid, target_value, replacement_value):\n        for i in range(len(grid)):\n            for j in range(len(grid[i])):\n                if grid[i][j] == target_value:\n                    grid[i][j] = replacement_value\n    \n    # Find the target value and replacement value based on the pattern observed\n    target_value = 0\n    replacement_value = 5\n\n    # Apply the transformation rule to the entire grid\n    apply_rule(input_grid, target_value, replacement_value)\n    \n    return input_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 377)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": "UnboundLocalError: cannot access local variable 'replacement_value' where it is not associated with a value"
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": "UnboundLocalError: cannot access local variable 'replacement_value' where it is not associated with a value"
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 31,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": null,
+          "error": "UnboundLocalError: cannot access local variable 'replacement_value' where it is not associated with a value"
+        }
+      ],
+      "code": "def solve(input_grid):\n    def apply_rule(row):\n        # Find the first zero position from left\n        zero_index = next((i for i, x in enumerate(row) if x == 0), None)\n        if zero_index is None:\n            return row\n        \n        # Find the value to replace zero with\n        for i in range(5, -1, -1):\n            if row[i] != 0:\n                replacement_value = row[i]\n                break\n        \n        # Replace zero with the found value\n        row[zero_index] = replacement_value\n    \n    # Process each row in the grid\n    for row in input_grid:\n        apply_rule(row)\n    \n    return input_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 31)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 135,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 131,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 137,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 138,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Directions for moving in the grid (row, col)\n    directions = [(0, 1), (1, 0), (1, 1), (-1, -1)]\n    \n    def get_value(grid, r, c, default=0):\n        if 0 <= r < len(grid) and 0 <= c < len(grid[0]):\n            return grid[r][c]\n        return default\n    \n    def fill_zeros(grid):\n        for r in range(len(grid)):\n            for c in range(len(grid[0])):\n                if grid[r][c] == 0:\n                    for dr, dc in directions:\n                        nr, nc = r + dr, c + dc\n                        while True:\n                            value = get_value(grid, nr, nc)\n                            if value != 0:\n                                grid[r][c] = value\n                                break\n                            nr += dr\n                            nc += dc\n                            if not (0 <= nr < len(grid) and 0 <= nc < len(grid[0])):\n                                break\n    \n    fill_zeros(input_grid)\n    return input_grid\n\n# Example usage\ninput_grid = [\n    [0, 7, 3, 5, 0, 0, 0, 0, 0, 0, 0, 3, 5, 4, 0],\n    [1, 0, 3, 5, 2, 0, 1, 0, 0, 0, 0, 8, 0, 0, 0],\n    [1, 0, 0, 5, 6, 0, 0, 9, 9, 0, 5, 0, 0, 0, 9],\n    [5, 5, 5, 5, 0, 0, 2, 1, 0, 0, 3, 0, 0, 0, 0],\n    [3, 0, 0, 3, 1, 8, 5, 0, 5, 2, 0, 0, 5, 0, 0],\n    [4, 0, 9, 2, 0, 0, 1, 0, 2, 0, 0, 0, 0, 0, 0],\n    [0, 0, 2, 0, 0, 0, 9, 5, 4, 0, 8, 0, 0, 5, 5],\n    [0, 7, 0, 0, 0, 5, 5, 7, 0, 0, 1, 0, 0, 0, 1],\n    [0, 0, 0, 3, 0, 7, 3, 7, 0, 0, 0, 0, 7, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 5, 0, 0, 0],\n    [0, 0, 0, 0, 3, 0, 0, 0, 3, 4, 0, 7, 3, 0, 2],\n    [0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 3, 0, 0],\n    [0, 0, 5, 2, 2, 2, 0, 0, 0, 0, 1, 0, 0, 2, 0],\n    [0, 0, 3, 0, 0, 5, 4, 7, 0, 0, 0, 0, 0, 3, 5],\n    [8, 0, 0, 1, 7, 1, 0, 8, 0, 8, 2, 0, 0, 0, 4]\n]\n\noutput_grid = solve(input_grid)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 403)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: TypeError: 'numpy.int64' object is not iterable",
+      "pairs": [],
+      "code": "from collections import Counter\nimport numpy as np\n\ndef find_mode(grid):\n    flattened_grid = [item for sublist in grid for item in sublist if item != 0]\n    counter = Counter(flattened_grid)\n    return counter.most_common(1)[0][0]\n\ndef solve(input_grid):\n    n = len(input_grid)\n    output_grid = []\n\n    # Convert the input grid to a NumPy array for easier manipulation\n    grid_array = np.array(input_grid)\n\n    for i in range(n):\n        row_output = []\n        for j in range(n):\n            if grid_array[i, j] == 0:\n                # Find the mode in the same row, column, and sub-grid\n                row_mode = find_mode(grid_array[i])\n                col_mode = find_mode(grid_array[:, j])\n                subgrid_row_start = (i // 3) * 3\n                subgrid_col_start = (j // 3) * 3\n                subgrid_mode = find_mode(grid_array[subgrid_row_start:subgrid_row_start+3, subgrid_col_start:subgrid_col_start+3])\n                \n                # Choose the mode that appears most frequently among row, column, and sub-grid\n                modes = [row_mode, col_mode, subgrid_mode]\n                mode_counts = Counter(modes)\n                mode, _ = mode_counts.most_common(1)[0]\n                \n                row_output.append(mode)\n            else:\n                row_output.append(grid_array[i, j])\n        output_grid.append(row_output)\n    \n    return output_grid\n\n# Example usage\ninput_grid = [\n    [0, 7, 3, 5, 0, 0, 0, 0, 0, 0, 0, 3, 5, 4, 0],\n    [1, 0, 3, 5, 2, 0, 1, 0, 0, 0, 0, 8, 0, 0, 0],\n    [1, 0, 0, 5, 6, 0, 0, 9, 9, 0, 5, 0, 0, 0, 9],\n    [5, 5, 5, 5, 0, 0, 2, 1, 0, 0, 3, 0, 0, 0, 0],\n    [3, 0, 0, 3, 1, 8, 5, 0, 5, 2, 0, 0, 5, 0, 0],\n    [4, 0, 9, 2, 0, 0, 1, 0, 2, 0, 0, 0, 0, 0, 0],\n    [0, 0, 2, 0, 0, 0, 9, 5, 4, 0, 8, 0, 0, 5, 5],\n    [0, 7, 0, 0, 0, 5, 5, 7, 0, 0, 1, 0, 0, 0, 1],\n    [0, 0, 0, 3, 0, 7, 3, 7, 0, 0, 0, 0, 7, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 5, 0, 0, 0],\n    [0, 0, 0, 0, 3, 0, 0, 0, 3, 4, 0, 7, 3, 0, 2],\n    [0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 3, 0, 0],\n    [0, 0, 5, 2, 2, 2, 0, 0, 0, 0, 1, 0, 0, 2, 0],\n    [0, 0, 3, 0, 0, 5, 4, 7, 0, 0, 0, 0, 0, 3, 5],\n    [8, 0, 0, 1, 7, 1, 0, 8, 0, 8, 2, 0, 0, 0, 4]\n]\n\noutput_grid = solve(input_grid)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: TypeError: 'numpy.int64' object is not iterable)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 134,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 131,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 137,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 138,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Define directions to check for surrounding cells\n    directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]\n    \n    def fill_zeros(r, c):\n        if r < 0 or c < 0 or r >= rows or c >= cols:\n            return\n        if input_grid[r][c] != 0:\n            return\n        \n        for dr, dc in directions:\n            nr, nc = r + dr, c + dc\n            if 0 <= nr < rows and 0 <= nc < cols and input_grid[nr][nc] != 0:\n                input_grid[r][c] = input_grid[nr][nc]\n                break\n    \n    # Iterate over the grid to fill zeros\n    for r in range(rows):\n        for c in range(cols):\n            fill_zeros(r, c)\n    \n    return input_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 402)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": "RecursionError: maximum recursion depth exceeded"
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": "RecursionError: maximum recursion depth exceeded"
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": "RecursionError: maximum recursion depth exceeded"
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": null,
+          "error": "RecursionError: maximum recursion depth exceeded"
+        }
+      ],
+      "code": "def solve(input_grid):\n    def propagate(grid, row, col):\n        if row == len(grid):\n            return True\n        next_row = col == len(grid[0]) - 1\n        next_col = col + 1 if next_row else col\n        next_row = next_row + (row + 1 // len(grid[0]))\n        \n        if grid[row][col] != 0:\n            return propagate(grid, next_row, next_col)\n        \n        for num in range(1, len(grid) + 1):\n            if is_valid(grid, num, row, col):\n                grid[row][col] = num\n                if propagate(grid, next_row, next_col):\n                    return True\n                grid[row][col] = 0\n        \n        return False\n    \n    def is_valid(grid, num, row, col):\n        row_val = [grid[i][col] for i in range(len(grid))]\n        col_val = [grid[row][i] for i in range(len(grid))]\n        \n        start_row = (row // 3) * 3\n        start_col = (col // 3) * 3\n        block_val = [grid[i][j] for i in range(start_row, start_row + 3) for j in range(start_col, start_col + 3)]\n        \n        return num not in row_val and num not in col_val and num not in block_val\n    \n    propagate(input_grid, 0, 0)\n    return input_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 91,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 61,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 88,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 86,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Identify the transformation rule: replacing '0' with '5' if surrounded by '5's on both sides horizontally or vertically.\n    def is_0_surrounded_by_5s(i, j):\n        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # Up, Down, Left, Right\n        for di, dj in directions:\n            ni, nj = i + di, j + dj\n            if 0 <= ni < rows and 0 <= nj < cols and input_grid[ni][nj] == 5:\n                return True\n        return False\n    \n    # Apply the transformation rule\n    for i in range(rows):\n        for j in range(cols):\n            if input_grid[i][j] == 0 and is_0_surrounded_by_5s(i, j):\n                input_grid[i][j] = 5\n                \n    return input_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [0, 7, 3, 5, 0, 0, 0, 0, 0, 0, 0, 3, 5, 4, 0],\n    [1, 0, 3, 5, 2, 0, 1, 0, 0, 0, 0, 8, 0, 0, 0],\n    [1, 0, 0, 5, 6, 0, 0, 9, 9, 0, 5, 0, 0, 0, 9],\n    [5, 5, 5, 5, 0, 0, 2, 1, 0, 0, 3, 0, 0, 0, 0],\n    [3, 0, 0, 3, 1, 8, 5, 0, 5, 2, 0, 0, 5, 0, 0],\n    [4, 0, 9, 2, 0, 0, 1, 0, 2, 0, 0, 0, 0, 0, 0],\n    [0, 0, 2, 0, 0, 0, 9, 5, 4, 0, 8, 0, 0, 5, 5],\n    [0, 7, 0, 0, 0, 5, 5, 7, 0, 0, 1, 0, 0, 0, 1],\n    [0, 0, 0, 3, 0, 7, 3, 7, 0, 0, 0, 0, 7, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 5, 0, 0, 0],\n    [0, 0, 0, 0, 3, 0, 0, 0, 3, 4, 0, 7, 3, 0, 2],\n    [0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 3, 0, 0],\n    [0, 0, 5, 2, 2, 2, 0, 0, 0, 0, 1, 0, 0, 2, 0],\n    [0, 0, 3, 0, 0, 5, 4, 7, 0, 0, 0, 0, 0, 3, 5],\n    [8, 0, 0, 1, 7, 1, 0, 8, 0, 8, 2, 0, 0, 0, 4]\n]\n\noutput_grid = solve(test_input)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 240)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 50,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 46,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 49,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 30,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform(grid):\n        n = len(grid)\n        for i in range(n):\n            for j in range(n):\n                if grid[i][j] == 0:\n                    # Check the row and column to see where the number should go based on the given examples\n                    row_options = set(range(1, 10))\n                    col_options = set(range(1, 10))\n                    \n                    for k in range(n):\n                        if grid[i][k] != 0:\n                            row_options.discard(grid[i][k])\n                        if grid[k][j] != 0:\n                            col_options.discard(grid[k][j])\n                    \n                    # Find the intersection of possible options\n                    common_options = row_options & col_options\n                    \n                    # If there's exactly one option, place it\n                    if len(common_options) == 1:\n                        grid[i][j] = common_options.pop()\n        \n        return grid\n    \n    # Apply the transformation until the grid no longer changes\n    prev_grid = [row[:] for row in input_grid]\n    while True:\n        new_grid = transform(prev_grid)\n        if new_grid == prev_grid:\n            break\n        prev_grid = new_grid\n    \n    return prev_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 145)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 129,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 121,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 127,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 127,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform(grid):\n        # Replace every '0' with '5'\n        for i in range(len(grid)):\n            for j in range(len(grid[i])):\n                if grid[i][j] == 0:\n                    grid[i][j] = 5\n        return grid\n    \n    output_grid = transform(input_grid)\n    return output_grid\n\n# Example usage\ninput_grid = [\n    [0, 7, 3, 5, 0, 0, 0, 0, 0, 0, 0, 3, 5, 4, 0],\n    [1, 0, 3, 5, 2, 0, 1, 0, 0, 0, 0, 8, 0, 0, 0],\n    [1, 0, 0, 5, 6, 0, 0, 9, 9, 0, 5, 0, 0, 0, 9],\n    [5, 5, 5, 5, 0, 0, 2, 1, 0, 0, 3, 0, 0, 0, 0],\n    [3, 0, 0, 3, 1, 8, 5, 0, 5, 2, 0, 0, 5, 0, 0],\n    [4, 0, 9, 2, 0, 0, 1, 0, 2, 0, 0, 0, 0, 0, 0],\n    [0, 0, 2, 0, 0, 0, 9, 5, 4, 0, 8, 0, 0, 5, 5],\n    [0, 7, 0, 0, 0, 5, 5, 7, 0, 0, 1, 0, 0, 0, 1],\n    [0, 0, 0, 3, 0, 7, 3, 7, 0, 0, 0, 0, 7, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 5, 0, 0, 0],\n    [0, 0, 0, 0, 3, 0, 0, 0, 3, 4, 0, 7, 3, 0, 2],\n    [0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 3, 0, 0],\n    [0, 0, 5, 2, 2, 2, 0, 0, 0, 0, 1, 0, 0, 2, 0],\n    [0, 0, 3, 0, 0, 5, 4, 7, 0, 0, 0, 0, 0, 3, 5],\n    [8, 0, 0, 1, 7, 1, 0, 8, 0, 8, 2, 0, 0, 0, 4]\n]\n\noutput_grid = solve(input_grid)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 377)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: IndexError: list index out of range",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    def fill_sequence(row, start, end, pattern):\n        for i in range(start, end):\n            if row[i] == 0:\n                row[i] = pattern[i - start]\n\n    # Transpose the input grid to work with columns as well\n    transposed_grid = list(zip(*input_grid))\n    \n    for i, row in enumerate(input_grid):\n        zero_positions = [j for j, x in enumerate(row) if x == 0]\n        \n        if zero_positions:\n            first_zero = zero_positions[0]\n            last_zero = zero_positions[-1]\n            \n            # Fill the sequence of zeros with a pattern\n            fill_sequence(row, first_zero, last_zero + 1, [5, 5, 5, 5])\n    \n    for col in range(len(transposed_grid)):\n        column = list(transposed_grid[col])\n        zero_positions = [i for i, x in enumerate(column) if x == 0]\n        \n        if zero_positions:\n            first_zero = zero_positions[0]\n            last_zero = zero_positions[-1]\n            \n            # Fill the sequence of zeros with a pattern\n            fill_sequence(column, first_zero, last_zero + 1, [5, 5, 5, 5])\n    \n    # Transpose back to original form\n    return [list(row) for row in zip(*transposed_grid)]\n\n# Example usage\ninput_grid = [\n    [0, 7, 3, 5, 0, 0, 0, 0, 0, 0, 0, 3, 5, 4, 0],\n    [1, 0, 3, 5, 2, 0, 1, 0, 0, 0, 0, 8, 0, 0, 0],\n    [1, 0, 0, 5, 6, 0, 0, 9, 9, 0, 5, 0, 0, 0, 9],\n    [5, 5, 5, 5, 0, 0, 2, 1, 0, 0, 3, 0, 0, 0, 0],\n    [3, 0, 0, 3, 1, 8, 5, 0, 5, 2, 0, 0, 5, 0, 0],\n    [4, 0, 9, 2, 0, 0, 1, 0, 2, 0, 0, 0, 0, 0, 0],\n    [0, 0, 2, 0, 0, 0, 9, 5, 4, 0, 8, 0, 0, 5, 5],\n    [0, 7, 0, 0, 0, 5, 5, 7, 0, 0, 1, 0, 0, 0, 1],\n    [0, 0, 0, 3, 0, 7, 3, 7, 0, 0, 0, 0, 7, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 5, 0, 0, 0],\n    [0, 0, 0, 0, 3, 0, 0, 0, 3, 4, 0, 7, 3, 0, 2],\n    [0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 3, 0, 0],\n    [0, 0, 5, 2, 2, 2, 0, 0, 0, 0, 1, 0, 0, 2, 0],\n    [0, 0, 3, 0, 0, 5, 4, 7, 0, 0, 0, 0, 0, 3, 5],\n    [8, 0, 0, 1, 7, 1, 0, 8, 0, 8, 2, 0, 0, 0, 4]\n]\n\noutput_grid = solve(input_grid)\nprint(output_grid)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: IndexError: list index out of range)"
+    }
+  ],
   "judging": null
 }

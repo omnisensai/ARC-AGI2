@@ -34,6 +34,219 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 251,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 143,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 205,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Define the directions for the neighbors: up, down, left, right\n    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]\n    \n    def get_neighbors(x, y):\n        \"\"\"Get the neighbors' coordinates within bounds.\"\"\"\n        return [(x + dx, y + dy) for dx, dy in directions if 0 <= x + dx < len(input_grid) and 0 <= y + dy < len(input_grid[0])]\n    \n    # Create a copy of the input grid to work on\n    result = [[0] * len(row) for row in input_grid]\n    \n    count = 1\n    for i in range(len(input_grid)):\n        for j in range(len(input_grid[i])):\n            if input_grid[i][j] == 8:\n                # Assign increasing values to the current '8' and its neighbors\n                for dx, dy in get_neighbors(i, j):\n                    if result[dx][dy] == 0:\n                        result[dx][dy] = count\n                        count += 1\n    \n    return result\n\n# Test the function with the provided test input\ntest_input = [\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n]\n\noutput_grid = solve(test_input)\n\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 394)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'left' is not defined",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    def calculate_width(row):\n        left = right = -1\n        for i, val in enumerate(row):\n            if val == 8:\n                if left == -1:\n                    left = i\n                right = i\n        return max(0, right - left + 1)\n    \n    def generate_output_row(row, width):\n        result = [0] * len(row)\n        for i in range(width // 2):\n            result[left + i] = width - (2 * i)\n            result[right - i] = width - (2 * i)\n        result[left], result[right] = width, width\n        return result\n    \n    # Determine the number of columns in the grid\n    num_cols = len(input_grid[0])\n    \n    # Process each row in the grid\n    output_grid = []\n    for row in input_grid:\n        width = calculate_width(row)\n        output_row = generate_output_row(row, width)\n        output_grid.append(output_row)\n    \n    return output_grid\n\n# Example usage\ninput_grid = [\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0]\n]\n\noutput_grid = solve(input_grid)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'left' is not defined)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 208,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 118,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 172,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Determine the width of the grid\n    width = len(input_grid[0])\n    \n    def transform_row(row):\n        first_8_index = None\n        last_8_index = None\n        \n        # Find the indices of the first and last 8s\n        for i in range(width):\n            if row[i] == 8:\n                if first_8_index is None:\n                    first_8_index = i\n                last_8_index = i\n        \n        # Transform the row\n        new_row = []\n        for i in range(width):\n            if row[i] == 8:\n                value = max(1, 9 - (i - first_8_index))\n            else:\n                value = row[i]\n            new_row.append(value)\n        \n        return new_row\n    \n    # Apply the transformation to each row\n    output_grid = [transform_row(row) for row in input_grid]\n    \n    return output_grid\n\n# Example usage:\ninput_grid = [\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0]\n]\n\noutput_grid = solve(input_grid)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 326)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: SyntaxError: no binding for nonlocal 'last_value' found (<string>, line 3)",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    def transform(row):\n        nonlocal last_value\n        new_row = []\n        for val in row:\n            if val == 0:\n                new_row.append(val)\n            else:\n                if val == 8:\n                    last_value = 8\n                new_row.append(last_value)\n                last_value -= 1\n                if last_value < 1:\n                    last_value = 7\n                if last_value == 1:\n                    last_value += 1\n        return new_row\n\n    # Process each row\n    transformed_grid = [transform(row) for row in input_grid]\n    return transformed_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0]\n]\n\nresult = solve(test_input)\nfor row in result:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: SyntaxError: no binding for nonlocal 'last_value' found (<string>, line 3))"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 264,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 108,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 181,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Determine the size of the input grid\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Create an output grid initialized to zeros\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Define directions to check neighbors\n    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]\n    \n    # Function to find the next value for a cell\n    def find_next_value(x, y):\n        if input_grid[x][y] == 8:\n            return 8\n        elif input_grid[x][y] == 0:\n            distance_to_nearest_8 = float('inf')\n            for dx, dy in directions:\n                nx, ny = x + dx, y + dy\n                if 0 <= nx < rows and 0 <= ny < cols and input_grid[nx][ny] == 8:\n                    distance = abs(nx - x) + abs(ny - y)\n                    distance_to_nearest_8 = min(distance_to_nearest_8, distance)\n            return distance_to_nearest_8 * 2\n        else:\n            raise ValueError(\"Unexpected value found in input grid\")\n    \n    # Fill the output grid based on the transformation rule\n    for i in range(rows):\n        for j in range(cols):\n            output_grid[i][j] = find_next_value(i, j)\n    \n    return output_grid\n\n# Test the function with the given input\ntest_input = [\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 372)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 206,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 118,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 170,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform_row(row):\n        # Find positions of '8'\n        eight_positions = [i for i, val in enumerate(row) if val == 8]\n        \n        # Determine min and max positions\n        min_pos = min(eight_positions)\n        max_pos = max(eight_positions)\n        \n        # Calculate the transformation based on distance from center\n        result = []\n        for i in range(len(row)):\n            if row[i] == 0:\n                # Outside block\n                distance_from_center = abs(i - (len(row) // 2))\n                if distance_from_center <= len(eight_positions) // 2:\n                    result.append(8 + 2 * distance_from_center)\n                else:\n                    result.append(0)\n            else:\n                # Inside block\n                mid_index = (min_pos + max_pos) // 2\n                distance_from_center = abs(i - mid_index)\n                if distance_from_center == len(eight_positions) // 2:\n                    result.append(8)\n                elif distance_from_center < len(eight_positions) // 2:\n                    result.append(8 - 2 * (len(eight_positions) // 2 - distance_from_center))\n                else:\n                    result.append(0)\n        return result\n    \n    # Apply transformation to each row\n    output_grid = [transform_row(row) for row in input_grid]\n    \n    return output_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 324)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "# Test input\ntest_input = [\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0]\n]\n\n# Solve the test input\noutput_grid = solve(test_input)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 166,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 108,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 151,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    n = len(input_grid)\n    m = len(input_grid[0])\n    \n    # Step 1: Find the center\n    center = [(n // 2, m // 2)]\n    if n % 2 == 1 and m % 2 == 1:\n        center.append((n // 2 + 1, m // 2 + 1))\n    \n    # Step 2 & 3: Generate intermediate values\n    for i in range(n):\n        for j in range(m):\n            if input_grid[i][j] == 8:\n                distances = []\n                for cx, cy in center:\n                    distances.append(abs(cx - i) + abs(cy - j))\n                \n                min_distance = min(distances)\n                if min_distance <= 8:\n                    input_grid[i][j] = max(1, min_distance)\n    \n    return input_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 274)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: TypeError: unsupported operand type(s) for -: 'NoneType' and 'NoneType'",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    # Get the dimensions of the grid\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Create a copy of the input grid to store the output\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Find the central square boundaries\n    start_row, end_row = None, None\n    start_col, end_col = None, None\n    \n    for i in range(rows):\n        if '8' in input_grid[i]:\n            if start_row is None:\n                start_row = i\n            end_row = i\n        for j in range(cols):\n            if input_grid[i][j] == '8':\n                if start_col is None:\n                    start_col = j\n                end_col = j\n    \n    # Calculate the number of rows/columns in the central square\n    central_rows = end_row - start_row + 1\n    central_cols = end_col - start_col + 1\n    \n    # Fill the output grid based on the transformation rule\n    for i in range(start_row, end_row + 1):\n        for j in range(start_col, end_col + 1):\n            min_distance = min(abs(i - start_row), abs(end_row - i), abs(j - start_col), abs(end_col - j))\n            output_grid[i][j] = 8 - min_distance\n            \n            # Determine the corresponding value in the output grid\n            if min_distance == 0:\n                output_grid[i][j] = 8\n            else:\n                output_grid[i][j] = 8 - min_distance\n    \n    return output_grid\n\n# Test the function\ntest_input = [\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: TypeError: unsupported operand type(s) for -: 'NoneType' and 'NoneType')"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 254,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 117,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 180,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find all positions of '8'\n    positions = []\n    for y in range(len(input_grid)):\n        for x in range(len(input_grid[0])):\n            if input_grid[y][x] == 8:\n                positions.append((y, x))\n    \n    # Define helper functions to generate the pattern at each position\n    def generate_pattern(center_y, center_x, size):\n        pattern = []\n        for y in range(size):\n            row = []\n            for x in range(size):\n                if (center_y + y - size // 2) % size == 0 and (center_x + x - size // 2) % size == 0:\n                    row.append(8)\n                else:\n                    dist = abs((center_y + y - size // 2) - (center_x + x - size // 2))\n                    row.append(8 + dist)\n            pattern.append(row)\n        return pattern\n    \n    # Generate the full transformed grid\n    transformed_grid = [[0] * len(input_grid[0]) for _ in range(len(input_grid))]\n    \n    for y, x in positions:\n        # Determine the size of the pattern based on the position\n        size = min(y, x, len(input_grid) - y - 1, len(input_grid[0]) - x - 1)\n        pattern = generate_pattern(y, x, size)\n        \n        # Apply the pattern to the transformed grid\n        for py in range(size):\n            for px in range(size):\n                transformed_grid[y + py][x + px] = pattern[py][px]\n    \n    return transformed_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0],\n]\n\noutput_grid = solve(test_input)\nfor row in output_grid:\n    print(' '.join(map(str, row)))",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 371)"
+    }
+  ],
   "judging": null
 }

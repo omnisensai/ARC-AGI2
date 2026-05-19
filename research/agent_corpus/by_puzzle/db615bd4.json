@@ -41,6 +41,319 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: SyntaxError: '[' was never closed (<string>, line 103)",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    def transform(grid):\n        rows, cols = len(grid), len(grid[0])\n        result = [[0] * cols for _ in range(rows)]\n        \n        for i in range(rows):\n            for j in range(cols):\n                if grid[i][j] == 1:\n                    result[i][j] = 1\n                elif grid[i][j] == 2:\n                    if i > 0 and j > 0 and grid[i-1][j-1] == 3:\n                        result[i][j] = 3\n                    elif i > 0 and j < cols - 1 and grid[i-1][j+1] == 3:\n                        result[i][j] = 3\n                    else:\n                        result[i][j] = 2\n                elif grid[i][j] == 3:\n                    result[i][j] = 2\n                elif grid[i][j] == 4:\n                    if i > 0 and grid[i-1][j] == 2:\n                        result[i][j] = 2\n                    elif i < rows - 1 and grid[i+1][j] == 2:\n                        result[i][j] = 2\n                    else:\n                        result[i][j] = 4\n                elif grid[i][j] == 8:\n                    result[i][j] = 8\n                elif grid[i][j] == 9:\n                    if i > 0 and grid[i-1][j] == 3:\n                        result[i][j] = 3\n                    elif i < rows - 1 and grid[i+1][j] == 3:\n                        result[i][j] = 3\n                    else:\n                        result[i][j] = 9\n                else:\n                    result[i][j] = grid[i][j]\n        \n        return result\n\n    # Process the input grid to match the training pairs\n    processed_grid = [[0] * len(input_grid[0]) for _ in range(len(input_grid))]\n    for i in range(len(input_grid)):\n        for j in range(len(input_grid[0])):\n            if input_grid[i][j] % 2 == 0:\n                processed_grid[i][j] = input_grid[i][j] // 2\n            else:\n                processed_grid[i][j] = 1\n    \n    # Transform the processed grid\n    transformed_grid = transform(processed_grid)\n    \n    # Post-process the transformed grid to match the output format\n    final_grid = [[0] * len(transformed_grid[0]) for _ in range(len(transformed_grid))]\n    for i in range(len(transformed_grid)):\n        for j in range(len(transformed_grid[0])):\n            if transformed_grid[i][j] == 1:\n                final_grid[i][j] = 1\n            elif transformed_grid[i][j] == 2:\n                if i > 0 and j > 0 and transformed_grid[i-1][j-1] == 3:\n                    final_grid[i][j] = 3\n                elif i > 0 and j < len(transformed_grid[0]) - 1 and transformed_grid[i-1][j+1] == 3:\n                    final_grid[i][j] = 3\n                else:\n                    final_grid[i][j] = 2\n            elif transformed_grid[i][j] == 3:\n                final_grid[i][j] = 2\n            elif transformed_grid[i][j] == 4:\n                if i > 0 and transformed_grid[i-1][j] == 2:\n                    final_grid[i][j] = 2\n                elif i < len(transformed_grid) - 1 and transformed_grid[i+1][j] == 2:\n                    final_grid[i][j] = 2\n                else:\n                    final_grid[i][j] = 4\n            elif transformed_grid[i][j] == 8:\n                final_grid[i][j] = 8\n            elif transformed_grid[i][j] == 9:\n                if i > 0 and transformed_grid[i-1][j] == 3:\n                    final_grid[i][j] = 3\n                elif i < len(transformed_grid) - 1 and transformed_grid[i+1][j] == 3:\n                    final_grid[i][j] = 3\n                else:\n                    final_grid[i][j] = 9\n            else:\n                final_grid[i][j] = transformed_grid[i][j]\n    \n    return final_grid\n\n# Test the function with the given test input\ntest_input = [\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],\n    [4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],\n    [4, 1, 4, 8, 4, 8, 4, 8, 4, 8, 4, 8, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 2, 4, 2, 4, 2, 4, 2, 4, 4, 4, 4],\n    [4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 2, 4, 2, 4, 2, 4, 2, 4, 4, 4, 4],\n    [4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],\n    [4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 4, 4, 4, 4],\n    [4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 9, 4, 9, 4, 4, 4, 4, 4, 4, 4, 4],\n    [4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 8, 4, 1, 4, 1",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: SyntaxError: '[' was never closed (<string>, line 103))"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": "TypeError: object of type 'int' has no len()"
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": "TypeError: object of type 'int' has no len()"
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": "TypeError: object of type 'int' has no len()"
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": null,
+          "error": "TypeError: object of type 'int' has no len()"
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform(input_grid):\n        # Create a new grid to store the transformed result\n        output_grid = []\n        for row in input_grid:\n            output_row = []\n            for i in range(len(row)):\n                # Check if the current cell is 1 and the next cell is 4\n                if row[i] == 1 and i + 1 < len(row) and row[i + 1] == 4:\n                    output_row.append(4)\n                elif row[i] == 1 and i + 1 < len(row) and row[i + 1] == 8:\n                    output_row.append(8)\n                elif row[i] == 1 and i + 1 < len(row) and row[i + 1] == 2:\n                    output_row.append(2)\n                elif row[i] == 1 and i + 1 < len(row) and row[i + 1] == 3:\n                    output_row.append(3)\n                elif row[i] == 1 and i + 1 < len(row) and row[i + 1] == 9:\n                    output_row.append(9)\n                else:\n                    output_row.append(row[i])\n            output_grid.append(output_row)\n        return output_grid\n\n    # Apply the transformation to each row\n    output_grid = [transform(row) for row in input_grid]\n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def process_row(row):\n        result = []\n        i = 0\n        while i < len(row):\n            if row[i] == 1 or row[i] == 2:\n                value = row[i]\n                count = 1\n                i += 1\n                while i < len(row) and row[i] == value:\n                    count += 1\n                    i += 1\n                if value == 1:\n                    result.extend([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])\n                elif value == 2:\n                    result.extend([2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2])\n            elif row[i] == 3:\n                result.extend([3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3])\n            elif row[i] == 4:\n                result.extend([4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4])\n            elif row[i] == 8:\n                result.extend([8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8])\n            else:\n                result.append(row[i])\n            i += 1\n        return result\n\n    return [process_row(row) for row in input_grid]",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 60,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 194,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 87,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 160,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform_row(row):\n        transformed_row = []\n        for i in range(len(row)):\n            if row[i] == 1:\n                if i - 1 >= 0 and row[i - 1] == 4:\n                    transformed_row.append(4)\n                elif i + 1 < len(row) and row[i + 1] == 4:\n                    transformed_row.append(4)\n                else:\n                    transformed_row.append(1)\n            elif row[i] == 2:\n                if i - 1 >= 0 and row[i - 1] == 4:\n                    transformed_row.append(1)\n                elif i + 1 < len(row) and row[i + 1] == 4:\n                    transformed_row.append(1)\n                else:\n                    transformed_row.append(2)\n            elif row[i] == 3:\n                if i - 1 >= 0 and row[i - 1] == 4:\n                    transformed_row.append(1)\n                elif i + 1 < len(row) and row[i + 1] == 4:\n                    transformed_row.append(1)\n                else:\n                    transformed_row.append(3)\n            elif row[i] == 4:\n                if i - 2 >= 0 and row[i - 2] == 8:\n                    transformed_row.append(8)\n                elif i + 2 < len(row) and row[i + 2] == 8:\n                    transformed_row.append(8)\n                else:\n                    transformed_row.append(4)\n            elif row[i] == 8:\n                if i - 2 >= 0 and row[i - 2] == 4:\n                    transformed_row.append(1)\n                elif i + 2 < len(row) and row[i + 2] == 4:\n                    transformed_row.append(1)\n                else:\n                    transformed_row.append(8)\n            else:\n                transformed_row.append(row[i])\n        return transformed_row\n\n    output_grid = []\n    for row in input_grid:\n        transformed_row = transform_row(row)\n        output_grid.append(transformed_row)\n\n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 341)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 60,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 61,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 87,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 61,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform_value(val):\n        if val == 1:\n            return 1\n        elif val == 2:\n            return 2\n        elif val == 3:\n            return 3\n        elif val == 4:\n            return 4\n        elif val == 8:\n            return 8\n        else:\n            return (val // 2) if val % 2 == 0 else val\n\n    output_grid = []\n    for row in input_grid:\n        transformed_row = [transform_value(val) for val in row]\n        output_grid.append(transformed_row)\n\n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 208)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 60,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 61,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 87,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 61,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform_cell(cell):\n        if cell == 1:\n            return 1\n        elif cell == 2:\n            return 2\n        elif cell == 3:\n            return 3\n        elif cell == 4:\n            return 4\n        elif cell == 8:\n            return 8\n        elif cell == 9:\n            return 9\n        elif cell == 1:\n            if prev_cell == 2 and next_cell == 2:\n                return 2\n            elif prev_cell == 3 and next_cell == 3:\n                return 3\n            elif prev_cell == 4 and next_cell == 4:\n                return 4\n            elif prev_cell == 8:\n                return 8\n            elif prev_cell == 9:\n                return 9\n            else:\n                return 1\n        else:\n            return cell\n\n    output_grid = []\n    for i in range(len(input_grid)):\n        row = []\n        for j in range(len(input_grid[i])):\n            if j > 0:\n                prev_cell = input_grid[i][j - 1]\n            else:\n                prev_cell = 8\n            if j < len(input_grid[i]) - 1:\n                next_cell = input_grid[i][j + 1]\n            else:\n                next_cell = 8\n            row.append(transform_cell(input_grid[i][j]))\n        output_grid.append(row)\n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 208)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 174,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 180,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 199,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 160,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    output_grid = []\n    for row in input_grid:\n        new_row = []\n        for i in range(len(row)):\n            if row[i] == 1:\n                if i % 2 == 0:\n                    new_row.append(1)\n                else:\n                    new_row.append(4)\n            elif row[i] == 2:\n                if i % 2 == 0:\n                    new_row.append(2)\n                else:\n                    new_row.append(4)\n            elif row[i] == 3:\n                if i % 2 == 0:\n                    new_row.append(3)\n                else:\n                    new_row.append(4)\n            elif row[i] == 4:\n                if i % 2 == 0:\n                    new_row.append(4)\n                else:\n                    new_row.append(4)\n            elif row[i] == 8:\n                new_row.append(8)\n            elif row[i] == 9:\n                if i % 2 == 0:\n                    new_row.append(3)\n                else:\n                    new_row.append(9)\n            else:\n                new_row.append(row[i])\n        output_grid.append(new_row)\n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 553)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 60,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 61,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 87,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 61,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows, cols = len(input_grid), len(input_grid[0])\n    output_grid = [[0] * cols for _ in range(rows)]\n\n    for i in range(rows):\n        for j in range(cols):\n            if input_grid[i][j] == 1:\n                output_grid[i][j] = 1\n            elif input_grid[i][j] == 2:\n                output_grid[i][j] = 2\n            elif input_grid[i][j] == 3:\n                output_grid[i][j] = 3\n            elif input_grid[i][j] == 4:\n                output_grid[i][j] = 4\n            elif input_grid[i][j] == 8:\n                output_grid[i][j] = 8\n            elif input_grid[i][j] == 9:\n                output_grid[i][j] = 9\n            elif input_grid[i][j] == 1 and (i == 0 or input_grid[i-1][j] == 1):\n                output_grid[i][j] = 1\n            elif input_grid[i][j] == 2 and (i == 0 or input_grid[i-1][j] == 2):\n                output_grid[i][j] = 2\n            elif input_grid[i][j] == 3 and (i == 0 or input_grid[i-1][j] == 3):\n                output_grid[i][j] = 3\n            elif input_grid[i][j] == 4 and (i == 0 or input_grid[i-1][j] == 4):\n                output_grid[i][j] = 4\n            elif input_grid[i][j] == 8 and (i == 0 or input_grid[i-1][j] == 8):\n                output_grid[i][j] = 8\n            elif input_grid[i][j] == 9 and (i == 0 or input_grid[i-1][j] == 9):\n                output_grid[i][j] = 9\n            elif input_grid[i][j] == 1 and (i > 0 and input_grid[i-1][j] == 2):\n                output_grid[i][j] = 2\n            elif input_grid[i][j] == 2 and (i > 0 and input_grid[i-1][j] == 1):\n                output_grid[i][j] = 2\n            elif input_grid[i][j] == 1 and (i > 0 and input_grid[i-1][j] == 3):\n                output_grid[i][j] = 3\n            elif input_grid[i][j] == 3 and (i > 0 and input_grid[i-1][j] == 1):\n                output_grid[i][j] = 3\n            elif input_grid[i][j] == 1 and (i > 0 and input_grid[i-1][j] == 4):\n                output_grid[i][j] = 4\n            elif input_grid[i][j] == 4 and (i > 0 and input_grid[i-1][j] == 1):\n                output_grid[i][j] = 4\n            elif input_grid[i][j] == 1 and (i > 0 and input_grid[i-1][j] == 8):\n                output_grid[i][j] = 8\n            elif input_grid[i][j] == 8 and (i > 0 and input_grid[i-1][j] == 1):\n                output_grid[i][j] = 8\n            elif input_grid[i][j] == 1 and (i > 0 and input_grid[i-1][j] == 9):\n                output_grid[i][j] = 9\n            elif input_grid[i][j] == 9 and (i > 0 and input_grid[i-1][j] == 1):\n                output_grid[i][j] = 9\n            elif input_grid[i][j] == 2 and (i > 0 and input_grid[i-1][j] == 3):\n                output_grid[i][j] = 3\n            elif input_grid[i][j] == 3 and (i > 0 and input_grid[i-1][j] == 2):\n                output_grid[i][j] = 3\n            elif input_grid[i][j] == 3 and (i > 0 and input_grid[i-1][j] == 4):\n                output_grid[i][j] = 4\n            elif input_grid[i][j] == 4 and (i > 0 and input_grid[i-1][j] == 3):\n                output_grid[i][j] = 4\n            elif input_grid[i][j] == 3 and (i > 0 and input_grid[i-1][j] == 8):\n                output_grid[i][j] = 8\n            elif input_grid[i][j] == 8 and (i > 0 and input_grid[i-1][j] == 3):\n                output_grid[i][j] = 8\n            elif input_grid[i][j] == 3 and (i > 0 and input_grid[i-1][j] == 9):\n                output_grid[i][j] = 9\n            elif input_grid[i][j] == 9 and (i > 0 and input_grid[i-1][j] == 3):\n                output_grid[i][j] = 9\n            elif input_grid[i][j] == 4 and (i > 0 and input_grid[i-1][j] == 8):\n                output_grid[i][j] = 8\n            elif input_grid[i][j] == 8 and (i > 0 and input_grid[i-1][j] == 4):\n                output_grid[i][j] = 8\n            elif input_grid[i][j] == 4 and (i > 0 and input_grid[i-1][j] == 9):\n                output_grid[i][j] = 9\n            elif input_grid[i][j] == 9 and (i > 0 and input_grid[i-1][j] == 4):\n                output_grid[i][j] = 9\n            elif input_grid[i][j] == 8 and (i > 0 and input_grid[i-1][j] == 9):\n                output_grid[i][j] = 9\n            elif input_grid[i][j] == 9 and (i > 0 and input_grid[i-1][j] == 8):\n                output_grid[i][j] = 9\n            else:\n                output_grid[i][j] = 1\n\n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 208)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: SyntaxError: '[' was never closed (<string>, line 59)",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    def transform(row):\n        result = []\n        for i in range(len(row)):\n            if row[i] == 1:\n                if i == 0 or row[i-1] != 4:\n                    result.append(1)\n                else:\n                    result.append(4)\n            elif row[i] == 2:\n                if i == 0 or row[i-1] != 4:\n                    result.append(2)\n                else:\n                    result.append(4)\n            elif row[i] == 3:\n                if i == 0 or row[i-1] != 4:\n                    result.append(3)\n                else:\n                    result.append(4)\n            elif row[i] == 4:\n                if i == 0 or row[i-1] != 4:\n                    result.append(4)\n                else:\n                    result.append(8)\n            elif row[i] == 8:\n                result.append(8)\n            else:\n                result.append(row[i])\n        return result\n\n    transformed_rows = [transform(row) for row in input_grid]\n    return transformed_rows\n\n# Test the function with the provided test input\ninput_grid = [\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],\n    [4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],\n    [4, 1, 4, 8, 4, 8, 4, 8, 4, 8, 4, 8, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 2, 4, 2, 4, 4, 4, 2, 4, 4, 4],\n    [4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 2, 4, 2, 4, 4, 4, 2, 4, 4, 4],\n    [4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],\n    [4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 4, 3, 4, 4, 4],\n    [4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 9, 4, 9, 4, 4, 4, 9, 4, 4, 4],\n    [4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 8, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 9, 4, 9, 4, 4, 4, 9, 4, 4, 4],\n    [4, 1, 4, 8, 4, 8, 4, 8, 4, 8, 4, 8, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],\n    [4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],\n    [4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],\n    [4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],\n    [4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: SyntaxError: '[' was never closed (<string>, line 59))"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 60,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 61,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 87,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 61,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform_value(value):\n        if value == 1:\n            return 1\n        elif value == 2:\n            return 2\n        elif value == 3:\n            return 3\n        elif value == 4:\n            return 4\n        elif value == 8:\n            return 8\n        elif value == 9:\n            return 3\n        elif value == 1:\n            return 1\n        else:\n            return value * 2\n\n    output_grid = []\n    for row in input_grid:\n        transformed_row = [transform_value(value) for value in row]\n        output_grid.append(transformed_row)\n\n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 208)"
+    }
+  ],
   "judging": null
 }

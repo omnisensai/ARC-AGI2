@@ -39,8 +39,378 @@
       "code": "def solve(input_grid):\n    return [[8 if v == 5 else 5 if v == 8 else v for v in row] for row in input_grid]\n",
       "source": "claude_agent_batch_006_v2_direct_write",
       "approach": "Agent v2 prompt; direct-to-disk."
+    },
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Define the transformation rules\n    transformation_rules = {\n        8: 5,\n        5: 8\n    }\n    \n    # Apply the transformation rules to the input grid\n    output_grid = []\n    for row in input_grid:\n        transformed_row = []\n        for value in row:\n            if value in transformation_rules:\n                transformed_row.append(transformation_rules[value])\n            else:\n                transformed_row.append(value)\n        output_grid.append(transformed_row)\n    \n    return output_grid\n\n# Test input\ntest_input = [\n    [8, 8, 4, 5],\n    [3, 8, 7, 5],\n    [3, 7, 1, 9],\n    [6, 4, 8, 8]\n]\n\n# Solve the test input\noutput = solve(test_input)\nprint(output)",
+      "source": "qwen-2.5-7b-instruct"
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Transpose the grid to make it easier to work with columns\n    transposed_grid = list(zip(*input_grid))\n    \n    # Apply the transformation rule to each row (which was originally a column)\n    transformed_rows = []\n    for row in transposed_grid[1:]:\n        new_row = [max(row[i], row[max(0, i-1)]) for i in range(len(row))]\n        transformed_rows.append(new_row)\n    \n    # Transpose back to get the result in the original format\n    output_grid = list(zip(*transformed_rows))\n    \n    # Convert each tuple back to a list\n    return [list(row) for row in output_grid]\n\n# Test the function with the provided test input\ntest_input = [\n    [8, 8, 4, 5],\n    [3, 8, 7, 5],\n    [3, 7, 1, 9],\n    [6, 4, 8, 8]\n]\n\noutput = solve(test_input)\nprint(output)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 12,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 6,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 4,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 9,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform_row(row):\n        count = {}\n        for num in row:\n            count[num] = count.get(num, 0) + 1\n        \n        transformed_row = []\n        for num in row:\n            if num == 2 and count.get(2, 0) > 1:\n                transformed_row.append(5)\n            elif num == 8 and count.get(8, 0) > 1:\n                transformed_row.append(5)\n            else:\n                transformed_row.append(max(8, num))\n        \n        return transformed_row\n\n    output_grid = [transform_row(row) for row in input_grid]\n    return output_grid\n\n# Test input\ntest_input = [\n    [8, 8, 4, 5],\n    [3, 8, 7, 5],\n    [3, 7, 1, 9],\n    [6, 4, 8, 8]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 22)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 20,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 7,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 7,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 13,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Initialize an empty list to hold the transformed rows\n    output_grid = []\n    \n    # Iterate over each row in the input grid\n    for row in input_grid:\n        # Find the maximum value in the current row\n        max_value = max(row)\n        \n        # Create a new row where all elements are replaced by the max_value\n        transformed_row = [max_value] * len(row)\n        \n        # Append the transformed row to the output grid\n        output_grid.append(transformed_row)\n    \n    return output_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [8, 8, 4, 5],\n    [3, 8, 7, 5],\n    [3, 7, 1, 9],\n    [6, 4, 8, 8]\n]\n\noutput = solve(test_input)\nprint(output)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 34)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 13,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 3,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 5,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 7,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def get_neighbors(x, y):\n        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]\n        neighbors = []\n        for dx, dy in directions:\n            nx, ny = x + dx, y + dy\n            if 0 <= nx < len(grid) and 0 <= ny < len(grid[0]):\n                neighbors.append((nx, ny))\n        return neighbors\n\n    grid = input_grid.copy()\n    rows, cols = len(grid), len(grid[0])\n\n    # Iterate over each cell and apply the transformation rule\n    for i in range(rows):\n        for j in range(cols):\n            current_value = grid[i][j]\n            for nx, ny in get_neighbors(i, j):\n                if grid[nx][ny] == current_value:\n                    grid[i][j] = grid[nx][ny]\n                    break\n\n    return grid\n\n# Test the function with the provided test input\ntest_input = [\n    [8, 8, 4, 5],\n    [3, 8, 7, 5],\n    [3, 7, 1, 9],\n    [6, 4, 8, 8]\n]\n\noutput = solve(test_input)\nprint(output)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 21)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 20,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 4,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 7,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 11,
+          "error": null
+        }
+      ],
+      "code": "from collections import Counter\n\ndef solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Step 1: Create a dictionary to store the frequency of each number in each row and column\n    row_counts = [Counter(row) for row in input_grid]\n    col_counts = [Counter(col) for col in zip(*input_grid)]\n    \n    # Step 2: Function to get the most frequent value in a row or column\n    def get_most_frequent(value, counts):\n        if value in counts:\n            return counts.most_common(1)[0][0] if counts.most_common(1)[0][1] > 1 else value\n        return value\n    \n    # Step 3: Apply the transformation\n    output_grid = []\n    for i in range(rows):\n        row_output = []\n        for j in range(cols):\n            row_count = row_counts[i]\n            col_count = col_counts[j]\n            value = input_grid[i][j]\n            most_frequent_value = get_most_frequent(value, row_count)\n            most_frequent_value = get_most_frequent(most_frequent_value, col_count)\n            row_output.append(most_frequent_value)\n        output_grid.append(row_output)\n    \n    return output_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [8, 8, 4, 5],\n    [3, 8, 7, 5],\n    [3, 7, 1, 9],\n    [6, 4, 8, 8]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 31)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 19,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 7,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 8,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 13,
+          "error": null
+        }
+      ],
+      "code": "from collections import Counter\n\ndef solve(input_grid):\n    def transform_column(column):\n        # Count the frequency of each element in the column\n        freq = Counter(column)\n        \n        # Find the most common element(s) in the column\n        most_common = freq.most_common(1)\n        \n        # If there's a unique most common element, return it; otherwise return the original element\n        if most_common and most_common[0][1] > 1:\n            most_common_value = most_common[0][0]\n        else:\n            most_common_value = column[0]\n        \n        return [most_common_value if x == column[0] else most_common_value for x in column]\n\n    output_grid = []\n    \n    # Iterate over each column\n    for j in range(len(input_grid[0])):\n        # Extract the current column\n        column = [row[j] for row in input_grid]\n        \n        # Transform the column\n        transformed_column = transform_column(column)\n        \n        # Append the transformed column to the output grid\n        output_grid.append(transformed_column)\n    \n    return output_grid\n\n# Test input\ntest_input = [\n    [8, 8, 4, 5],\n    [3, 8, 7, 5],\n    [3, 7, 1, 9],\n    [6, 4, 8, 8]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 34)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 2,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 1,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def get_nearest_value(grid, x, y):\n        min_distance = float('inf')\n        nearest_value = None\n        for i in range(len(grid)):\n            for j in range(len(grid[0])):\n                if grid[i][j] == 5 or grid[i][j] == 6:\n                    distance = abs(x - i) + abs(y - j)\n                    if distance < min_distance:\n                        min_distance = distance\n                        nearest_value = grid[i][j]\n        return nearest_value if nearest_value else 0\n    \n    output_grid = []\n    for i in range(len(input_grid)):\n        row = []\n        for j in range(len(input_grid[0])):\n            if input_grid[i][j] == 8:\n                nearest_value = get_nearest_value(input_grid, i, j)\n                row.append(nearest_value if nearest_value else 0)\n            elif input_grid[i][j] == 5:\n                row.append(8)\n            else:\n                row.append(input_grid[i][j])\n        output_grid.append(row)\n    \n    return output_grid\n\n# Test input\ntest_input = [\n    [8, 8, 4, 5],\n    [3, 8, 7, 5],\n    [3, 7, 1, 9],\n    [6, 4, 8, 8]\n]\n\noutput_grid = solve(test_input)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 1/3 training pairs (total cell-diff 2)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 18,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 6,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 7,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 11,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def replace_smallest_value(row):\n        # Find the smallest value in the row\n        min_value = min(row)\n        # Find the index of the smallest value\n        min_index = row.index(min_value)\n        # Replace the smallest value with the second smallest value\n        sorted_row = sorted(row)\n        second_min_value = sorted_row[1]\n        row[min_index] = second_min_value\n        return row\n\n    # Process each row of the input grid\n    output_grid = [replace_smallest_value(row) for row in input_grid]\n    return output_grid\n\n# Test the function with the provided input\ntest_input = [\n    [8, 8, 4, 5],\n    [3, 8, 7, 5],\n    [3, 7, 1, 9],\n    [6, 4, 8, 8]\n]\n\noutput = solve(test_input)\nprint(output)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 31)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 13,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 3,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 5,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 7,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Get the number of rows and columns in the grid\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if rows > 0 else 0\n    \n    # Create a new grid to store the result\n    output_grid = [row[:] for row in input_grid]\n    \n    # Iterate over each row\n    for i in range(rows):\n        # Store the leftmost occurrences of the values in the current row\n        seen_values = {}\n        for j in range(cols):\n            value = input_grid[i][j]\n            if value not in seen_values:\n                seen_values[value] = j\n        \n        # Replace each value in the row with the corresponding leftmost value\n        for j in range(cols):\n            original_value = input_grid[i][j]\n            if original_value in seen_values:\n                output_grid[i][j] = input_grid[i][seen_values[original_value]]\n    \n    return output_grid\n\n# Test the function with the given input\ntest_input = [\n    [8, 8, 4, 5],\n    [3, 8, 7, 5],\n    [3, 7, 1, 9],\n    [6, 4, 8, 8]\n]\n\nprint(solve(test_input))",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 21)"
+    }
+  ],
   "judging": null
 }

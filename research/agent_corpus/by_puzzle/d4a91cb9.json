@@ -41,6 +41,319 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list index out of range"
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list index out of range"
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list index out of range"
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list index out of range"
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the position of the 8 in the input grid\n    for i, row in enumerate(input_grid):\n        if 8 in row:\n            x = row.index(8)\n            break\n    \n    # Calculate the width of the input grid\n    width = len(input_grid[0])\n    \n    # Initialize the output grid with zeros\n    output_grid = [[0] * width for _ in range(len(input_grid))]\n    \n    # Copy the rest of the grid except for the column where the 8 is located\n    for i in range(len(input_grid)):\n        for j in range(width):\n            if j != x:\n                output_grid[i][j] = input_grid[i][j]\n    \n    # Determine the number of fours to place based on the position of 8\n    num_fours = min(i, width - x - 1) + min(len(input_grid) - i - 1, x)\n    \n    # Place the fours in the appropriate positions\n    for j in range(num_fours):\n        output_grid[i][x + j + 1] = 4\n        output_grid[i + j + 1][x] = 4\n    \n    # Place the 2 at the bottom right corner\n    output_grid[-1][-1] = 2\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 13,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 14,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 13,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the row with the number\n    for i, row in enumerate(input_grid):\n        if 8 in row or 2 in row:\n            row_with_number = i\n            break\n    \n    # Find the first occurrence of the number 8 or 2\n    for j, val in enumerate(input_grid[row_with_number]):\n        if val != 0:\n            col_with_number = j\n            break\n    \n    # Calculate the size of the pattern\n    size = 0\n    while input_grid[row_with_number + size][col_with_number] == 0 and size < len(input_grid):\n        size += 1\n    \n    # Create the output grid\n    output_grid = [[0] * len(input_grid[0]) for _ in range(len(input_grid))]\n    \n    # Copy the original values where they don't change\n    for i in range(len(output_grid)):\n        for j in range(len(output_grid[0])):\n            if (i < row_with_number or i >= row_with_number + size) or (j < col_with_number - size + 1 or j >= col_with_number + size):\n                output_grid[i][j] = input_grid[i][j]\n    \n    # Apply the transformation rules\n    for i in range(row_with_number, row_with_number + size):\n        for j in range(col_with_number - size + 1, col_with_number + size):\n            if input_grid[row_with_number][col_with_number] == 8:\n                output_grid[i][j] = min(size, 8)\n            elif input_grid[row_with_number][col_with_number] == 2:\n                output_grid[i][j] = min(size, 2)\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 37)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 12,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 9,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 14,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the position of the '8' or '2'\n    for i, row in enumerate(input_grid):\n        for j, val in enumerate(row):\n            if val > 0:\n                peak_pos = (i, j)\n                break\n        else:\n            continue\n        break\n    \n    # Determine the direction of the peak\n    dir_x, dir_y = 0, 0\n    if peak_pos[0] < len(input_grid) - 1 and input_grid[peak_pos[0]+1][peak_pos[1]] == 0:\n        dir_x = 1\n    elif peak_pos[0] > 0 and input_grid[peak_pos[0]-1][peak_pos[1]] == 0:\n        dir_x = -1\n    elif peak_pos[1] < len(input_grid[0]) - 1 and input_grid[peak_pos[0]][peak_pos[1]+1] == 0:\n        dir_y = 1\n    elif peak_pos[1] > 0 and input_grid[peak_pos[0]][peak_pos[1]-1] == 0:\n        dir_y = -1\n    \n    # Calculate the number of steps to fill in\n    steps = abs(val - 4)\n    \n    # Fill in the grid\n    while steps > 0:\n        # Move in the determined direction\n        new_x, new_y = peak_pos[0] + dir_x, peak_pos[1] + dir_y\n        input_grid[new_x][new_y] = 4\n        steps -= 1\n        \n        # Change direction based on the boundary conditions\n        if (dir_x == 1 and new_x >= len(input_grid) - 1) or \\\n           (dir_x == -1 and new_x <= 0) or \\\n           (dir_y == 1 and new_y >= len(input_grid[0]) - 1) or \\\n           (dir_y == -1 and new_y <= 0):\n            dir_x, dir_y = -dir_y, dir_x\n    \n    return input_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 36)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 12,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 16,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def find_value(i, j):\n        if i == 0 or j == 0 or i == len(input_grid) - 1 or j == len(input_grid[0]) - 1:\n            return input_grid[i][j]\n        else:\n            return 0\n\n    output_grid = []\n    for i in range(len(input_grid)):\n        row = []\n        for j in range(len(input_grid[0])):\n            value = input_grid[i][j] // 2\n            if input_grid[i][j] % 2 != 0:\n                value += 1\n            row.append(find_value(i, j) + value)\n        output_grid.append(row)\n\n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 43)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 14,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 11,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 14,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def find_8(grid):\n        for i, row in enumerate(grid):\n            for j, val in enumerate(row):\n                if val == 8:\n                    return i, j\n        return None\n\n    def transform_8(grid):\n        i, j = find_8(grid)\n        if i is None:\n            return grid\n        \n        # Determine the width of the 8\n        width = 0\n        while i + width < len(grid) and grid[i + width][j] != 0:\n            width += 1\n        \n        # Determine the height of the 8\n        height = 0\n        while j + height < len(grid[0]) and grid[i][j + height] != 0:\n            height += 1\n        \n        # Calculate the center point of the 8\n        center_i = i + width // 2\n        center_j = j + height // 2\n        \n        # Replace the 8 with a rectangle of fours\n        for x in range(i, i + width):\n            for y in range(j, j + height):\n                if (x - center_i)**2 + (y - center_j)**2 <= (width // 2)**2:\n                    grid[x][y] = 4\n                else:\n                    grid[x][y] = 2\n        \n        return grid\n\n    return transform_8(input_grid)\n\n# Test the function\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 40)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list index out of range"
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list index out of range"
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list index out of range"
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list index out of range"
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the row containing the number 2 or 8\n    for y, row in enumerate(input_grid):\n        if 2 in row or 8 in row:\n            break\n    \n    # If no such row exists, return the original grid\n    if y == len(input_grid):\n        return input_grid\n    \n    # Calculate the number of fours to place before the 2 or 8\n    num_fours = (input_grid[y].index(2) if 2 in row else len(row)) - (row.index(8) if 8 in row else -1)\n    \n    # Create the output grid\n    output_grid = [[0] * len(input_grid[0]) for _ in range(len(input_grid))]\n    \n    # Copy the original grid to the output grid\n    for x in range(len(input_grid[0])):\n        for y in range(len(input_grid)):\n            output_grid[y][x] = input_grid[y][x]\n    \n    # Place the fours in the appropriate positions\n    for x in range(num_fours):\n        output_grid[y + 1][x] = 4\n    \n    # Place the 2 or 8 in its original position\n    for y in range(len(output_grid)):\n        for x in range(len(output_grid[0])):\n            if input_grid[y][x] == 2 or input_grid[y][x] == 8:\n                output_grid[y][x] = input_grid[y][x]\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 13,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 14,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 13,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the position of the highest value (which is always 2) in the grid\n    for i, row in enumerate(input_grid):\n        if 2 in row:\n            break\n    \n    for j, val in enumerate(row):\n        if val == 2:\n            break\n    \n    # Calculate the distance from the rightmost position with value 2\n    target_row = i\n    target_col = j + (2 - (sum(row[j+1:]) // 4))\n    \n    output_grid = [[0] * len(input_grid[0]) for _ in range(len(input_grid))]\n    \n    # Fill the output grid based on the rules derived from the training pairs\n    for r in range(len(input_grid)):\n        for c in range(len(input_grid[r])):\n            if input_grid[r][c] == 0:\n                output_grid[r][c] = 0\n            elif input_grid[r][c] == 2:\n                output_grid[r][c] = 2\n            else:\n                # Calculate the distance from the target cell\n                distance = abs(r - target_row) + abs(c - target_col)\n                output_grid[r][c] = min(distance * 4, 8)\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 37)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 11,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 26,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 25,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the row with the number\n    for i, row in enumerate(input_grid):\n        if 2 in row or 8 in row:\n            break\n    \n    # Find the column index of the number\n    col_index = row.index(2) if 2 in row else row.index(8)\n    \n    # Calculate the transformation factor (always 4 for the given examples)\n    transformation_factor = 4\n    \n    # Create a new grid with the same dimensions\n    output_grid = [[0] * len(input_grid[0]) for _ in range(len(input_grid))]\n    \n    # Copy values from input_grid to output_grid, applying transformation where needed\n    for i in range(len(output_grid)):\n        for j in range(len(output_grid[i])):\n            if i == i and j == col_index:\n                output_grid[i][j] = transformation_factor\n            elif i < i and j <= col_index:\n                output_grid[i][j] = transformation_factor // 2\n            elif i > i and j >= col_index:\n                output_grid[i][j] = transformation_factor // 2\n            else:\n                output_grid[i][j] = input_grid[i][j]\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 47)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "# Training pair 1\ninput_grid1 = [\n    [0]*12,\n    [0]*12,\n    [0, 8, 0]*4,\n    [0]*12,\n    [0]*12,\n    [0]*12,\n    [0]*12,\n    [0]*12,\n    [0]*12,\n    [0]*12,\n    [0]*12,\n    [0]*12,\n]\n\noutput_grid1 = solve(input_grid1)\n\n# Expected output for training pair 1\nexpected_output1 = [\n    [0]*12,\n    [0]*12,\n    [0, 8, 0]*4,\n    [0]*12,\n    [0]*12,\n    [0]*12,\n    [0]*12,\n    [0]*12,\n    [0, 4, 4, 4, 4]*4,\n    [0]*12,\n    [0]*12,\n]\n\nprint(output_grid1 == expected_output1)\n\n# Test input\ninput_grid_test = [\n    [0]*13,\n    [0]*13,\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0]*13,\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0]*13,\n    [0]*13,\n    [0]*13,\n    [0]*13,\n    [0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0]*13,\n    [0]*13,\n    [0]*13,\n    [0]*13,\n]\n\noutput_grid_test = solve(input_grid_test)\n\n# Expected output for test input\nexpected_output_test = [\n    [0]*13,\n    [0]*13,\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0]*13,\n    [0, 0, 0, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0],\n    [0]*13,\n    [0]*13,\n    [0]*13,\n    [0]*13,\n    [0, 0, 4, 8, 8, 8, 4, 0, 0, 0, 0, 0, 0],\n    [0]*13,\n    [0]*13,\n    [0]*13,\n    [0]*13,\n]\n\nprint(output_grid_test == expected_output_test)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "test_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    }
+  ],
   "judging": null
 }

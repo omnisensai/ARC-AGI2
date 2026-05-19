@@ -41,6 +41,261 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "test_input = [\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 1, 8, 8, 1, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 1, 1, 1, 1, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 1, 1, 1, 1, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 2, 2, 2, 2, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 2, 2, 2, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 2, 2, 2, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 4, 4, 4, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 4, 8, 4, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]\n]\n\noutput_grid = solve(test_input)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 147,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 18,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 28,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 166,
+          "error": null
+        }
+      ],
+      "code": "from collections import deque\n\ndef solve(input_grid):\n    # Directions for movement: right, down, left, up\n    directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]\n    \n    def bfs(x, y):\n        queue = deque([(x, y, 0)])  # Starting point with distance 0\n        visited = set()\n        \n        while queue:\n            cx, cy, distance = queue.popleft()\n            \n            if (cx, cy) in visited:\n                continue\n            visited.add((cx, cy))\n            \n            if distance > 0:\n                input_grid[cx][cy] = distance\n            \n            for dx, dy in directions:\n                nx, ny = cx + dx, cy + dy\n                if 0 <= nx < len(input_grid) and 0 <= ny < len(input_grid[0]) and input_grid[nx][ny] == 8:\n                    queue.append((nx, ny, distance + 1))\n                    \n    for i in range(len(input_grid)):\n        for j in range(len(input_grid[0])):\n            if input_grid[i][j] != 8:\n                bfs(i, j)\n                \n    return input_grid\n\n# Example usage\ninput_grid = [\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 1, 8, 8, 1, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 1, 1, 1, 1, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 1, 1, 1, 1, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 2, 2, 2, 2, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 2, 2, 2, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 2, 2, 2, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 4, 4, 4, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 4, 8, 4, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]\n]\n\noutput_grid = solve(input_grid)\nfor row in output_grid:\n    print(' '.join(map(str, row)))",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 193)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 38,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 34,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 62,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 25,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # First, determine the size of the input grid\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if rows > 0 else 0\n    \n    # Create an empty output grid with the same dimensions\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Iterate over each cell in the input grid\n    for r in range(rows):\n        for c in range(cols):\n            # If the current cell is not 8, replace it with the minimum value in its row or column\n            if input_grid[r][c] != 8:\n                # Find the minimum value in the current row\n                min_row_val = min(input_grid[r])\n                # Find the minimum value in the current column\n                min_col_val = min(input_grid[i][c] for i in range(rows))\n                # The output value will be the minimum of these two values\n                output_grid[r][c] = min(min_row_val, min_col_val)\n            else:\n                # If the current cell is 8, keep it as 8\n                output_grid[r][c] = 8\n                \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 134)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: SyntaxError: closing parenthesis ']' does not match opening parenthesis '(' (<string>, line 7)",
+      "pairs": [],
+      "code": "def check_solution():\n    # Test cases\n    test_cases = [\n        ([[8]*15]*16 + [[8]*15] + [[8]*15]*15),\n        ([[1]*15]*2 + [[1]*15 + [1, 1, 1, 1, 1, 4, 4, 4, 1, 1, 1] * 3] + [[1]*15]*11),\n        ([[3]*15]*2 + [[3]*15 + [3, 3, 2, 2, 2, 3] * 2 + [3, 3, 2, 2, 2, 3] * 2 + [3, 3, 7, 7, 7, 3] * 2] + [[3]*15]*2 + [[3]*15 + [3, 8, 8, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3] * 2] * 4 + [[3]*15]*2),\n        ([[8]*15]*2 + [[8]*15 + [8]*11 + [8, 8, 1, 8, 8, 1, 8, 8, 8, 8, 8, 8, 8, 8], [8]*15] + [[8]*15]*12 + [[8]*15 + [8]*11 + [8, 8, 1, 1, 1, 1, 8, 8, 8, 8, 8, 8, 8, 8], [8]*15] * 4 + [[8]*15]*9 + [[8]*15 + [8]*11 + [8, 8, 2, 2, 2, 8, 8, 8, 8, 8, 8, 8, 8, 8], [8]*15] * 3 + [[8]*15]*2 + [[8]*15 + [8]*11 + [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8], [8]*15] * 8 + [[8]*15]],\n    ]\n    \n    # Expected results\n    expected_results = [\n        ([8]*15 + [8]*14 + [6]*3 + [8]*1,\n         [8]*15 + [8]*14 + [6]*3 + [8]*1,\n         [8]*15 + [8]*14 + [6]*3 + [8]*1,\n         [8]*15 + [8]*14 + [6]*3 + [8]*1,\n         [8]*15 + [8]*14 + [3]*3 + [8]*1,\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8]),\n        \n        ([1]*15 + [1]*11 + [1, 4, 4, 4, 1, 1, 1],\n         [1]*15 + [1]*11 + [1, 4, 4, 4, 1, 1, 1],\n         [1]*15 + [1]*11 + [1, 4, 4, 4, 1, 1, 1],\n         [1]*15 + [1]*11 + [1, 4, 4, 4, 1, 1, 1],\n         [1]*15 + [1]*11 + [1, 4, 4, 4, 1, 1, 1],\n         [1]*15 + [1]*11 + [1, 4, 4, 4, 1, 1, 1],\n         [1]*15 + [1]*11 + [1, 1, 1, 2, 2, 2, 2],\n         [1]*15 + [1]*11 + [1, 1, 1, 2, 2, 2, 2],\n         [1]*15 + [1]*15 + [1]*15 + [1]*15 + [1]*15,\n         [1]*15 + [1]*15 + [1]*15 + [1]*15 + [1]*15,\n         [1]*15 + [1]*15 + [1]*15 + [1]*15 + [1]*15,\n         [1]*15 + [1]*15 + [1]*15 + [1]*15 + [1]*15,\n         [1]*15 + [1]*15 + [1]*15 + [1]*15 + [1]*15,\n         [1]*15 + [1]*15 + [1]*15 + [1]*15 + [1]*15,\n         [1]*15 + [1]*15 + [1]*15 + [1]*15 + [1]*15),\n        \n        ([3]*15 + [3]*11 + [3, 3, 3, 2, 2, 2, 3],\n         [3]*15 + [3]*11 + [3, 3, 3, 2, 2, 2, 3],\n         [3]*15 + [3]*11 + [3, 3, 3, 3, 3, 2, 2],\n         [3]*15 + [3]*11 + [3, 3, 3, 3, 3, 2, 2],\n         [3]*15 + [3]*11 + [3, 3, 3, 3, 3, 3, 3],\n         [3]*15 + [3]*11 + [8, 8, 8, 8, 8, 3, 3],\n         [3]*15 + [3]*11 + [8, 8, 8, 8, 8, 3, 3],\n         [3]*15 + [3]*11 + [8, 8, 8, 8, 8, 8, 8],\n         [3]*15 + [3]*11 + [8, 8, 8, 8, 8, 8, 8],\n         [3]*15 + [3]*11 + [8, 8, 8, 8, 8, 8, 8],\n         [3]*15 + [3]*11 + [8, 8, 6, 6, 6, 6, 3],\n         [3]*15 + [3]*11 + [8, 8, 6, 6, 6, 6, 3],\n         [3]*15 + [3]*11 + [3, 3, 3, 3, 3, 3, 3],\n         [3]*15 + [3]*11 + [3, 3, 3, 3, 3, 3, 3],\n         [3]*15 + [3]*15 + [3]*15 + [3]*15 + [3]*15),\n        \n        ([8]*15 + [8]*11 + [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n         [8]*15 + [8]*11 + [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n         [8]*15 + [8]*11 + [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n         [8]*15 + [8]*11 + [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n         [8]*15 + [8]*11 + [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8],\n         [8]*15 + [8]*15 + [8]*15 + [8]*15 + [8]\n        )\n    ]\n    \n    # Solve the test case and compare with expected results\n    for i, (input_grid, expected_output) in enumerate(zip(test_cases, expected_results)):\n        output_grid = solve(input_grid)\n        assert output_grid == expected_output, f\"Test case {i} failed: expected {expected_output}, got {output_grid}\"\n    print(\"All test cases passed!\")\n    \ncheck_solution()",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: SyntaxError: closing parenthesis ']' does not match opening parenthesis '(' (<string>, line 7))"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": "TypeError: unsupported operand type(s) for -: 'list' and 'int'"
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": "TypeError: unsupported operand type(s) for -: 'list' and 'int'"
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": "TypeError: unsupported operand type(s) for -: 'list' and 'int'"
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": null,
+          "error": "TypeError: unsupported operand type(s) for -: 'list' and 'int'"
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Define the transformation rules\n    def transform_value(value):\n        if value == 1:\n            return [1, 1, 2, 2]\n        elif value == 2:\n            return [3, 3, 3, 4]\n        elif value == 3:\n            return [5, 5, 5, 5]\n        elif value == 4:\n            return [6, 6, 6, 6]\n        elif value == 6:\n            return [7, 7, 7, 7]\n        elif value == 8:\n            return [8, 8, 8, 8]\n        else:\n            return value\n    \n    for i in range(rows):\n        for j in range(cols):\n            if input_grid[i][j] != 8:\n                # Expand the value to the right and down\n                new_value = transform_value(input_grid[i][j])\n                if isinstance(new_value, list):\n                    # If the value is a list, it means we need to expand it\n                    for k in range(len(new_value)):\n                        output_grid[i + k][j:j + len(new_value)] = new_value[:len(output_grid[i + k] - j)]\n                else:\n                    output_grid[i][j] = new_value\n            else:\n                output_grid[i][j] = 8\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 192,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 144,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 156,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 182,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Determine the size of the grid\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Create an empty output grid with the same dimensions\n    output_grid = [[0 for _ in range(cols)] for _ in range(rows)]\n    \n    # Process each cell in the input grid\n    for i in range(rows):\n        for j in range(cols):\n            current_value = input_grid[i][j]\n            \n            # Update cells that are not 8\n            if current_value != 8:\n                # Check the left neighbor\n                left_value = input_grid[i][j - 1] if j > 0 else 8\n                # Check the right neighbor\n                right_value = input_grid[i][j + 1] if j < cols - 1 else 8\n                # Check the top neighbor\n                top_value = input_grid[i - 1][j] if i > 0 else 8\n                # Check the bottom neighbor\n                bottom_value = input_grid[i + 1][j] if i < rows - 1 else 8\n                \n                # Update the value based on neighbors\n                if left_value == 8 and right_value == 8 and top_value == 8 and bottom_value == 8:\n                    output_grid[i][j] = current_value\n                elif current_value < min(left_value, right_value, top_value, bottom_value):\n                    output_grid[i][j] = current_value\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 492)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: ValueError: too many values to unpack (expected 2)",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    def update_cell(x, y):\n        if grid[x][y] > min_val:\n            grid[x][y] = min_val\n    \n    height, width = len(input_grid), len(input_grid[0])\n    grid = [[input_grid[i][j] for j in range(width)] for i in range(height)]\n    \n    # Find all unique cells and their minimum values\n    cells = set()\n    for x in range(height):\n        for y in range(width):\n            cells.add((input_grid[x][y], x, y))\n    \n    min_vals = {}\n    for val, x, y in cells:\n        if val not in min_vals:\n            min_vals[val] = [val]\n        \n        # Find minimum value around the current cell\n        min_val = val\n        for dx, dy in [(0, 1), (1, 0), (-1, 0), (0, -1)]:\n            nx, ny = x + dx, y + dy\n            if 0 <= nx < height and 0 <= ny < width:\n                min_val = min(min_val, grid[nx][ny])\n        \n        min_vals[val].append(min_val)\n    \n    # Update the grid\n    for val, min_val in min_vals.items():\n        min_val = min(min_val[:-1])  # Exclude the original value itself\n        for x, y in cells:\n            if input_grid[x][y] == val:\n                update_cell(x, y)\n    \n    return grid\n\n# Test the function with the provided test input\ntest_input = [\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 1, 8, 8, 1, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 1, 1, 1, 1, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 1, 1, 1, 1, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 2, 2, 2, 2, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 2, 2, 2, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 2, 2, 2, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 4, 4, 4, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 4, 8, 4, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]\n]\n\nprint(solve(test_input))",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: ValueError: too many values to unpack (expected 2))"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find transformations for rows with different values\n    transformed_rows = []\n    for row in input_grid:\n        if len(set(row)) == 1:  # If all cells in the row are the same, keep them\n            transformed_rows.append(row)\n        else:\n            transformed_row = [row[0]]\n            for i in range(1, len(row)):\n                if row[i] != row[i-1]:\n                    # Append the new value only once when transitioning to a new value\n                    transformed_row.append(row[i])\n                elif row[i] == row[i-1]:\n                    # Append None or any other placeholder to avoid duplicates\n                    if transformed_row[-1] != row[i]:\n                        transformed_row.append(None)\n            # Remove placeholders at the end\n            while transformed_row and transformed_row[-1] is None:\n                transformed_row.pop()\n            transformed_rows.append(transformed_row)\n\n    # Convert back to list of lists of int\n    output_grid = [[int(cell) if cell is not None else cell for cell in row] for row in transformed_rows]\n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "timeout after 20s",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    # Get the dimensions of the grid\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Helper function to perform DFS and find the minimum value in a connected component\n    def dfs(x, y):\n        stack = [(x, y)]\n        min_val = input_grid[x][y]\n        while stack:\n            cx, cy = stack.pop()\n            if input_grid[cx][cy] != 8:\n                min_val = min(min_val, input_grid[cx][cy])\n                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                    nx, ny = cx + dx, cy + dy\n                    if 0 <= nx < rows and 0 <= ny < cols and input_grid[nx][ny] != 8:\n                        stack.append((nx, ny))\n        return min_val\n    \n    # Create the output grid\n    output_grid = [[0 for _ in range(cols)] for _ in range(rows)]\n    \n    # Process each cell in the grid\n    for i in range(rows):\n        for j in range(cols):\n            if input_grid[i][j] != 8:\n                output_grid[i][j] = dfs(i, j)\n    \n    return output_grid\n\n# Test the function with provided input\ntest_input = [\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 1, 8, 8, 1, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 1, 1, 1, 1, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 1, 1, 1, 1, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 2, 2, 2, 2, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 2, 2, 2, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 2, 2, 2, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 4, 4, 4, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 4, 8, 4, 8, 8, 8, 8],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (timeout after 20s)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 38,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 43,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 24,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 29,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    output_grid = [[0 for _ in range(cols)] for _ in range(rows)]\n    \n    for r in range(rows):\n        for c in range(cols):\n            if input_grid[r][c] == 8:\n                output_grid[r][c] = 8\n            elif input_grid[r][c] == 1:\n                output_grid[r][c] = 1\n            elif input_grid[r][c] == 2:\n                output_grid[r][c] = 3\n            elif input_grid[r][c] == 3:\n                output_grid[r][c] = 3\n            elif input_grid[r][c] == 4:\n                output_grid[r][c] = 3\n            elif input_grid[r][c] == 5:\n                output_grid[r][c] = 3\n            elif input_grid[r][c] == 6:\n                output_grid[r][c] = 3\n            elif input_grid[r][c] == 7:\n                output_grid[r][c] = 3\n            elif input_grid[r][c] == 8:\n                output_grid[r][c] = 8\n            else:\n                for dr in range(-1, 2):\n                    for dc in range(-1, 2):\n                        if dr == 0 and dc == 0:\n                            continue\n                        nr, nc = r + dr, c + dc\n                        if 0 <= nr < rows and 0 <= nc < cols:\n                            if input_grid[nr][nc] != 8:\n                                output_grid[r][c] = input_grid[nr][nc]\n                \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 105)"
+    }
+  ],
   "judging": null
 }

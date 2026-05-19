@@ -41,6 +41,290 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 62,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 40,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 50,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 97,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if rows > 0 else 0\n    output_grid = [[0] * cols for _ in range(rows)]\n\n    for r in range(rows):\n        for c in range(cols):\n            if input_grid[r][c] == 0:\n                output_grid[r][c] = 0\n            else:\n                neighbor_values = []\n                for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                    nr, nc = r + dr, c + dc\n                    if 0 <= nr < rows and 0 <= nc < cols:\n                        neighbor_values.append(input_grid[nr][nc])\n                \n                if len(set(neighbor_values)) == 1:\n                    output_grid[r][c] = neighbor_values[0]\n                else:\n                    output_grid[r][c] = input_grid[r][c]\n\n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 152)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 174,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform(row):\n        new_row = []\n        for i in range(len(row) - 1):\n            if row[i] == 0 and row[i + 1] != 0:\n                new_row.append(0)\n            elif row[i] != 0 and row[i + 1] == 0:\n                new_row.append(row[i])\n            else:\n                new_row.append(row[i] if row[i] < row[i + 1] else row[i + 1])\n        if len(row) > 1 and row[-1] != 0:\n            new_row.append(row[-1])\n        return new_row\n\n    output_grid = []\n    for row in input_grid:\n        transformed_row = transform(row)\n        if row[0] == 0:\n            transformed_row = [0] + transformed_row\n        output_grid.append(transformed_row)\n\n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 174)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 270,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 477,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 225,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 537,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform_cell(cell):\n        if cell == 0:\n            return 0\n        elif cell % 2 == 0:\n            return cell // 2\n        else:\n            return cell + 3\n    \n    output_grid = []\n    for row in input_grid:\n        transformed_row = [transform_cell(cell) for cell in row]\n        output_grid.append(transformed_row)\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 972)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: SyntaxError: '[' was never closed (<string>, line 44)",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    def transform(grid):\n        rows = len(grid)\n        cols = len(grid[0]) if rows else 0\n        output_grid = [[0] * cols for _ in range(rows)]\n        \n        for r in range(rows):\n            for c in range(cols):\n                if grid[r][c] == 0:\n                    output_grid[r][c] = 0\n                else:\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        nr, nc = r + dr, c + dc\n                        if 0 <= nr < rows and 0 <= nc < cols and grid[nr][nc] != 0:\n                            output_grid[r][c] = grid[nr][nc]\n                            break\n        \n        return output_grid\n    \n    return transform(input_grid)\n\n# Test the function with the provided test input\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4],\n    [4, 3, 3, 3, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4],\n    [4, 3, 3, 3, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4],\n    [4, 3, 3, 3, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4],\n    [4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4],\n    [4, 2, 2, 2, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4],\n    [4, 2, 2, 2, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4],\n    [4, 2, 2, 2, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4],\n    [4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4],\n    [4, 3, 3, 3, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4],\n    [4, 3, 3, 3, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4],\n    [4, 3, 3, 3, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4],\n    [4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: SyntaxError: '[' was never closed (<string>, line 44))"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 32,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 56,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 30,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 132,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform_cell(cell):\n        if cell == 0:\n            return 0\n        elif cell == 2:\n            return 2\n        elif cell == 3:\n            return 3\n        elif cell == 4:\n            return 4\n        elif cell == 8:\n            return 3\n        else:\n            return cell\n    \n    output_grid = []\n    for row in input_grid:\n        transformed_row = [transform_cell(cell) for cell in row]\n        output_grid.append(transformed_row)\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 118)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 62,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 76,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 134,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 120,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def apply_rule(grid, value):\n        for i in range(len(grid)):\n            for j in range(len(grid[0])):\n                if grid[i][j] == value:\n                    if value == 1:\n                        if i > 0 and grid[i-1][j] == 1:\n                            grid[i][j] = 2\n                        elif i > 1 and grid[i-2][j] == 1:\n                            grid[i][j] = 2\n                    elif value == 3:\n                        if i > 0 and grid[i-1][j] == 1:\n                            grid[i][j] = 1\n                        elif i > 0 and grid[i-1][j] == 2:\n                            grid[i][j] = 2\n                    elif value == 2:\n                        if grid[i][j] == 2 and (i < len(grid) - 1 and grid[i+1][j] == 1):\n                            grid[i][j] = 1\n                        elif grid[i][j] == 2 and (i < len(grid) - 2 and grid[i+2][j] == 1):\n                            grid[i][j] = 1\n                    elif value == 4:\n                        if i > 0 and grid[i-1][j] == 1:\n                            grid[i][j] = 2\n                        elif i > 0 and grid[i-1][j] == 2:\n                            grid[i][j] = 1\n                    elif value == 8:\n                        if i < len(grid) - 1 and grid[i+1][j] == 1:\n                            grid[i][j] = 2\n                        elif i < len(grid) - 2 and grid[i+2][j] == 1:\n                            grid[i][j] = 2\n\n    output_grid = [row[:] for row in input_grid]\n    for value in [1, 2, 3, 4, 8]:\n        apply_rule(output_grid, value)\n\n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 272)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: SyntaxError: '[' was never closed (<string>, line 44)",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    def transform(row):\n        new_row = []\n        for i in range(len(row)):\n            if row[i] == 0:\n                new_row.append(0)\n            elif row[i] % 2 == 0:\n                if i > 0 and row[i-1] != 0:\n                    new_row.append(row[i-1])\n                else:\n                    new_row.append(row[i])\n            else:\n                if i > 0 and row[i-1] != 0:\n                    new_row.append(row[i-1])\n                else:\n                    new_row.append(row[i])\n        return new_row\n\n    return [transform(row) for row in input_grid]\n\n# Test the function\ninput_grid = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4],\n    [4, 3, 3, 3, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4],\n    [4, 3, 3, 3, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4],\n    [4, 3, 3, 3, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4],\n    [4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4],\n    [4, 2, 2, 2, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4],\n    [4, 2, 2, 2, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4],\n    [4, 2, 2, 2, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4],\n    [4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4],\n    [4, 3, 3, 3, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4],\n    [4, 3, 3, 3, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4],\n    [4, 3, 3, 3, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4],\n    [4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, ",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: SyntaxError: '[' was never closed (<string>, line 44))"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 32,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 56,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 30,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 132,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform(grid):\n        output_grid = []\n        for row in grid:\n            output_row = []\n            for i, cell in enumerate(row):\n                if cell == 0:\n                    output_row.append(0)\n                elif cell == 2:\n                    output_row.append(2)\n                elif cell == 3:\n                    output_row.append(3)\n                elif cell == 4:\n                    output_row.append(4)\n                elif cell == 8:\n                    output_row.append(2)\n                elif cell == 1:\n                    output_row.append(1)\n                elif cell == 2 and i > 0 and row[i - 1] == 2:\n                    output_row.append(2)\n                elif cell == 2 and i < len(row) - 1 and row[i + 1] == 2:\n                    output_row.append(2)\n                else:\n                    output_row.append(0)\n            output_grid.append(output_row)\n        return output_grid\n\n    return transform(input_grid)\n\n# Example usage:\ninput_grid = [\n    [0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4],\n    [0, 4, 3, 3, 3, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4],\n    # ... (remaining rows as in the test input)\n]\n\noutput_grid = solve(input_grid)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 118)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: SyntaxError: '[' was never closed (<string>, line 32)",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    def transform(row):\n        result = []\n        for i in range(len(row)):\n            if row[i] == 0:\n                result.append(0)\n            elif row[i] % 2 == 1:\n                result.append(row[i] + 2)\n            else:\n                result.append(row[i] // 2)\n        return result\n    \n    return [transform(row) for row in input_grid]\n\n# Test the function\ninput_grid = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0],\n    [0, 4, 3, 3, 3, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4, 3, 3, 3, 4, 0],\n    [0, 4, 3, 3, 3, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4, 3, 3, 3, 4, 0],\n    [0, 4, 3, 3, 3, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4, 3, 3, 3, 4, 0, 0, 4, 3, 3, 3, 4, 0],\n    [0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0],\n    [0, 4, 2, 2, 2, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 2, 2, 2, 4, 0],\n    [0, 4, 2, 2, 2, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 2, 2, 2, 4, 0],\n    [0, 4, 2, 2, 2, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 2, 2, 2, 4, 0, 0, 4, 8, 8, 8, 4, 0, 0, 4, 2, 2, 2, 4, 0],\n    [0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0, 0, 4, 4, 4, 4, 4, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 4, 4, 4,",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: SyntaxError: '[' was never closed (<string>, line 32))"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 270,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 477,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 225,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 537,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform_cell(cell):\n        if cell == 0:\n            return 0\n        elif cell > 3:\n            return cell - 2\n        else:\n            return cell + 1\n\n    output_grid = []\n    for row in input_grid:\n        new_row = [transform_cell(cell) for cell in row]\n        output_grid.append(new_row)\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 972)"
+    }
+  ],
   "judging": null
 }

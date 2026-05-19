@@ -41,6 +41,377 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 7,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 8,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 7,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 7,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Create a copy of the input grid to modify\n    output_grid = [[input_grid[i][j] for j in range(cols)] for i in range(rows)]\n    \n    # Identify the transformation rule: change cells to the right of the first non-7 cell to the leftmost non-7 cell's value\n    for row in output_grid:\n        last_7_position = None\n        for i in range(len(row)):\n            if row[i] != 7:\n                if last_7_position is not None:\n                    # Change all cells to the right of the first non-7 cell to the value of the leftmost non-7 cell\n                    for j in range(i, len(row)):\n                        row[j] = row[last_7_position]\n                last_7_position = None\n            else:\n                last_7_position = i\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 22)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 17,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 14,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Find the row where the transformation starts\n    transform_row = None\n    for i in range(rows):\n        if any(input_grid[i][j] != 7 for j in range(cols)):\n            transform_row = i\n            break\n    \n    # If no row with non-7 elements is found, return the original grid\n    if transform_row is None:\n        return input_grid\n    \n    # Determine the pattern for the transformation\n    transformations = []\n    for i in range(transform_row, rows):\n        row = input_grid[i]\n        if row == [7] * cols:\n            continue\n        elif len(set(row)) == 1:\n            transformations.append((row[0], row[-1]))\n        else:\n            break\n    \n    # Apply the transformation rules to the grid\n    for i in range(transform_row):\n        row = input_grid[i]\n        if len(set(row)) == 1 and row[0] != 7:\n            new_row = []\n            for j in range(cols):\n                if row[j] == transformations[0][0]:\n                    new_row.append(transformations[0][1])\n                elif row[j] == transformations[1][0]:\n                    new_row.append(transformations[1][1])\n                else:\n                    new_row.append(row[j])\n            input_grid[i] = new_row\n    \n    return input_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 46)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 40,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 25,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 29,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 27,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Find the top-left corner of the area affected\n    top_row = 0\n    left_col = 0\n    \n    for row in range(rows):\n        if any(cell != 7 for cell in input_grid[row]):\n            top_row = row\n            break\n    \n    for col in range(cols):\n        if input_grid[top_row][col] != 7:\n            left_col = col\n            break\n    \n    # Find the bottom-right corner of the area affected\n    bottom_row = 0\n    right_col = 0\n    \n    for row in range(top_row, rows):\n        if any(cell != 7 for cell in input_grid[row]):\n            bottom_row = row\n    \n    for col in range(left_col, cols):\n        if input_grid[bottom_row][col] != 7:\n            right_col = col\n            break\n    \n    # Apply the transformation rule\n    for row in range(top_row, bottom_row + 1):\n        for col in range(left_col, right_col + 1):\n            if (row == top_row or row == bottom_row) and (col >= left_col and col <= right_col):\n                input_grid[row][col] = 7 if (row == top_row and col == left_col) else 6\n            elif (col == left_col or col == right_col) and (row >= top_row and row <= bottom_row):\n                input_grid[row][col] = 7 if (col == left_col and row == top_row) else 6\n    \n    return input_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 94)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 17,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 14,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the position of the first occurrence of 4 in the grid\n    for i, row in enumerate(input_grid):\n        if 4 in row:\n            start_row = i\n            break\n    \n    # Find the position of the last occurrence of 4 in the grid\n    for i, row in reversed(list(enumerate(input_grid))):\n        if 4 in row:\n            end_row = i\n            break\n    \n    # Iterate through each column starting from the first occurrence of 4\n    for col in range(len(input_grid[0])):\n        if input_grid[start_row][col] == 4:\n            # Update the row above the start_row with the value at the current column\n            for row in range(start_row - 1, -1, -1):\n                if input_grid[row][col] != 7:\n                    input_grid[row][col] = input_grid[row + 1][col]\n                else:\n                    break\n            # Update the row below the end_row with the value at the current column\n            for row in range(end_row + 1, len(input_grid)):\n                if input_grid[row][col] != 7:\n                    input_grid[row][col] = input_grid[row - 1][col]\n                else:\n                    break\n    \n    return input_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 46)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 17,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 14,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the row indices where the transformation starts\n    rows_to_transform = []\n    for i in range(len(input_grid)):\n        if any(x == 4 for x in input_grid[i]):\n            rows_to_transform.append(i)\n    \n    # Apply the transformation rule\n    for i in range(len(input_grid[0])):\n        current_value = None\n        for row_index in rows_to_transform:\n            value = input_grid[row_index][i]\n            if value != 7:\n                current_value = value\n                break\n        \n        if current_value is not None:\n            for row_index in rows_to_transform:\n                input_grid[row_index][i] = current_value\n    \n    return input_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 46)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 17,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 18,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 16,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 16,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the positions of '4' in the grid\n    fours_positions = []\n    for i in range(len(input_grid)):\n        for j in range(len(input_grid[0])):\n            if input_grid[i][j] == 4:\n                fours_positions.append((i, j))\n    \n    # Identify the pattern: the first occurrence of number after '4'\n    def get_next_number(i, j):\n        while i >= 0:\n            if input_grid[i][j] != 7:\n                return input_grid[i][j]\n            i -= 1\n        return 7\n    \n    # Transform the grid based on identified pattern\n    output_grid = [[0] * len(input_grid[0]) for _ in range(len(input_grid))]\n    for i in range(len(input_grid)):\n        for j in range(len(input_grid[0])):\n            if (i, j) in fours_positions:\n                next_number = get_next_number(i + 1, j)\n                output_grid[i][j] = next_number\n            else:\n                output_grid[i][j] = input_grid[i][j]\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 51)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 55,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 37,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 35,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 34,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the boundary where the transformation occurs.\n    height = len(input_grid)\n    width = len(input_grid[0])\n    \n    # Initialize variables to find the starting row and column of transformation.\n    start_row = -1\n    start_col = -1\n    \n    for row in range(height):\n        for col in range(width):\n            if input_grid[row][col] != 7:\n                start_row = row\n                start_col = col\n                break\n        if start_row != -1:\n            break\n    \n    # If no change is needed, return the original grid.\n    if start_row == -1:\n        return input_grid\n    \n    # Apply the transformation rule.\n    for row in range(start_row, height):\n        for col in range(start_col, width):\n            if input_grid[row][col] == 7:\n                input_grid[row][col] = input_grid[row][col - 1] if col > 0 else input_grid[row - 1][col]\n            elif input_grid[row][col] == 6:\n                input_grid[row][col] = 7\n            elif input_grid[row][col] == 8:\n                input_grid[row][col] = 7\n            elif input_grid[row][col] == 1:\n                input_grid[row][col] = 7\n    \n    return input_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 127)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 17,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 14,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the position of the 4x4 block\n    for i in range(len(input_grid)):\n        for j in range(len(input_grid[0])):\n            if input_grid[i][j] == 4:\n                break\n        else:\n            continue\n        four_block_row = i\n        four_block_col = j\n        break\n    \n    # Calculate the offset for the 6x4 rectangle\n    offset_row = four_block_row - 6\n    offset_col = four_block_col - 4\n    \n    # Check if the offset is valid\n    if offset_row < 0 or offset_col < 0:\n        return input_grid\n    \n    # Apply the transformation rule\n    for i in range(6):\n        for j in range(4):\n            if input_grid[four_block_row + i][four_block_col + j] == 2:\n                input_grid[four_block_row + i][four_block_col + j] = 7 - (i + j) % 10\n            elif input_grid[four_block_row + i][four_block_col + j] == 6:\n                input_grid[four_block_row + i][four_block_col + j] = 7 - (i + j + 1) % 10\n            elif input_grid[four_block_row + i][four_block_col + j] == 8:\n                input_grid[four_block_row + i][four_block_col + j] = 7 - (i + j + 2) % 10\n                \n    return input_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 46)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": "UnboundLocalError: cannot access local variable 'start_col' where it is not associated with a value"
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": "UnboundLocalError: cannot access local variable 'start_col' where it is not associated with a value"
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": "UnboundLocalError: cannot access local variable 'start_col' where it is not associated with a value"
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": null,
+          "error": "UnboundLocalError: cannot access local variable 'start_col' where it is not associated with a value"
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Identify the row where the transformation starts\n    for i in range(rows):\n        if any(input_grid[i][j] != 7 for j in range(cols)):\n            start_row = i\n            break\n    \n    # Identify the column where transformation starts in the identified row\n    for j in range(cols):\n        if input_grid[start_row][j] not in {7, 4}:\n            start_col = j\n            break\n    \n    # Apply the transformation rule\n    for i in range(start_row + 1, rows):\n        for j in range(start_col, cols):\n            if input_grid[i-1][j] == 7 and input_grid[i-1][j-1] == 7 and input_grid[i][j-1] == 7:\n                input_grid[i][j] = input_grid[i-1][j-1]\n            else:\n                input_grid[i][j] = 7\n    \n    return input_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 25,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 27,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 24,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 25,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the index of the row with the first '4'\n    start_row = next((i for i, row in enumerate(input_grid) if 4 in row), None)\n    \n    # Find the index of the row with the last '4'\n    end_row = next((i for i, row in reversed(list(enumerate(input_grid))) if 4 in row), None)\n    \n    # If no '4' found, return the original grid\n    if start_row is None or end_row is None:\n        return input_grid\n    \n    # Iterate over each row between start_row and end_row (inclusive)\n    for i in range(start_row, end_row + 1):\n        for j in range(len(input_grid[i])):\n            if input_grid[i][j] == 4:\n                # Set all cells before the cell where 4 starts to 7\n                for k in range(j):\n                    input_grid[i][k] = 7\n                # Set all cells after the cell where 4 ends to 7\n                for k in range(j + 1, len(input_grid[i])):\n                    input_grid[i][k] = 7\n    \n    return input_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 76)"
+    }
+  ],
   "judging": null
 }

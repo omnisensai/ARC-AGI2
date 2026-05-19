@@ -48,6 +48,447 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 1,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 2,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 1,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 2,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 3,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def dfs(grid, i, j):\n        if i < 0 or i >= len(grid) or j < 0 or j >= len(grid[0]) or grid[i][j] != 2:\n            return False\n        grid[i][j] = 1\n        dfs(grid, i + 1, j)\n        dfs(grid, i - 1, j)\n        dfs(grid, i, j + 1)\n        dfs(grid, i, j - 1)\n        return True\n\n    # Copy the input grid to avoid modifying the original one\n    result_grid = [row[:] for row in input_grid]\n\n    # Iterate through each cell in the grid\n    for i in range(len(result_grid)):\n        for j in range(len(result_grid[0])):\n            if result_grid[i][j] == 0:\n                # Check if there is a '2' adjacent to the current '0'\n                if (i > 0 and result_grid[i-1][j] == 2) or \\\n                   (i < len(result_grid) - 1 and result_grid[i+1][j] == 2) or \\\n                   (j > 0 and result_grid[i][j-1] == 2) or \\\n                   (j < len(result_grid[0]) - 1 and result_grid[i][j+1] == 2):\n                    dfs(result_grid, i, j)\n\n    return result_grid\n\n# Test input\ntest_input = [\n    [2, 2, 0, 2],\n    [0, 2, 0, 0],\n    [0, 0, 2, 0],\n    [2, 0, 0, 0],\n    [0, 0, 2, 2]\n]\n\n# Solve the puzzle\noutput_grid = solve(test_input)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 4/4 training pairs (total cell-diff 6)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 4,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 4,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 4,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 4,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 5,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Create a copy of the input grid to avoid modifying the original one\n    output_grid = [[input_grid[row][col] for col in range(cols)] for row in range(rows)]\n    \n    # Iterate through each cell in the grid\n    for row in range(rows):\n        for col in range(cols):\n            if input_grid[row][col] == 2:\n                # Count the number of adjacent cells with value 2\n                count = 0\n                for dr, dc in [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]:\n                    nr, nc = row + dr, col + dc\n                    if 0 <= nr < rows and 0 <= nc < cols and input_grid[nr][nc] == 2:\n                        count += 1\n                \n                # Set the current cell to the count of adjacent cells with value 2\n                output_grid[row][col] = count\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 4/4 training pairs (total cell-diff 16)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 5,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 12,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 12,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 6,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        }
+      ],
+      "code": "from collections import deque\n\ndef solve(input_grid):\n    def bfs(start_row, start_col):\n        queue = deque([(start_row, start_col)])\n        visited.add((start_row, start_col))\n        \n        while queue:\n            row, col = queue.popleft()\n            \n            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                next_row, next_col = row + dr, col + dc\n                \n                if (next_row, next_col) in visited:\n                    continue\n                \n                if 0 <= next_row < len(grid) and 0 <= next_col < len(grid[0]) and grid[next_row][next_col] == 0:\n                    visited.add((next_row, next_col))\n                    grid[next_row][next_col] = 1\n                    queue.append((next_row, next_col))\n    \n    grid = input_grid.copy()\n    for row in range(len(grid)):\n        for col in range(len(grid[0])):\n            if grid[row][col] == 2:\n                visited = set()\n                bfs(row, col)\n    \n    return grid\n\n# Test input\ntest_input = [\n    [2, 2, 0, 2],\n    [0, 2, 0, 0],\n    [0, 0, 2, 0],\n    [2, 0, 0, 0],\n    [0, 0, 2, 2]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 4/4 training pairs (total cell-diff 35)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 4,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 4,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 9,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 3,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 7,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Find all positions of 2s\n    positions_of_2 = []\n    for i in range(rows):\n        for j in range(cols):\n            if input_grid[i][j] == 2:\n                positions_of_2.append((i, j))\n    \n    # Create the output grid\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Process each position of 2\n    for i, j in positions_of_2:\n        # Change all 2s in the same row to appropriate values based on the output pair\n        for k in range(cols):\n            if input_grid[i][k] == 2:\n                output_grid[i][k] = 1 if i == 0 else 0\n        # Change all 2s in the same column to appropriate values based on the output pair\n        for k in range(rows):\n            if input_grid[k][j] == 2:\n                output_grid[k][j] = 1 if j == 0 else 0\n        # Set the original position to 1\n        output_grid[i][j] = 1\n    \n    return output_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [2, 2, 0, 2],\n    [0, 2, 0, 0],\n    [0, 0, 2, 0],\n    [2, 0, 0, 0],\n    [0, 0, 2, 2]\n]\n\nprint(solve(test_input))",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 4/4 training pairs (total cell-diff 20)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 3,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 3,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 2,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Create a copy of the input grid to store the result\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Copy the original grid values to the output grid initially\n    for i in range(rows):\n        for j in range(cols):\n            output_grid[i][j] = input_grid[i][j]\n    \n    # Check rows and columns for single '2' occurrences\n    for i in range(rows):\n        count_2_in_row = sum(1 for j in range(cols) if input_grid[i][j] == 2)\n        if count_2_in_row == 1:\n            output_grid[i] = [1 if cell == 2 else cell for cell in output_grid[i]]\n    \n    for j in range(cols):\n        count_2_in_col = sum(1 for i in range(rows) if input_grid[i][j] == 2)\n        if count_2_in_col == 1:\n            for i in range(rows):\n                output_grid[i][j] = 1 if output_grid[i][j] == 2 else output_grid[i][j]\n    \n    return output_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [2, 2, 0, 2],\n    [0, 2, 0, 0],\n    [0, 0, 2, 0],\n    [2, 0, 0, 0],\n    [0, 0, 2, 2]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/4 training pairs (total cell-diff 6)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 4,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 4,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 9,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 3,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 6,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Step 1: Count occurrences of 2 in each row and column\n    row_counts = [0] * rows\n    col_counts = [0] * cols\n    \n    for i in range(rows):\n        for j in range(cols):\n            if input_grid[i][j] == 2:\n                row_counts[i] += 1\n                col_counts[j] += 1\n    \n    # Step 2: Transform the grid based on the rules\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    for i in range(rows):\n        for j in range(cols):\n            if input_grid[i][j] == 2:\n                if row_counts[i] == 1 or col_counts[j] == 1:\n                    output_grid[i][j] = 1\n                else:\n                    output_grid[i][j] = 0\n            else:\n                output_grid[i][j] = input_grid[i][j]\n    \n    return output_grid\n\n# Test the function with the given test input\ntest_input = [\n    [2, 2, 0, 2],\n    [0, 2, 0, 0],\n    [0, 0, 2, 0],\n    [2, 0, 0, 0],\n    [0, 0, 2, 2]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 4/4 training pairs (total cell-diff 20)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 5,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 9,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 11,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 5,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        }
+      ],
+      "code": "def count_adjacent_ones(grid, x, y):\n    directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]\n    count = 0\n    for dx, dy in directions:\n        nx, ny = x + dx, y + dy\n        if 0 <= nx < len(grid) and 0 <= ny < len(grid[0]) and grid[nx][ny] == 2:\n            count += 1\n    return count\n\ndef solve(input_grid):\n    output_grid = [[0] * len(row) for row in input_grid]\n    \n    for i in range(len(input_grid)):\n        for j in range(len(input_grid[i])):\n            if input_grid[i][j] != 2:\n                adjacent_count = count_adjacent_ones(input_grid, i, j)\n                if adjacent_count == 1:\n                    output_grid[i][j] = 1\n                elif adjacent_count > 1:\n                    output_grid[i][j] = 0\n    \n    return output_grid\n\n# Test the function with the given test input\ntest_input = [\n    [2, 2, 0, 2],\n    [0, 2, 0, 0],\n    [0, 0, 2, 0],\n    [2, 0, 0, 0],\n    [0, 0, 2, 2]\n]\n\nsolution = solve(test_input)\nfor row in solution:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 4/4 training pairs (total cell-diff 30)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 5,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 6,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 9,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 3,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 8,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Create a copy of the input grid to work on\n    output_grid = [[input_grid[row][col] for col in range(cols)] for row in range(rows)]\n    \n    # Helper function to check if a cell can become 1\n    def can_become_1(row, col):\n        directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]\n        count = 0\n        for dr, dc in directions:\n            r, c = row + dr, col + dc\n            if 0 <= r < rows and 0 <= c < cols and input_grid[r][c] == 2:\n                count += 1\n        return count > 1\n    \n    # Apply the transformation rule\n    for row in range(rows):\n        for col in range(cols):\n            if input_grid[row][col] == 2:\n                if can_become_1(row, col):\n                    output_grid[row][col] = 1\n                else:\n                    output_grid[row][col] = 0\n    \n    return output_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [2, 2, 0, 2],\n    [0, 2, 0, 0],\n    [0, 0, 2, 0],\n    [2, 0, 0, 0],\n    [0, 0, 2, 2]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 4/4 training pairs (total cell-diff 23)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 1,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 2,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 1,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 2,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 3,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Directions to check neighbors\n    directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]\n    \n    # Function to get all unique neighbors of a cell\n    def get_neighbors(r, c):\n        return [(r + dr, c + dc) for dr, dc in directions if 0 <= r + dr < rows and 0 <= c + dc < cols]\n    \n    # Function to count how many neighbors are 2\n    def count_2_neighbors(r, c):\n        return sum(1 for nr, nc in get_neighbors(r, c) if input_grid[nr][nc] == 2)\n    \n    # Create a new grid to store the result\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Iterate through each cell in the grid\n    for r in range(rows):\n        for c in range(cols):\n            if input_grid[r][c] == 2:\n                num_2_neighbors = count_2_neighbors(r, c)\n                if num_2_neighbors > 0:\n                    output_grid[r][c] = 2\n                else:\n                    output_grid[r][c] = num_2_neighbors\n    \n    return output_grid\n\n# Test the function with the provided input grid\ntest_input = [\n    [2, 2, 0, 2],\n    [0, 2, 0, 0],\n    [0, 0, 2, 0],\n    [2, 0, 0, 0],\n    [0, 0, 2, 2]\n]\n\nprint(solve(test_input))",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 4/4 training pairs (total cell-diff 6)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 5,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 6,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 9,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 5,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 8,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def apply_rule(cell_value, neighbors):\n        # If the cell value is 2 and any neighbor is also 2, set it to 1.\n        return 1 if cell_value == 2 and any(n == 2 for n in neighbors) else cell_value\n    \n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    for i in range(rows):\n        for j in range(cols):\n            neighbors = []\n            if i > 0:          neighbors.append(input_grid[i-1][j])   # up\n            if i < rows - 1:   neighbors.append(input_grid[i+1][j])   # down\n            if j > 0:          neighbors.append(input_grid[i][j-1])   # left\n            if j < cols - 1:   neighbors.append(input_grid[i][j+1])   # right\n            \n            output_grid[i][j] = apply_rule(input_grid[i][j], neighbors)\n    \n    return output_grid\n\n# Test case\ntest_input = [\n    [2, 2, 0, 2],\n    [0, 2, 0, 0],\n    [0, 0, 2, 0],\n    [2, 0, 0, 0],\n    [0, 0, 2, 2]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 4/4 training pairs (total cell-diff 25)"
+    }
+  ],
   "judging": null
 }

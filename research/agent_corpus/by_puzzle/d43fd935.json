@@ -41,6 +41,348 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 85,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 80,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 88,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 82,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Define directions for adjacent cells\n    directions = [(0, 1), (1, 0), (-1, 0), (0, -1)]\n    \n    def propagate_value(grid, x, y, value):\n        # Propagate the value to all valid adjacent cells\n        for dx, dy in directions:\n            nx, ny = x + dx, y + dy\n            if 0 <= nx < len(grid) and 0 <= ny < len(grid[0]) and grid[nx][ny] == 0:\n                grid[nx][ny] = value\n                propagate_value(grid, nx, ny, value)\n    \n    # Iterate through the grid to find starting points and propagate values\n    for i in range(len(input_grid)):\n        for j in range(len(input_grid[0])):\n            if input_grid[i][j] != 0:\n                propagate_value(input_grid, i, j, input_grid[i][j])\n    \n    return input_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [0, 0, 0, 2, 0, 0, 0, 0, 0, 0],\n    [2, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 2, 0, 0],\n    [6, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 6, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [6, 0, 3, 3, 0, 0, 0, 0, 0, 0],\n    [0, 0, 3, 3, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 2, 0, 0],\n    [0, 0, 0, 6, 0, 6, 0, 0, 0, 0]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 253)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 9,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 11,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 6,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 9,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if rows else 0\n    \n    # Find the unique cells with values other than 0\n    unique_cells = {}\n    for r in range(rows):\n        for c in range(cols):\n            if input_grid[r][c] != 0:\n                unique_cells[(r, c)] = input_grid[r][c]\n    \n    # Identify the pattern of how cells are filled based on the unique cells\n    def get_neighbors(r, c):\n        neighbors = []\n        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n            nr, nc = r + dr, c + dc\n            if 0 <= nr < rows and 0 <= nc < cols:\n                neighbors.append((nr, nc))\n        return neighbors\n    \n    def fill_cell(r, c, value):\n        for nr, nc in get_neighbors(r, c):\n            if input_grid[nr][nc] == value:\n                input_grid[nr][nc] = value + 1\n                \n    # Apply the transformation\n    for r in range(rows):\n        for c in range(cols):\n            if input_grid[r][c] != 0:\n                fill_cell(r, c, input_grid[r][c])\n    \n    return input_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 26)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 7,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 9,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 4,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 7,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Get dimensions\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if rows > 0 else 0\n    \n    # Create an output grid with the same dimensions as the input grid\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Iterate over the grid\n    for i in range(rows):\n        for j in range(cols):\n            # If the current cell is not zero, copy it to the output grid\n            if input_grid[i][j] != 0:\n                output_grid[i][j] = input_grid[i][j]\n                \n                # Find neighbors with the same value\n                neighbors = []\n                for di, dj in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                    ni, nj = i + di, j + dj\n                    if 0 <= ni < rows and 0 <= nj < cols and input_grid[ni][nj] == input_grid[i][j]:\n                        neighbors.append((ni, nj))\n                \n                # Copy the neighbor values to the corresponding positions in the output grid\n                for ni, nj in neighbors:\n                    output_grid[ni][nj] = input_grid[i][j]\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 20)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 7,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 9,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 4,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 7,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Find the unique values in the grid\n    values = set()\n    for row in input_grid:\n        for cell in row:\n            if cell != 0:\n                values.add(cell)\n    \n    # Create the output grid\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Copy non-zero cells directly to the output grid\n    for r in range(rows):\n        for c in range(cols):\n            if input_grid[r][c] != 0:\n                output_grid[r][c] = input_grid[r][c]\n    \n    # Apply the transformation rule for each unique value except 0\n    for val in values:\n        if val != 0:\n            for r in range(rows):\n                for c in range(cols):\n                    if input_grid[r][c] == val:\n                        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                            nr, nc = r + dr, c + dc\n                            while 0 <= nr < rows and 0 <= nc < cols and input_grid[nr][nc] == val:\n                                output_grid[nr][nc] = val\n                                nr += dr\n                                nc += dc\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 20)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 12,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 21,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 9,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 13,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Initialize the output grid with the same dimensions as input_grid\n    output_grid = [[0] * len(input_grid[0]) for _ in range(len(input_grid))]\n    \n    # Iterate through the rows of the input grid\n    for i in range(len(input_grid)):\n        row = input_grid[i]\n        # Find the starting index where the number appears\n        start_index = None\n        end_index = None\n        \n        # Find the start index (if it's not the last element or equal to the next one)\n        for j in range(len(row) - 1):\n            if row[j] != 0 and (j == 0 or row[j] != row[j + 1]):\n                start_index = j\n                break\n        \n        # Find the end index (if it's not the first element or equal to the previous one)\n        for j in range(len(row) - 1, 0, -1):\n            if row[j] != 0 and (j == len(row) - 1 or row[j] != row[j - 1]):\n                end_index = j\n                break\n        \n        # If both indices are found, fill the output grid accordingly\n        if start_index is not None and end_index is not None:\n            for k in range(start_index, end_index + 1):\n                output_grid[i][k] = row[start_index]\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 42)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 38,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 51,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 27,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 43,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Determine the size of the grid\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if rows > 0 else 0\n    \n    # Create an output grid with the same dimensions as the input grid\n    output_grid = [[0 for _ in range(cols)] for _ in range(rows)]\n    \n    # Iterate through each cell in the input grid\n    for r in range(rows):\n        for c in range(cols):\n            if input_grid[r][c] != 0:\n                value = input_grid[r][c]\n                # Update adjacent cells (above, below, left, right) with the value\n                if r > 0:\n                    output_grid[r-1][c] = value\n                if r < rows - 1:\n                    output_grid[r+1][c] = value\n                if c > 0:\n                    output_grid[r][c-1] = value\n                if c < cols - 1:\n                    output_grid[r][c+1] = value\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 116)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 27,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 30,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 12,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 32,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the dimensions of the input grid\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if rows > 0 else 0\n    \n    # Initialize the output grid with the same dimensions\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Iterate through each cell in the input grid\n    for r in range(rows):\n        for c in range(cols):\n            if input_grid[r][c] != 0:\n                # Determine the value to propagate\n                value = input_grid[r][c]\n                \n                # Determine the direction we should propagate (right or down)\n                if r == 0:\n                    # Propagate right\n                    for i in range(c + 1, cols):\n                        if input_grid[r][i] == 0:\n                            output_grid[r][i] = value\n                        else:\n                            break\n                elif c == 0:\n                    # Propagate down\n                    for i in range(r + 1, rows):\n                        if input_grid[i][c] == 0:\n                            output_grid[i][c] = value\n                        else:\n                            break\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 69)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "test_input = [\n    [0, 0, 0, 2, 0, 0, 0, 0, 0, 0],\n    [2, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 2, 0, 0],\n    [6, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 6, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [6, 0, 3, 3, 0, 0, 0, 0, 0, 0],\n    [0, 0, 3, 3, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 2, 0, 0],\n    [0, 0, 0, 6, 0, 6, 0, 0, 0, 0]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 89,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 85,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 76,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 94,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the dimensions of the grid\n    rows, cols = len(input_grid), len(input_grid[0])\n    \n    # Initialize the output grid with the same dimensions\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    def propagate_from(start_row, start_col, value):\n        # Propagate to the right\n        for col in range(start_col + 1, cols):\n            if input_grid[start_row][col] != 0:\n                break\n            output_grid[start_row][col] = value\n        \n        # Propagate to the left\n        for col in range(start_col - 1, -1, -1):\n            if input_grid[start_row][col] != 0:\n                break\n            output_grid[start_row][col] = value\n        \n        # Propagate upwards\n        for row in range(start_row - 1, -1, -1):\n            if input_grid[row][start_col] != 0:\n                break\n            output_grid[row][start_col] = value\n        \n        # Propagate downwards\n        for row in range(start_row + 1, rows):\n            if input_grid[row][start_col] != 0:\n                break\n            output_grid[row][start_col] = value\n    \n    # Iterate through each cell in the grid\n    for row in range(rows):\n        for col in range(cols):\n            if input_grid[row][col] != 0:\n                propagate_from(row, col, input_grid[row][col])\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 250)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 21,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 23,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 12,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 19,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if rows > 0 else 0\n    \n    # Find the unique numbers in the grid\n    unique_numbers = set()\n    for row in input_grid:\n        for num in row:\n            if num != 0:\n                unique_numbers.add(num)\n    \n    # Create an output grid with the same dimensions\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    for r in range(rows):\n        for c in range(cols):\n            if input_grid[r][c] != 0:\n                num = input_grid[r][c]\n                # Find the first unique number greater than the current number\n                next_num = min(unique_numbers - {num})\n                # Determine the spread pattern based on the test cases\n                if num == 1 and r == 0:\n                    spread_pattern = [1, 1, 1, 1]\n                elif num == 2 and r == 0:\n                    spread_pattern = [1, 1, 1, 1, 1, 1, 1]\n                elif num == 3 and r == 0:\n                    spread_pattern = [1, 1, 1]\n                elif num == 6 and r == 0:\n                    spread_pattern = [1, 1]\n                else:\n                    spread_pattern = []\n                \n                # Apply the spread pattern\n                for i in range(len(spread_pattern)):\n                    output_grid[r + i][c] = next_num\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 56)"
+    }
+  ],
   "judging": null
 }

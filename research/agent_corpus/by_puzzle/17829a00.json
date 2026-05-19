@@ -34,6 +34,197 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 60,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 40,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 44,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def propagate_value(grid, x, y, value):\n        if x < 0 or y < 0 or x >= len(grid) or y >= len(grid[0]) or grid[x][y] != 7:\n            return False\n        grid[x][y] = value\n        propagate_value(grid, x + 1, y, value)  # Down\n        propagate_value(grid, x - 1, y, value)  # Up\n        propagate_value(grid, x, y + 1, value)  # Right\n        propagate_value(grid, x, y - 1, value)  # Left\n        return True\n\n    for i in range(len(input_grid)):\n        for j in range(len(input_grid[0])):\n            if input_grid[i][j] == 9 or input_grid[i][j] == 2:\n                propagate_value(input_grid, i, j, input_grid[i][j])\n\n    return input_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 100)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: IndexError: list index out of range",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    def propagate_value(grid, seed_value):\n        rows, cols = len(grid), len(grid[0])\n        visited = set()\n        \n        def dfs(r, c):\n            if r < 0 or r >= rows or c < 0 or c >= cols or grid[r][c] != seed_value or (r, c) in visited:\n                return\n            visited.add((r, c))\n            grid[r][c] = seed_value\n            dfs(r+1, c)\n            dfs(r-1, c)\n            dfs(r, c+1)\n            dfs(r, c-1)\n\n        for r in range(rows):\n            for c in range(cols):\n                if grid[r][c] == seed_value:\n                    dfs(r, c)\n\n    # Determine the seed value based on the first element of the grid\n    seed_value = input_grid[0][0]\n    \n    # Propagate the seed value to adjacent cells\n    propagate_value(input_grid, seed_value)\n\n    return input_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 1, 7, 7, 7, 1, 7, 7, 7, 7],\n    [1, 7, 7, 7, 7, 7, 1, 7, 7, 1, 7, 1, 7, 7, 7],\n    [7, 1, 7, 7, 7, 7, 1, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 1, 7, 7, 1, 7, 1, 1, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4],\n    [7, 7, 7, 7, 7, 4, 4, 4, 7, 7, 7, 7, 7, 4, 4],\n    [7, 7, 7, 7, 4, 7, 7, 7, 4, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]\n]\n\noutput_grid = solve(test_input)\nfor row in output_grid:\n    print(' '.join(map(str, row)))",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: IndexError: list index out of range)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 55,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 37,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 35,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the dimensions of the input grid\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Create an empty output grid with the same dimensions\n    output_grid = [[0 for _ in range(cols)] for _ in range(rows)]\n    \n    # Iterate over each cell in the grid\n    for i in range(rows):\n        for j in range(cols):\n            # Check if the current cell is equal to the right neighbor (column j+1 exists)\n            if j + 1 < cols and input_grid[i][j] == input_grid[i][j + 1]:\n                output_grid[i][j] = input_grid[i][j]\n            # If it's not equal, check the bottom-right diagonal (row i+1 exists)\n            elif i + 1 < rows and j + 1 < cols:\n                output_grid[i][j] = input_grid[i + 1][j + 1]\n            else:\n                output_grid[i][j] = input_grid[i][j]\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 92)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: IndexError: list index out of range",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    def is_surrounded_by_sevens(row, col):\n        # Check if the cell at (row, col) is surrounded by 7s\n        directions = [(0, -1), (-1, 0), (0, 1), (1, 0)]\n        for dr, dc in directions:\n            nr, nc = row + dr, col + dc\n            if not (0 <= nr < len(input_grid) and 0 <= nc < len(input_grid[0]) and input_grid[nr][nc] == 7):\n                return False\n        return True\n    \n    # Create a copy of the input grid to store the result\n    output_grid = [row[:] for row in input_grid]\n    \n    # Iterate through each cell in the grid\n    for row in range(len(input_grid)):\n        for col in range(len(input_grid[0])):\n            if is_surrounded_by_sevens(row, col):\n                # If the cell is surrounded by 7s, change its value to the one directly above it\n                if row > 0:\n                    output_grid[row][col] = input_grid[row - 1][col]\n    \n    return output_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 1, 7, 7, 7, 7, 1, 7, 7, 7, 7],\n    [1, 7, 7, 7, 7, 1, 7, 7, 7, 7, 1, 7, 7, 7, 7],\n    [7, 1, 7, 7, 7, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 1, 7, 7, 1, 7, 1, 1, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4],\n    [7, 7, 7, 7, 7, 4, 4, 4, 7, 7, 7, 7, 7, 4, 4],\n    [7, 7, 7, 7, 4, 7, 7, 7, 4, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]\n]\n\noutput_grid = solve(test_input)\nfor row in output_grid:\n    print(' '.join(map(str, row)))",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: IndexError: list index out of range)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: IndexError: list index out of range",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    def get_neighbors(x, y):\n        \"\"\"Get the neighbors of a cell at (x, y) excluding the corners.\"\"\"\n        neighbors = []\n        if x > 0: neighbors.append((x-1, y))\n        if y > 0: neighbors.append((x, y-1))\n        if x < len(input_grid) - 1: neighbors.append((x+1, y))\n        if y < len(input_grid[0]) - 1: neighbors.append((x, y+1))\n        return neighbors\n    \n    # Create a copy of the input grid to modify\n    output_grid = [row[:] for row in input_grid]\n    \n    # Iterate through each cell in the grid\n    for x in range(len(input_grid)):\n        for y in range(len(input_grid[0])):\n            if input_grid[x][y] == 8 or input_grid[x][y] == 4:\n                # Get the neighbors\n                for nx, ny in get_neighbors(x, y):\n                    if input_grid[nx][ny] != 7:\n                        output_grid[x][y] = 9\n                        break\n    \n    return output_grid\n\n# Test the function with the given input\ntest_input = [\n    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 1, 7, 7, 7, 7, 1, 7, 7, 7, 7],\n    [1, 7, 7, 7, 7, 1, 7, 7, 7, 7, 1, 7, 7, 7, 7],\n    [7, 1, 7, 7, 7, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 1, 7, 7, 1, 7, 1, 1, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7],\n    [7, 7, 7, 7, 7, 4, 4, 4, 7, 7, 7, 7, 7, 7, 4],\n    [7, 7, 7, 7, 4, 7, 7, 7, 4, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]\n]\n\noutput_grid = solve(test_input)\nfor row in output_grid:\n    print(' '.join(map(str, row)))",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: IndexError: list index out of range)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: IndexError: list index out of range",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    height = len(input_grid)\n    width = len(input_grid[0])\n    \n    # Initialize an output grid with all cells set to 7\n    output_grid = [[7] * width for _ in range(height)]\n    \n    # Identify and propagate '9' values\n    for y in range(height):\n        for x in range(width):\n            if input_grid[y][x] == 9:\n                output_grid[y][x] = 9\n                # Propagate '9' values to adjacent cells (top, bottom, left, right)\n                if x > 0: output_grid[y][x-1] = 9\n                if x < width - 1: output_grid[y][x+1] = 9\n                if y > 0: output_grid[y-1][x] = 9\n                if y < height - 1: output_grid[y+1][x] = 9\n    \n    # Identify and propagate '8' values\n    for y in range(height):\n        for x in range(width):\n            if input_grid[y][x] == 8:\n                output_grid[y][x] = 8\n                # Propagate '8' values to adjacent cells (top, bottom, left, right)\n                if x > 0: output_grid[y][x-1] = 8\n                if x < width - 1: output_grid[y][x+1] = 8\n                if y > 0: output_grid[y-1][x] = 8\n                if y < height - 1: output_grid[y+1][x] = 8\n    \n    return output_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 1, 7, 7, 7, 7, 1, 7, 7, 7, 7],\n    [1, 7, 7, 7, 7, 1, 7, 7, 7, 7, 1, 7, 7, 7, 7],\n    [7, 1, 7, 7, 7, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 1, 7, 7, 1, 7, 1, 1, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4],\n    [7, 7, 7, 7, 7, 4, 4, 4, 7, 7, 7, 7, 7, 4, 4],\n    [7, 7, 7, 7, 4, 7, 7, 7, 4, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: IndexError: list index out of range)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 138,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 120,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 129,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    def count_neighbors(x, y):\n        count = 0\n        for dx, dy in [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]:\n            nx, ny = x + dx, y + dy\n            if 0 <= nx < rows and 0 <= ny < cols and input_grid[nx][ny] != input_grid[x][y]:\n                count += 1\n        return count\n    \n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    for x in range(rows):\n        for y in range(cols):\n            if count_neighbors(x, y) > 1:\n                output_grid[x][y] = 8\n            else:\n                output_grid[x][y] = input_grid[x][y]\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 258)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 56,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 40,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 44,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform(grid):\n        output = []\n        for row_index, row in enumerate(grid):\n            new_row = []\n            for col_index, val in enumerate(row):\n                # Check if current value is greater than 7\n                if val > 7:\n                    # Determine the transformation based on adjacent values\n                    if (col_index == 0 or row[col_index - 1] <= 7) and \\\n                       (col_index == len(row) - 1 or row[col_index + 1] <= 7) and \\\n                       (row_index == 0 or grid[row_index - 1][col_index] <= 7) and \\\n                       (row_index == len(grid) - 1 or grid[row_index + 1][col_index] <= 7):\n                        new_row.append(val - 1)\n                    else:\n                        new_row.append(val)\n                else:\n                    new_row.append(val)\n            output.append(new_row)\n        return output\n\n    # Apply the transformation iteratively until no more changes occur\n    changed = True\n    while changed:\n        new_grid = transform(input_grid)\n        if new_grid == input_grid:\n            changed = False\n        else:\n            input_grid = new_grid\n\n    return input_grid\n\n# Test case\ninput_grid = [\n    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 1, 7, 7, 7, 7, 1, 7, 7, 7, 7],\n    [1, 7, 7, 7, 7, 1, 7, 7, 7, 1, 7, 1, 7, 7, 7],\n    [7, 1, 7, 7, 7, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 1, 7, 7, 1, 7, 1, 1, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 4, 4, 4, 7, 7, 7, 7, 7, 7, 4],\n    [7, 7, 7, 7, 4, 7, 7, 7, 4, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]\n]\n\noutput_grid = solve(input_grid)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 96)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 60,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 40,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 45,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def is_transformed(x, y):\n        value = input_grid[y][x]\n        # Check up, down, left, right for '7'\n        directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]\n        for dx, dy in directions:\n            nx, ny = x + dx, y + dy\n            if 0 <= nx < len(input_grid[0]) and 0 <= ny < len(input_grid) and input_grid[ny][nx] == 7:\n                return False\n        return True\n    \n    output_grid = []\n    for y in range(len(input_grid)):\n        row = []\n        for x in range(len(input_grid[0])):\n            if input_grid[y][x] == 7:\n                row.append(input_grid[y][x])\n            else:\n                transformed = is_transformed(x, y)\n                row.append(2 if transformed else input_grid[y][x])\n        output_grid.append(row)\n    \n    return output_grid\n\n# Test case\ninput_grid = [\n    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 1, 7, 7, 7, 7, 1, 7, 7, 7, 7, 7],\n    [1, 7, 7, 7, 7, 1, 7, 7, 7, 7, 1, 7, 7, 7, 7, 7],\n    [7, 1, 7, 7, 7, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 1, 7, 7, 1, 7, 1, 1, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4],\n    [7, 7, 7, 7, 7, 4, 4, 4, 7, 7, 7, 7, 7, 4, 4, 7],\n    [7, 7, 7, 7, 4, 7, 7, 7, 4, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]\n]\n\noutput_grid = solve(input_grid)\nfor row in output_grid:\n    print(' '.join(map(str, row)))",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 100)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "# Training pair 1\ngrid1 = [\n    [9]*16,\n    [7]*16,\n    [7]*16,\n    [7, 9, 9, 7, 7, 9, 7, 7, 9, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 9, 7, 7, 9, 7, 9, 9, 9, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 9, 7, 7, 9, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 8, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [8, 7, 8, 7, 7, 8, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 8, 7, 7, 8, 8, 8, 7, 7, 8, 7, 7, 9, 7, 7, 7],\n    [7, 8, 7, 7, 8, 7, 8, 7, 7, 7, 8, 9, 9, 9, 7, 8],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 9, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 9, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]\n]\n\n# Expected output for training pair 1\nexpected_output1 = [\n    [9]*16,\n    [9, 7, 7, 7, 7, 9, 7, 7, 9, 7, 7, 7, 9, 7, 7, 7],\n    [7, 9, 7, 7, 7, 9, 7, 9, 9, 9, 7, 9, 9, 9, 7, 7],\n    [7, 7, 9, 7, 7, 9, 7, 7, 9, 7, 7, 7, 9, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 9, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8]\n]\n\n# Testing the function with training pair 1\noutput1 = solve(grid1)\nassert output1 == expected_output1\n\n# Training pair 2\ngrid2 = [\n    [2]*16,\n    [7]*16,\n    [7]*16,\n    [7, 7, 7, 7, 2, 7, 7, 7, 7, 7, 2, 7, 2, 7, 7],\n    [7, 7, 7, 7, 7, 2, 7, 7, 7, 7, 7, 2, 7, 7, 7],\n    [7, 7, 7, 7, 7, 2, 7, 7, 7, 7, 7, 5, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 5, 5, 5, 7, 2],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 2],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 5, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]\n]\n\n# Expected output for training pair 2\nexpected_output2 = [\n    [2]*16,\n    [7, 2, 2, 2, 2, 7, 2, 2, 7, 2, 2, 2, 7, 2, 2, 2],\n    [7, 7, 7, 7, 2, 7, 2, 7, 7, 2, 7, 2, 7, 2, 2, 2],\n    [7, 7, 7, 7, 7, 2, 2, 7, 7, 7, 2, 2, 7, 7, 2, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 2, 7, 2, 7, 2, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 2, 7, 7, 7, 7, 7, 7, 7, 7, 7, 5, 7, 2, 7],\n    [7, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 5, 7, 2, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 5, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 5],\n    [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]\n]\n\n# Testing the function with training pair 2\noutput2 = solve(grid2)\nassert output2 == expected_output2\n\n# Test input\ntest_input = [\n    [1]*16,\n    [7]*16,\n    [7]*16,\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 1, 7, 7, 7, 1, 7, 1, 7, 7, 7],\n    [1, 7, 7, 7, 7, 1, 7, 7, 1, 7, 1, 7, 7, 7, 7],\n    [7, 1, 7, 7, 7, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 1, 7, 7, 1, 7, 1, 1, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]\n]\n\n# Expected output for test input\nexpected_output_test = [\n    [1]*16,\n    [7, 1, 1, 1, 1, 7, 1, 1, 7, 1, 1, 1, 7, 1, 1, 1],\n    [7, 7, 7, 7, 1, 7, 1, 7, 7, 1, 7, 1, 7, 1, 1, 1],\n    [7, 7, 7, 7, 7, 1, 7, 7, 7, 7, 1, 7, 1, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 1, 7, 7, 7, 1, 7, 1, 7, 7, 7, 7],\n    [1, 7, 7, 7, 7, 1, 7, 7, 1, 7, 1, 7, 7, 7, 7, 7],\n    [7, 1, 7, 7, 7, 1, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 1, 7, 7, 1, 7, 1, 1, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],\n    [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]\n]\n\n# Testing the function with test input\noutput_test = solve(test_input)\nassert output_test == expected_output_test\n\nprint(\"All tests passed!\")",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    }
+  ],
   "judging": null
 }

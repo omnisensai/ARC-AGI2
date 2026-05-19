@@ -55,6 +55,431 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": "TypeError: 'int' object is not iterable"
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": "TypeError: 'int' object is not iterable"
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": null,
+          "error": "TypeError: 'int' object is not iterable"
+        },
+        {
+          "type": "train",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": null,
+          "error": "TypeError: 'int' object is not iterable"
+        },
+        {
+          "type": "test",
+          "idx": 5,
+          "passed": false,
+          "cell_diff": null,
+          "error": "TypeError: 'int' object is not iterable"
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if rows > 0 else 0\n    \n    # Identify the pattern: look for sequences of non-zero numbers followed by zeros\n    def find_sequences(grid):\n        sequences = []\n        current_sequence = []\n        for row in grid:\n            for i in range(cols - 1):\n                if row[i] != 0 and row[i + 1] == 0:\n                    if current_sequence:\n                        sequences.append(current_sequence)\n                        current_sequence = []\n                elif row[i] == 0 and row[i + 1] != 0:\n                    if current_sequence:\n                        sequences.append(current_sequence)\n                        current_sequence = [row[i]]\n                    else:\n                        current_sequence = [row[i]]\n                else:\n                    if current_sequence:\n                        current_sequence.append(row[i])\n            if current_sequence:\n                sequences.append(current_sequence)\n        return sequences\n\n    sequences = find_sequences(input_grid)\n\n    # Apply the transformation rule: duplicate the sequence where zeros follow non-zero numbers\n    def apply_transformation(sequences):\n        transformed_sequences = []\n        for seq in sequences:\n            transformed_sequences.append(seq)\n            if seq[-1] == 0:\n                continue\n            duplicated_seq = seq[:-1]  # Exclude trailing zero if exists\n            duplicated_seq.reverse()\n            transformed_sequences.extend(duplicated_seq)\n        return transformed_sequences\n\n    transformed_sequences = apply_transformation(sequences)\n\n    # Reconstruct the grid with the transformed sequences\n    output_grid = []\n    for _ in range(rows):\n        row = []\n        for seq in transformed_sequences:\n            for num in seq:\n                row.append(num)\n            row.append(0)  # Add trailing zero\n        output_grid.append(row[:cols])  # Trim to original column size\n\n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 5/5 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 4,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 5,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 16,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 5,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def find_leftmost_non_zero_row(start_col):\n        for row in input_grid:\n            if row[start_col] != 0:\n                return row\n        return None\n    \n    def propagate_value(row, col, value):\n        while row[col] == 0:\n            col += 1\n            if col >= len(input_grid[0]):\n                break\n            next_row = find_leftmost_non_zero_row(col)\n            if next_row is not None:\n                next_col = next_row.index(next_row[col])\n                propagate_value(next_row, next_col, value)\n    \n    # Iterate through each column from right to left\n    for col in range(len(input_grid[0]) - 2, -1, -1):\n        if input_grid[0][col] != 0:\n            propagate_value(input_grid[0], col, input_grid[0][col])\n    \n    return input_grid\n\n# Test case\ntest_input = [\n    [5, 0, 4, 4, 4, 0, 0],\n    [5, 0, 0, 8, 0, 0, 0],\n    [5, 0, 0, 6, 0, 0, 0],\n    [0, 0, 2, 2, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0]\n]\n\noutput_grid = solve(test_input)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 5/5 training pairs (total cell-diff 45)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "# Test input\ntest_input = [\n    [5, 0, 4, 4, 4, 0, 0],\n    [5, 0, 0, 8, 0, 0, 0],\n    [5, 0, 0, 6, 0, 0, 0],\n    [0, 0, 2, 2, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n]\n\n# Output after applying the solve function\noutput = solve(test_input)\n\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 5,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Initialize an empty list to store the transformed grid\n    output_grid = []\n    \n    # Iterate through each row in the input grid\n    for i, row in enumerate(input_grid):\n        # If the current row is not already in the output grid, add it\n        if row not in output_grid:\n            output_grid.append(row)\n        \n        # Check if there are any non-zero elements in the current row\n        for j, elem in enumerate(row):\n            if elem != 0:\n                # Find all rows where the same non-zero element appears\n                for k in range(i + 1, len(input_grid)):\n                    if input_grid[k][j] == elem and input_grid[k] not in output_grid:\n                        output_grid.append(input_grid[k])\n    \n    # Return the transformed grid\n    return output_grid\n\n# Test the function with the given input\ntest_input = [\n    [5, 0, 4, 4, 4, 0, 0],\n    [5, 0, 0, 8, 0, 0, 0],\n    [5, 0, 0, 6, 0, 0, 0],\n    [0, 0, 2, 2, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 5/5 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 7,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 14,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 22,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 14,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 5,
+          "passed": false,
+          "cell_diff": 13,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Get the dimensions of the grid\n    rows, cols = len(input_grid), len(input_grid[0])\n    \n    # Create a copy of the input grid to store intermediate results\n    temp_grid = [[0] * cols for _ in range(rows)]\n    for r in range(rows):\n        for c in range(cols):\n            temp_grid[r][c] = input_grid[r][c]\n    \n    # Iterate over each cell in the grid\n    for r in range(rows):\n        for c in range(cols):\n            if input_grid[r][c] != 0:\n                # Check if there is any non-zero adjacent cell\n                found_adjacent = False\n                for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                    nr, nc = r + dr, c + dc\n                    if 0 <= nr < rows and 0 <= nc < cols and input_grid[nr][nc] != 0:\n                        found_adjacent = True\n                        break\n                \n                if found_adjacent:\n                    # Replace all adjacent cells with the current cell's value\n                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n                        nr, nc = r + dr, c + dc\n                        while 0 <= nr < rows and 0 <= nc < cols and input_grid[nr][nc] != 0:\n                            temp_grid[nr][nc] = input_grid[r][c]\n                            nr += dr\n                            nc += dc\n    \n    return temp_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [5, 0, 4, 4, 4, 0, 0],\n    [5, 0, 0, 8, 0, 0, 0],\n    [5, 0, 0, 6, 0, 0, 0],\n    [0, 0, 2, 2, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 5/5 training pairs (total cell-diff 67)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "test_input = [\n    [5, 0, 4, 4, 4, 0, 0],\n    [5, 0, 0, 8, 0, 0, 0],\n    [5, 0, 0, 6, 0, 0, 0],\n    [0, 0, 2, 2, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0]\n]\n\nresult = solve(test_input)\nfor row in result:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 5,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the dimensions of the grid\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Create a dictionary to store the positions of each value\n    value_positions = {}\n    \n    # Populate the dictionary with the positions of each value\n    for r in range(rows):\n        for c in range(cols):\n            val = input_grid[r][c]\n            if val != 0:\n                if val not in value_positions:\n                    value_positions[val] = set()\n                value_positions[val].add(c)\n    \n    # Create the result grid\n    result_grid = []\n    \n    # Iterate over each row and update based on the positions stored\n    for r in range(rows):\n        row_result = []\n        for c in range(cols):\n            val = input_grid[r][c]\n            if val != 0:\n                col_set = value_positions[val]\n                # Replicate the value across all rows where it exists\n                for existing_r in [rr for rr in range(rows) if input_grid[rr][c] == val]:\n                    row_result.append(val)\n            else:\n                row_result.append(0)\n        result_grid.append(row_result)\n    \n    return result_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 5/5 training pairs (total cell-diff 10)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 10,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 19,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 25,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 23,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 13,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 5,
+          "passed": false,
+          "cell_diff": 20,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if rows > 0 else 0\n    \n    # Find the maximum row index where there's a non-zero value\n    max_index = -1\n    for i in range(rows):\n        if any(input_grid[i]):\n            max_index = i\n    \n    # Create the output grid with the same dimensions\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Copy the original values to the output grid\n    for i in range(rows):\n        for j in range(cols):\n            output_grid[i][j] = input_grid[i][j]\n    \n    # Process each column from right to left\n    for col in range(cols - 1, -1, -1):\n        max_val = 0\n        for i in range(max_index + 1):\n            if input_grid[i][col] != 0:\n                max_val = max(max_val, input_grid[i][col])\n        \n        # If the max value is found, set it in all relevant rows\n        for i in range(max_index + 1):\n            if input_grid[i][col] != max_val:\n                output_grid[i][col] = max_val\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 5/5 training pairs (total cell-diff 90)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 8,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 21,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 26,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 36,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": 17,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 5,
+          "passed": false,
+          "cell_diff": 20,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def shift_left(row):\n        # Create a new list with zeros the same length as the row\n        shifted_row = [0] * len(row)\n        # Place the non-zero values in their new positions\n        index = 0\n        for value in row:\n            if value != 0:\n                shifted_row[index] = value\n                index += 1\n        return shifted_row\n    \n    # Apply the shift_left function to each row in the input_grid\n    output_grid = [shift_left(row) for row in input_grid]\n    \n    return output_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [5, 0, 4, 4, 4, 0, 0],\n    [5, 0, 0, 8, 0, 0, 0],\n    [5, 0, 0, 6, 0, 0, 0],\n    [0, 0, 2, 2, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 5/5 training pairs (total cell-diff 108)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 4,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 5,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the first row with non-zero elements\n    first_non_zero_row = None\n    for i, row in enumerate(input_grid):\n        if any(cell != 0 for cell in row):\n            first_non_zero_row = i\n            break\n    \n    # If there's no row with non-zero elements, return the original grid\n    if first_non_zero_row is None:\n        return input_grid\n    \n    # Identify the unique numbers in the first non-zero row\n    unique_numbers = set()\n    for row in input_grid[first_non_zero_row:]:\n        for num in row:\n            if num not in unique_numbers and num != 0:\n                unique_numbers.add(num)\n    \n    # Create the output grid based on the identified unique numbers\n    output_grid = []\n    for row in input_grid:\n        new_row = []\n        for num in row:\n            if num == 0:\n                new_row.extend([num for num in unique_numbers])\n            else:\n                new_row.append(num)\n        output_grid.append(new_row)\n    \n    # Fill in the correct positions of the unique numbers\n    for i, row in enumerate(input_grid):\n        for j, num in enumerate(row):\n            if num == 0:\n                output_grid[i][j] = input_grid[first_non_zero_row + i][j]\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 5/5 training pairs (total cell-diff 0)"
+    }
+  ],
   "judging": null
 }

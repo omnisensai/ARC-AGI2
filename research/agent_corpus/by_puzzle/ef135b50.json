@@ -41,6 +41,224 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list index out of range"
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list index out of range"
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 17,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 16,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Identify the positions where the number changes from 2 to something else\n    change_positions = []\n    for col in range(cols):\n        prev_val = None\n        for row in range(rows):\n            if input_grid[row][col] == 2:\n                prev_val = 2\n            elif prev_val == 2:\n                change_positions.append((row, col))\n                prev_val = None\n    \n    # Create the output grid\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Copy the unchanged parts\n    for row in range(rows):\n        for col in range(cols):\n            if (row, col) not in change_positions:\n                output_grid[row][col] = input_grid[row][col]\n    \n    # Replace the 2's with 9's after the first change position\n    k = 0\n    for col in range(cols):\n        for row in range(rows):\n            if k < len(change_positions) and row == change_positions[k][0] and col >= change_positions[k][1]:\n                output_grid[row][col] = 9\n            elif (row, col) not in change_positions:\n                output_grid[row][col] = input_grid[row][col]\n        k = max(k, min(len(change_positions), sum(1 for r in range(rows) if change_positions[r][1] <= col)))\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 17)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "test_input = [\n    [2, 2, 2, 0, 0, 0, 0, 0, 0, 0],\n    [2, 2, 2, 0, 0, 0, 2, 2, 2, 2],\n    [0, 0, 0, 0, 0, 0, 2, 2, 2, 2],\n    [0, 2, 2, 2, 0, 0, 2, 2, 2, 2],\n    [0, 2, 2, 2, 0, 0, 0, 0, 0, 0],\n    [0, 2, 2, 2, 0, 2, 2, 2, 2, 0],\n    [0, 2, 2, 2, 0, 2, 2, 2, 2, 0],\n    [0, 2, 2, 2, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\n]\n\nresult = solve(test_input)\nfor row in result:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 46,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 50,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 53,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 54,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Create a copy of the input grid to store the result\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Iterate over each cell in the grid\n    for r in range(rows):\n        for c in range(cols):\n            # Skip boundary cells\n            if r == 0 or r == rows - 1 or c == 0 or c == cols - 1:\n                output_grid[r][c] = input_grid[r][c]\n            else:\n                # Check if the cell is surrounded by zeros\n                if all(input_grid[nr][nc] == 0 for nr in [r-1, r+1] for nc in [c-1, c+1]):\n                    output_grid[r][c] = input_grid[r][c]\n                else:\n                    output_grid[r][c] = 9\n    \n    return output_grid\n\n# Test the function with the provided example\ninput_grid = [\n    [2, 2, 2, 0, 0, 0, 0, 0, 0, 0],\n    [2, 2, 2, 0, 0, 0, 2, 2, 2, 2],\n    [0, 0, 0, 0, 0, 0, 2, 2, 2, 2],\n    [0, 2, 2, 2, 0, 0, 2, 2, 2, 2],\n    [0, 2, 2, 2, 0, 0, 0, 0, 0, 0],\n    [0, 2, 2, 2, 0, 2, 2, 2, 2, 0],\n    [0, 2, 2, 2, 0, 2, 2, 2, 2, 0],\n    [0, 2, 2, 2, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\n]\n\nprint(solve(input_grid))",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 149)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 49,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 73,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 83,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 60,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find dimensions of the input grid\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Create an output grid with the same dimensions as the input grid\n    output_grid = [[0 for _ in range(cols)] for _ in range(rows)]\n    \n    # Initialize variables to track the boundaries of the '2' blocks\n    top, bottom, left, right = rows, -1, cols, -1\n    \n    # Traverse the grid to find the boundaries of the '2' blocks\n    for i in range(rows):\n        for j in range(cols):\n            if input_grid[i][j] == 2:\n                if i < top:\n                    top = i\n                if i > bottom:\n                    bottom = i\n                if j < left:\n                    left = j\n                if j > right:\n                    right = j\n    \n    # Calculate the starting position for placing '9's\n    start_row = top + 1\n    start_col = left + 1\n    \n    # Place '9's in the appropriate positions\n    for i in range(start_row, bottom + 1):\n        for j in range(start_col, right + 1):\n            output_grid[i][j] = 9\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 205)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "test_input = [\n    [2, 2, 2, 0, 0, 0, 0, 0, 0, 0],\n    [2, 2, 2, 0, 0, 0, 2, 2, 2, 2],\n    [0, 0, 0, 0, 0, 0, 2, 2, 2, 2],\n    [0, 2, 2, 2, 0, 0, 2, 2, 2, 2],\n    [0, 2, 2, 2, 0, 0, 0, 0, 0, 0],\n    [0, 2, 2, 2, 0, 2, 2, 2, 2, 0],\n    [0, 2, 2, 2, 0, 2, 2, 2, 2, 0],\n    [0, 2, 2, 2, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(' '.join(map(str, row)))",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "test_input = [\n    [2, 2, 2, 0, 0, 0, 0, 0, 0, 0],\n    [2, 2, 2, 0, 0, 0, 2, 2, 2, 2],\n    [0, 0, 0, 0, 0, 0, 2, 2, 2, 2],\n    [0, 2, 2, 2, 0, 0, 2, 2, 2, 2],\n    [0, 2, 2, 2, 0, 0, 0, 0, 0, 0],\n    [0, 2, 2, 2, 0, 2, 2, 2, 2, 0],\n    [0, 2, 2, 2, 0, 2, 2, 2, 2, 0],\n    [0, 2, 2, 2, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\n]\n\n# Apply the solve function\noutput = solve(test_input)\nfor row in output:\n    print(' '.join(map(str, row)))",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 39,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 49,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 62,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 48,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # The transformation rule seems to be that any '2' that is not surrounded by other '2's on all sides\n    # should be replaced with '9'. Otherwise, it remains '2'.\n    # We will iterate through the grid and apply this rule.\n    \n    def get_neighbors(x, y):\n        neighbors = []\n        for dx, dy in [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]:\n            nx, ny = x + dx, y + dy\n            if 0 <= nx < len(input_grid) and 0 <= ny < len(input_grid[0]):\n                neighbors.append(input_grid[nx][ny])\n        return neighbors\n    \n    output_grid = []\n    for i in range(len(input_grid)):\n        row = []\n        for j in range(len(input_grid[i])):\n            if input_grid[i][j] == 2:\n                neighbors = get_neighbors(i, j)\n                if all(n != 2 or n == input_grid[i][j] for n in neighbors):\n                    row.append(9)\n                else:\n                    row.append(2)\n            else:\n                row.append(input_grid[i][j])\n        output_grid.append(row)\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 150)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 31,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 33,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 31,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 44,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    height = len(input_grid)\n    width = len(input_grid[0])\n    \n    # Create an output grid with the same dimensions as the input grid\n    output_grid = [[0] * width for _ in range(height)]\n    \n    # Process each cell in the input grid\n    for i in range(height):\n        for j in range(width):\n            if input_grid[i][j] == 2:\n                # Mark the block starting from (i,j) and extending rightward\n                current_x = j\n                while current_x < width and input_grid[i][current_x] == 2:\n                    output_grid[i][current_x] = 2\n                    current_x += 1\n                \n                # Mark the row below the block\n                next_row = i + 1\n                while next_row < height and input_grid[next_row][j] != 2:\n                    output_grid[next_row][j] = 9\n                    next_row += 1\n                \n                # If the next row has a 2, continue marking until no more 2s are found\n                while next_row < height and input_grid[next_row][current_x - 1] == 2:\n                    output_grid[next_row][current_x - 1] = 9\n                    next_row += 1\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 95)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: SyntaxError: invalid syntax (<string>, line 40)",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    # Determine the size of the input grid\n    rows, cols = len(input_grid), len(input_grid[0])\n    \n    # Create an output grid with the same size as the input grid\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Initialize variables to track the boundaries of the top-left and bottom-right corners of the blocks\n    top_left_row = -1\n    top_left_col = -1\n    bot_right_row = -1\n    bot_right_col = -1\n    \n    # Iterate through the input grid to find the boundaries of each block\n    for row in range(rows):\n        for col in range(cols):\n            if input_grid[row][col] != 0:\n                if top_left_row == -1:\n                    top_left_row, top_left_col = row, col\n                bot_right_row, bot_right_col = row, col\n    \n    # Define the positions where the '9' will be placed\n    # The '9' will replace the first element of the top row, the last element of the bottom row,\n    # the first element of the leftmost column, and the last element of the rightmost column\n    top_row_pos = (top_left_row, top_left_col)\n    bottom_row_pos = (bot_right_row, bot_right_col)\n    left_col_pos = (top_left_row + 1, top_left_col - 1)\n    right_col_pos = (bot_right_row + 1, bot_right_col - 1)\n    \n    # Set '9' at the calculated positions\n    output_grid[top_left_row][top_left_col] = 9\n    output_grid[bot_right_row][bot_right_col] = 9\n    output_grid[left_col_pos[0]][left_col_pos[1]] = 9\n    output_grid[right_col_pos[0]][right_col_pos[1]] = 9\n    \n    # Copy the original values of the input grid to the output grid, except for the replaced positions\n    for row in range(rows):\n        for col in range(cols):\n            if input_grid[row][col] != 0:\n                if (row, col) not in [top_left_row, top_left_col], [bot_right_row, bot_right_col], [left_col_pos], [right_col_pos]:\n                    output_grid[row][col] = input_grid[row][col]\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: SyntaxError: invalid syntax (<string>, line 40))"
+    }
+  ],
   "judging": null
 }

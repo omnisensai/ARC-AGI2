@@ -41,6 +41,377 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 42,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 9,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 48,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 40,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform(grid):\n        height = len(grid)\n        width = len(grid[0])\n        output_grid = [[grid[row][col] for col in range(width)] for row in range(height)]\n        \n        for row in range(1, height - 1):\n            for col in range(1, width - 1):\n                if grid[row][col] == 6:\n                    left_count = sum(1 for i in range(col) if grid[row][i] == 6)\n                    right_count = sum(1 for i in range(col + 1, width) if grid[row][i] == 6)\n                    up_count = sum(1 for i in range(row) if grid[i][col] == 6)\n                    down_count = sum(1 for i in range(row + 1, height) if grid[i][col] == 6)\n                    \n                    if left_count == 0 or right_count == 0 or up_count == 0 or down_count == 0:\n                        output_grid[row][col] = 6\n                    else:\n                        if (left_count + right_count + up_count + down_count) % 2 == 0:\n                            output_grid[row][col] = 6\n                        else:\n                            output_grid[row][col] = 2\n        \n        return output_grid\n    \n    return transform(input_grid)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 99)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 80,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 46,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 114,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 212,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find dimensions of the grid\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n\n    # Create an empty output grid with the same dimensions\n    output_grid = [[0 for _ in range(cols)] for _ in range(rows)]\n\n    # Iterate through each cell in the grid\n    for i in range(1, rows - 1):\n        for j in range(1, cols - 1):\n            # Check if the current cell is 6 and its neighbors are 0 or 7\n            if input_grid[i][j] == 6:\n                left = input_grid[i][j - 1]\n                right = input_grid[i][j + 1]\n                up = input_grid[i - 1][j]\n                down = input_grid[i + 1][j]\n\n                if (left == 0 or left == 7) and (right == 0 or right == 7) and (up == 0 or up == 7) and (down == 0 or down == 7):\n                    output_grid[i][j] = 6\n                else:\n                    if left == 0 or left == 7:\n                        output_grid[i][j] = 2\n                    elif right == 0 or right == 7:\n                        output_grid[i][j] = 2\n                    elif up == 0 or up == 7:\n                        output_grid[i][j] = 2\n                    elif down == 0 or down == 7:\n                        output_grid[i][j] = 2\n                    else:\n                        output_grid[i][j] = 6\n\n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 240)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 36,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 19,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 64,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 224,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Create an output grid with the same dimensions as the input grid\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    for i in range(rows):\n        for j in range(cols):\n            if input_grid[i][j] != 6:\n                continue\n            \n            # Check if it's the first occurrence in the row\n            if all(x == 6 for x in input_grid[i][:j]):\n                output_grid[i][j] = 6\n            else:\n                # Find the last occurrence of 6 before the current position\n                last_6_index = None\n                for k in range(j - 1, -1, -1):\n                    if input_grid[i][k] == 6:\n                        last_6_index = k\n                        break\n                \n                # Calculate the distance between the current position and the last 6\n                distance = j - last_6_index\n                if distance % 2 == 0:\n                    output_grid[i][j] = distance // 2 + 6\n                else:\n                    output_grid[i][j] = distance // 2 + 6 + 1\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 119)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": "ValueError: min() iterable argument is empty"
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": "ValueError: min() iterable argument is empty"
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": "ValueError: min() iterable argument is empty"
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": null,
+          "error": "ValueError: min() iterable argument is empty"
+        }
+      ],
+      "code": "def solve(input_grid):\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Helper function to transform a single row\n    def transform_row(row):\n        i = 0\n        while i < cols:\n            # Skip sequences of 6s\n            while i < cols and row[i] == 6:\n                i += 1\n            if i < cols and row[i] != 6:\n                break\n            \n            # Find the sequence of 0s or 6s\n            j = i\n            while j < cols and (row[j] == 0 or row[j] == 6):\n                j += 1\n            \n            # Calculate the new value and replace the segment\n            new_value = 2 * min([row[k] for k in range(i, j) if row[k] != 6])\n            row[i:j] = [new_value] * (j - i)\n            \n            i = j\n    \n    # Transform each row\n    for row in input_grid:\n        transform_row(row)\n    \n    return input_grid\n\n# Example usage:\ninput_grid = [\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    # Add more rows...\n]\n\noutput_grid = solve(input_grid)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 26,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 12,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 32,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 72,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the dimensions of the input grid\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if input_grid else 0\n    \n    # Create an output grid with the same dimensions as the input grid\n    output_grid = [[0 for _ in range(cols)] for _ in range(rows)]\n    \n    # Iterate over the input grid to create the output grid\n    for i in range(rows):\n        for j in range(cols):\n            if input_grid[i][j] == 0:\n                # Check the top boundary and left boundary for the value 6\n                if i > 0 and input_grid[i-1][j] == 6:\n                    output_grid[i][j] = 6\n                elif j > 0 and input_grid[i][j-1] == 6:\n                    output_grid[i][j] = 6\n                else:\n                    # For other zeros, find the nearest '6' on either side and calculate the new value\n                    top_6 = 6 if i == 0 else None\n                    left_6 = 6 if j == 0 else None\n                    for k in range(i-1, -1, -1):\n                        if input_grid[k][j] == 6:\n                            top_6 = k\n                            break\n                    for k in range(j-1, -1, -1):\n                        if input_grid[i][k] == 6:\n                            left_6 = k\n                            break\n                    if top_6 is None and left_6 is None:\n                        output_grid[i][j] = input_grid[i][j]\n                    else:\n                        distance_top = i - top_6 if top_6 is not None else float('inf')\n                        distance_left = j - left_6 if left_6 is not None else float('inf')\n                        output_grid[i][j] = min(distance_top, distance_left) + 6\n            else:\n                output_grid[i][j] = input_grid[i][j]\n                \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 70)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 14,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 4,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 12,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 40,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def get_neighbors(x, y):\n        neighbors = []\n        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:\n            nx, ny = x + dx, y + dy\n            if 0 <= nx < len(grid) and 0 <= ny < len(grid[0]) and grid[nx][ny] != 6:\n                neighbors.append((nx, ny))\n        return neighbors\n\n    def find_group(x, y, visited):\n        stack = [(x, y)]\n        group = set()\n        while stack:\n            x, y = stack.pop()\n            if (x, y) not in visited:\n                visited.add((x, y))\n                group.add((x, y))\n                for neighbor_x, neighbor_y in get_neighbors(x, y):\n                    stack.append((neighbor_x, neighbor_y))\n        return group\n\n    grid = input_grid.copy()\n\n    # Mark groups\n    visited = set()\n    for x in range(len(grid)):\n        for y in range(len(grid[0])):\n            if grid[x][y] != 6 and (x, y) not in visited:\n                group = find_group(x, y, visited)\n                min_val = min([grid[i][j] for i, j in group])\n                for i, j in group:\n                    grid[i][j] = min_val\n\n    return grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 30)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform_row(row):\n        prev = None\n        count = 0\n        transformed = []\n        for cell in row:\n            if cell == 6:\n                if count > 0:\n                    transformed.append(count)\n                    transformed.append(2) if prev == 6 else transformed.append(prev)\n                count = 0\n                prev = None\n            elif cell == 0 or cell == 9:\n                if prev == 6:\n                    transformed.append(count)\n                    transformed.append(cell)\n                else:\n                    count += cell\n                prev = cell\n            else:\n                prev = cell\n        if count > 0:\n            transformed.append(count)\n            transformed.append(2) if prev == 6 else transformed.append(prev)\n        return transformed\n\n    # Apply transformation to each row\n    output_grid = [transform_row(row) for row in input_grid]\n\n    # Adjust for cases where the last element is not 6 but a number\n    for i, row in enumerate(output_grid):\n        if len(row) > 0 and row[-1] != 6:\n            output_grid[i] = row + [6]\n\n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 25,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 20,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 54,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 72,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def transform_value(v1, v2):\n        if v1 == 6 and v2 == 9:\n            return 7\n        elif v1 == 6 and v2 == 7:\n            return 2\n        elif v1 == 6 and v2 == 0:\n            return 0\n        elif v1 == 6 and v2 == 6:\n            return 6\n        else:\n            return v2\n    \n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    output_grid = [[0 for _ in range(cols)] for _ in range(rows)]\n    \n    for i in range(rows):\n        for j in range(cols):\n            if j > 0 and input_grid[i][j] != input_grid[i][j-1]:\n                output_grid[i][j] = transform_value(input_grid[i][j], input_grid[i][j-1])\n            else:\n                output_grid[i][j] = input_grid[i][j]\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 99)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 26,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 12,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 32,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 72,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Define a dictionary to keep track of the next available number to replace sequences\n    next_num = {'0': 2, '9': 2}\n    \n    def replace_sequence(grid, row_index, col_index, sequence_length):\n        start_val = grid[row_index][col_index]\n        if start_val == 6:\n            return\n        \n        # Determine the next available number\n        if start_val not in next_num:\n            next_num[start_val] = 2\n        current_num = next_num[start_val]\n        \n        # Replace the sequence\n        for i in range(sequence_length):\n            grid[row_index][col_index + i] = current_num\n            if str(current_num) in next_num:\n                next_num[str(current_num)] += 1\n            else:\n                next_num[str(current_num)] = current_num + 1\n    \n    # Iterate through each cell in the grid\n    for row_index, row in enumerate(input_grid):\n        for col_index, val in enumerate(row):\n            if val != 6:\n                sequence_length = 1\n                # Check horizontally\n                if col_index + 1 < len(row) and row[col_index + 1] == val:\n                    sequence_length += 1\n                replace_sequence(input_grid, row_index, col_index, sequence_length)\n                \n                # Check vertically\n                if row_index + 1 < len(input_grid) and input_grid[row_index + 1][col_index] == val:\n                    sequence_length = 1\n                    while col_index + 1 < len(row) and row[col_index + 1] == val:\n                        sequence_length += 1\n                        if col_index + 1 < len(row) and row[col_index + 1] == val:\n                            break\n                    replace_sequence(input_grid, row_index, col_index, sequence_length)\n    \n    return input_grid\n\n# Example usage\ninput_grid = [\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 0, 0, 6, 6, 6, 6, 0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 0, 0, 6, 6, 6, 6, 0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 9, 9, 9, 9, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 9, 9, 9, 9, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 0, 0, 6, 6, 6, 6, 0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 9, 9, 9, 9, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 0, 0, 6, 6, 6, 6, 0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 0, 0, 6, 6, 6, 6, 0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 0, 0, 6, 6, 6, 6, 0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],\n    [6, 6, 6, 6, 6, 6, 6, 0, 0, 6, 6, 6, 6, 0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 6]\n]\n\noutput_grid = solve(input_grid)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 70)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 20,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 8,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 20,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": false,
+          "cell_diff": 52,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Determine the dimensions of the input grid\n    rows = len(input_grid)\n    cols = len(input_grid[0])\n    \n    # Initialize the output grid with the same dimensions\n    output_grid = [row.copy() for row in input_grid]\n    \n    # Iterate over each cell in the grid\n    for i in range(rows):\n        for j in range(cols):\n            # Check if the current cell is 6 or 7 and its neighboring cells are 0 or 0\n            if input_grid[i][j] == 6:\n                if (i > 0 and input_grid[i-1][j] == 0) or \\\n                   (j > 0 and input_grid[i][j-1] == 0) or \\\n                   (i < rows - 1 and input_grid[i+1][j] == 0) or \\\n                   (j < cols - 1 and input_grid[i][j+1] == 0):\n                    output_grid[i][j] = 6\n                elif (i > 0 and input_grid[i-1][j] == 7) or \\\n                     (j > 0 and input_grid[i][j-1] == 7) or \\\n                     (i < rows - 1 and input_grid[i+1][j] == 7) or \\\n                     (j < cols - 1 and input_grid[i][j+1] == 7):\n                    output_grid[i][j] = 2\n            elif input_grid[i][j] == 7:\n                output_grid[i][j] = 7\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 3/3 training pairs (total cell-diff 48)"
+    }
+  ],
   "judging": null
 }

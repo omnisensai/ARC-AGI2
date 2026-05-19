@@ -34,6 +34,241 @@
       "approach": "Agent v2 prompt; direct-to-disk."
     }
   ],
-  "wrong_codes": [],
+  "wrong_codes": [
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: IndexError: list index out of range",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    # Determine the size of the input grid\n    rows, cols = len(input_grid), len(input_grid[0])\n    \n    # Initialize the output grid with zeros\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Find the first non-zero element's row and value\n    found_element = False\n    for i in range(rows):\n        for j in range(cols):\n            if input_grid[i][j] != 0:\n                element_val = input_grid[i][j]\n                found_element = True\n                break\n        if found_element:\n            break\n    \n    # If no non-zero element is found, return the original grid\n    if not found_element:\n        return input_grid\n    \n    # Set the initial values at the positions where the first non-zero element is located\n    output_grid[i][j] = element_val\n    \n    # Calculate the width of the pattern\n    width = cols - j\n    \n    # Fill the pattern based on the found element\n    for k in range(1, width):\n        output_grid[i][j + k] = element_val\n    \n    # Determine the new value to fill the rest of the pattern\n    new_value = element_val + (element_val // 2)\n    \n    # Fill the rest of the pattern\n    for k in range(1, width):\n        output_grid[i][j - k] = new_value\n        output_grid[i + k][j] = new_value\n        output_grid[i + k][j + k] = new_value\n    \n    return output_grid\n\n# Test the function\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9]\n]\n\noutput_grid = solve(test_input)\nfor row in output_grid:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: IndexError: list index out of range)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: IndexError: list index out of range",
+      "pairs": [],
+      "code": "def solve(input_grid):\n    output_grid = []\n    \n    # Copy the first row as it remains unchanged\n    output_grid.append(input_grid[0].copy())\n    \n    # Process the second row\n    first_non_zero_col = -1\n    for i in range(len(input_grid[1])):\n        if input_grid[1][i] != 0:\n            if first_non_zero_col == -1:\n                first_non_zero_col = i\n            for j in range(first_non_zero_col, i + 1):\n                output_grid[1][j] = input_grid[1][i]\n            first_non_zero_col = i\n    \n    # Copy all other rows as they remain unchanged\n    for row in input_grid[2:]:\n        output_grid.append(row.copy())\n    \n    return output_grid\n\n# Test the function with the given input\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: IndexError: list index out of range)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Extract the first and last values of the second row\n    if len(input_grid[1]) > 1:\n        a = input_grid[1][0]\n        b = input_grid[1][-1]\n    else:\n        a = b = input_grid[1][0]\n\n    # Transform the second row\n    transformed_second_row = [a + b] * (len(input_grid[1]) - 1)\n    \n    # Create the output grid\n    output_grid = [\n        row[:] for row in input_grid  # Copy the original grid\n    ]\n    \n    # Replace the second row with the transformed row\n    output_grid[1] = [a] + transformed_second_row + [b]\n    \n    return output_grid\n\n# Test the function\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "exec_error",
+      "exec_error": "exec failed: NameError: name 'solve' is not defined",
+      "pairs": [],
+      "code": "test_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "runtime: code crashed during validation (exec failed: NameError: name 'solve' is not defined)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 33,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 11,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 36,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    def replace_elements(grid, target_value, avg_value):\n        for i in range(len(grid)):\n            for j in range(len(grid[i])):\n                if grid[i][j] == target_value:\n                    # Replace the element and its adjacent elements with the average value\n                    for di in [-1, 0, 1]:\n                        for dj in [-1, 0, 1]:\n                            ni, nj = i + di, j + dj\n                            if 0 <= ni < len(grid) and 0 <= nj < len(grid[0]) and grid[ni][nj] != 0:\n                                grid[ni][nj] = avg_value\n        return grid\n\n    # Extract the first non-zero and last non-zero elements from the second row\n    start_value = None\n    end_value = None\n    for j in range(len(input_grid[1])):\n        if input_grid[1][j] != 0:\n            if start_value is None:\n                start_value = input_grid[1][j]\n            end_value = input_grid[1][j]\n\n    # Calculate the average value\n    if start_value is not None and end_value is not None:\n        avg_value = (start_value + end_value) // 2\n    else:\n        avg_value = 0\n\n    # Create the output grid based on the transformation\n    output_grid = []\n    for i in range(len(input_grid)):\n        new_row = []\n        for j in range(len(input_grid[i])):\n            if i == 0:\n                new_row.append(0)\n            elif i == 1:\n                new_row.append(avg_value)\n            else:\n                if j == 0 or j == len(input_grid[i]) - 1:\n                    new_row.append(0)\n                else:\n                    new_row.append(avg_value)\n        output_grid.append(new_row)\n\n    return output_grid\n\n# Test input\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 44)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list assignment index out of range"
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list assignment index out of range"
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list assignment index out of range"
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the first occurrence of non-zero value in each row\n    start_indices = [next((j for j, val in enumerate(row) if val != 0), -1) for row in input_grid]\n    \n    # Find the last occurrence of non-zero value in each row\n    end_indices = [next((j for j in range(len(row)-1, -1, -1) if row[j] != 0), len(row)) for row in input_grid]\n    \n    # Calculate the width of the segment to be filled with the average of non-zero values\n    segment_width = max(end_indices) - min(start_indices)\n    \n    # Determine the average value of non-zero elements\n    non_zero_values = [val for row in input_grid for val in row if val != 0]\n    avg_value = sum(non_zero_values) // len(non_zero_values) if non_zero_values else 0\n    \n    # Fill the grid\n    output_grid = [[0] * len(input_grid[0]) for _ in input_grid]\n    \n    for row_idx, (start, end) in enumerate(zip(start_indices, end_indices)):\n        segment_length = end - start\n        for col_idx in range(segment_length):\n            output_grid[row_idx][start + col_idx] = avg_value\n        if segment_length < segment_width:\n            for col_idx in range(segment_length, segment_width):\n                output_grid[row_idx][start + col_idx] = avg_value\n    \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 0)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 11,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 9,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 20,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Extract the dimensions of the input grid\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if rows > 0 else 0\n    \n    # Initialize the output grid with the same dimensions\n    output_grid = [[0 for _ in range(cols)] for _ in range(rows)]\n    \n    # Copy the first row as it is\n    output_grid[0] = input_grid[0].copy()\n    \n    # Determine the value to fill in the second row\n    for col in range(cols - 1, -1, -1):\n        if input_grid[rows - 1][col]:\n            break\n    fill_value = input_grid[rows - 1][col]\n    \n    # Fill the second row with the determined value\n    output_grid[1] = [fill_value for _ in range(cols)]\n    \n    # Copy the rest of the rows as they are\n    for row in range(2, rows):\n        output_grid[row] = input_grid[row].copy()\n    \n    return output_grid\n\n# Test the function with the given input\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9]\n]\n\nresult = solve(test_input)\nfor row in result:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 20)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 6,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": "TypeError: unsupported operand type(s) for -: 'NoneType' and 'NoneType'"
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 15,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Initialize the output grid with the same size as the input grid\n    output_grid = [[0] * len(row) for row in input_grid]\n    \n    # Copy the first row from input to output\n    output_grid[0] = input_grid[0].copy()\n    \n    if len(input_grid) > 1:\n        # Determine the transformation for the second row\n        left_value = None\n        right_value = None\n        \n        for i in range(len(input_grid[1])):\n            if input_grid[1][i] != 0:\n                if left_value is None:\n                    left_value = input_grid[1][i]\n                right_value = input_grid[1][i]\n        \n        # Fill the second row with the transformed values\n        for i in range(len(output_grid[1])):\n            if left_value == right_value:\n                output_grid[1][i] = left_value + (right_value - left_value)\n            else:\n                output_grid[1][i] = left_value\n        \n        # Copy the rest of the rows\n        for i in range(2, len(input_grid)):\n            output_grid[i] = input_grid[i].copy()\n    \n    return output_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9]\n]\n\nresult = solve(test_input)\nfor row in result:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 6)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": 9,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": 9,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": 18,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Find the width of the grid\n    width = len(input_grid[0])\n    \n    # Create an empty output grid with the same dimensions\n    output_grid = [[0] * width for _ in range(len(input_grid))]\n    \n    # Iterate through each row\n    for row_idx, row in enumerate(input_grid):\n        zero_count = 0\n        prev_value = None\n        \n        # Iterate through each column\n        for col_idx, val in enumerate(row):\n            if val == 0:\n                zero_count += 1\n            else:\n                if prev_value is not None:\n                    # Fill the rightmost column with the sequence of 5s\n                    output_grid[row_idx][width - 1] = prev_value\n                    output_grid[row_idx][col_idx - 1] = 5 * zero_count\n                prev_value = val\n                zero_count = 0\n                \n                # Set the value in the output grid\n                output_grid[row_idx][col_idx] = val\n    \n    return output_grid\n\n# Test the function with the provided test input\ntest_input = [\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],\n    [6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9]\n]\n\noutput = solve(test_input)\nfor row in output:\n    print(row)",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 18)"
+    },
+    {
+      "bucket": "wrong_training",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list index out of range"
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list index out of range"
+        },
+        {
+          "type": "test",
+          "idx": 2,
+          "passed": false,
+          "cell_diff": null,
+          "error": "IndexError: list index out of range"
+        }
+      ],
+      "code": "def solve(input_grid):\n    # Determine the dimensions of the input grid\n    rows = len(input_grid)\n    cols = len(input_grid[0]) if rows > 0 else 0\n    \n    # Create an empty output grid with the same dimensions\n    output_grid = [[0] * cols for _ in range(rows)]\n    \n    # Initialize variables to keep track of the transformation\n    prev_value = None\n    count = 0\n    transform_value = 0\n    \n    # Iterate through each cell in the grid\n    for row in range(rows):\n        for col in range(cols):\n            current_value = input_grid[row][col]\n            \n            # If the value is the same as the previous one, increment the count\n            if current_value == prev_value:\n                count += 1\n            else:\n                # Apply the transformation rule when a different value is encountered\n                if prev_value is not None:\n                    for i in range(count):\n                        output_grid[row - count + i + 1][col] = transform_value\n                    if count > 1:\n                        transform_value = count\n                    else:\n                        transform_value = prev_value\n                prev_value = current_value\n                count = 1\n    \n    # Apply the transformation for the last sequence of values\n    if count > 1:\n        for i in range(count):\n            output_grid[row - count + i + 1][cols-1] = transform_value\n            \n    return output_grid",
+      "source": "qwen-2.5-7b-instruct",
+      "failure_mode": "fails 2/2 training pairs (total cell-diff 0)"
+    }
+  ],
   "judging": null
 }
