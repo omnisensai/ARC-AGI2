@@ -52,15 +52,19 @@ def render_puzzle_pairs(puzzle: dict, include_test_answer: bool = False) -> str:
     return "\n\n".join(parts)
 
 
-def render_feedback(wrong_pairs: list) -> str:
+def render_feedback(wrong_code: dict) -> str:
     """Render the structured feedback that R2 sees alongside the wrong code.
 
     Format: one line per training pair, status + cell_diff (if applicable).
     Skip test pairs — at competition inference time we don't see them, so the
     corrector must work from training-pair signal only.
+
+    When the wrong code failed at top-level exec (no per-pair results), emit a
+    single line naming the top-level error so the model knows the feedback is
+    blank because the code didn't run, not because info was withheld.
     """
     lines = []
-    for p in wrong_pairs:
+    for p in wrong_code.get("pairs", []):
         if p["type"] != "train":
             continue
         if p["passed"]:
@@ -72,6 +76,9 @@ def render_feedback(wrong_pairs: list) -> str:
         else:
             status = "FAIL (shape mismatch)"
         lines.append(f"  Training pair {p['idx']+1}: {status}")
+    if not lines:
+        err = wrong_code.get("exec_error") or wrong_code.get("failure_mode") or "unknown error"
+        lines.append(f"  (no pair-level results: wrong code failed at import/exec — {err})")
     return "\n".join(lines)
 
 
@@ -97,7 +104,7 @@ def make_phase2_record(puzzle: dict, puzzle_id: str, right_code: dict) -> dict:
 def make_phase3_record(puzzle: dict, puzzle_id: str,
                        wrong_code: dict, right_code: dict) -> dict:
     """Phase 3: wrong code + feedback -> right code. SFT format."""
-    feedback = render_feedback(wrong_code.get("pairs", []))
+    feedback = render_feedback(wrong_code)
     return {
         "task": "phase3",
         "puzzle_id": puzzle_id,
@@ -120,7 +127,7 @@ def make_phase3_record(puzzle: dict, puzzle_id: str,
 def make_phase3_dpo_record(puzzle: dict, puzzle_id: str,
                            wrong_code: dict, right_code: dict) -> dict:
     """Phase 3 DPO: same prompt, chosen=right, rejected=wrong."""
-    feedback = render_feedback(wrong_code.get("pairs", []))
+    feedback = render_feedback(wrong_code)
     prompt_text = (
         "Write a Python `def solve(input_grid):` function that produces the "
         "correct output for the test input.\n\n"
