@@ -19,13 +19,13 @@ Goal: post-fine-tune target ≥ **25% pass@10** on same-size held-out, then test
 
 Three JSONL files in `data_sft/`:
 
-### phase1_train.jsonl — substrate tasks (~thousands of records)
+### phase1_train.jsonl — substrate tasks (180,728 records, gzipped on Github)
 Teaches the model the grid format and basic spatial reasoning.
 - Task tag `A` (encode): "Convert this pixel grid to substrate format"
 - Task tag `B` (decode): inverse of A
 - Task tag `H` (hierarchy): mark salient regions
 
-These are short, mechanical, high-volume. Built by `gen_phase1_data.py`.
+Plus `phase1_dev.jsonl` (20,008 dev records). Built by `gen_phase1_data.py`. **Note: phase1_train.jsonl is committed as `.gz` — `gunzip` before loading.**
 
 ### phase2_train.jsonl — 730 records (puzzle → right_code)
 The bread-and-butter SFT data. One record per (puzzle, correct_solution) pair.
