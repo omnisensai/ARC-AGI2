@@ -102,10 +102,14 @@ def hierarchy_substrate(grid: Grid):
 
 
 def format_grid(grid) -> str:
-    """Render a grid (of ints or substrate symbols) as space-separated rows."""
-    return "\n".join(" ".join(str(c) for c in row) for row in grid)
+    """Render a grid (of ints or substrate symbols) as compact rows (no spaces).
+    Each cell is exactly one character (0-9 or substrate symbol). This halves
+    grid token count vs space-separated, giving ~20-30% more sampling budget
+    at test time on a fixed context window."""
+    return "\n".join("".join(str(c) for c in row) for row in grid)
 
 
 def parse_grid(text: str) -> List[List[str]]:
-    """Parse a space-separated grid string back into a list of lists of tokens."""
-    return [line.split() for line in text.strip().split("\n") if line.strip()]
+    """Parse a compact grid string back into a list of lists of single-char tokens.
+    Each row is a string where every char is one cell."""
+    return [list(line) for line in text.strip().split("\n") if line.strip()]
