@@ -197,12 +197,14 @@ def classify(pair_results, exec_error):
 
 # --- API call ---
 
-def call_openrouter(api_key, model, prompt, temperature, max_retries=3):
+def call_openrouter(api_key, model, prompt, temperature, max_retries=3, api_base=None):
     last = None
+    base = (api_base or "https://openrouter.ai/api/v1").rstrip("/")
+    url = f"{base}/chat/completions"
     for attempt in range(max_retries):
         try:
             r = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
+                url,
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                 json={
                     "model": model,
@@ -229,12 +231,12 @@ def call_openrouter(api_key, model, prompt, temperature, max_retries=3):
 
 # --- one task ---
 
-def run_one(api_key, model, puzzle_id, puzzle, run_idx, out_dir, temperature):
+def run_one(api_key, model, puzzle_id, puzzle, run_idx, out_dir, temperature, api_base=None):
     prompt = build_seed_prompt(puzzle)
     rec = {"puzzle_id": puzzle_id, "run_idx": run_idx, "model": model,
            "temperature": temperature, "ts": datetime.now().isoformat()}
     try:
-        resp = call_openrouter(api_key, model, prompt, temperature)
+        resp = call_openrouter(api_key, model, prompt, temperature, api_base=api_base)
     except Exception as e:
         rec["bucket"] = "api_error"
         rec["error"] = str(e)
@@ -269,9 +271,20 @@ def main():
     ap.add_argument("--puzzle-dir", default=None,
                     help="Single source dir. If omitted, search all of data/arc1_train, data/arc1_eval, data/arc2_train.")
     ap.add_argument("--mode", default="raw", choices=["raw"])
+    ap.add_argument("--api-base", default=None,
+                    help="Override API base URL. e.g. http://localhost:8000/v1 for vLLM. "
+                         "If omitted, uses OpenRouter.")
+    ap.add_argument("--api-key", default=None,
+                    help="Override API key (else load from keys.env). Use 'EMPTY' for local vLLM.")
     args = ap.parse_args()
 
-    api_key = load_key()
+    import os
+    api_key = args.api_key or os.environ.get("OPENAI_API_KEY")
+    api_base = args.api_base or os.environ.get("OPENAI_BASE_URL")
+    if not api_key:
+        api_key = load_key()  # fall back to keys.env (OpenRouter)
+    if api_base:
+        print(f"Using custom API base: {api_base}")
     puzzle_ids = json.loads(Path(args.splits).read_text())["puzzle_ids"]
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -313,7 +326,7 @@ def main():
     t0 = time.time()
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
         futs = {
-            ex.submit(run_one, api_key, args.model, pid, puzzle, run_idx, out_dir, args.temperature):
+            ex.submit(run_one, api_key, args.model, pid, puzzle, run_idx, out_dir, args.temperature, api_base):
             (pid, run_idx)
             for pid, puzzle, run_idx in tasks
         }

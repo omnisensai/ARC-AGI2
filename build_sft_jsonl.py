@@ -163,6 +163,14 @@ def main():
         for p in Path(d).glob("*.json"):
             puzzle_map.setdefault(p.stem, json.loads(p.read_text()))
 
+    # EXTRA SAFETY: also drop any pid that exists in arc2_eval (some pids appear
+    # in both arc1_eval and arc2_eval with different content; we treat ANY
+    # arc2_eval pid as held out, regardless of source variant).
+    eval_pids = {p.stem for p in (Path(args.repo_root) / "data" / "arc2_eval").glob("*.json")} if hasattr(args, "repo_root") else {p.stem for p in Path("data/arc2_eval").glob("*.json")}
+    pre = len(puzzle_map)
+    puzzle_map = {k: v for k, v in puzzle_map.items() if k not in eval_pids}
+    print(f"Excluded {pre - len(puzzle_map)} pids that also appear in arc2_eval (held-out hygiene)")
+
     phase2_lines = []
     phase3_lines = []
     dpo_lines = []

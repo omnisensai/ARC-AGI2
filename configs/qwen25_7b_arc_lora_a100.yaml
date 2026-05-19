@@ -1,0 +1,62 @@
+base_model: Qwen/Qwen2.5-7B-Instruct
+model_type: AutoModelForCausalLM
+tokenizer_type: AutoTokenizer
+trust_remote_code: true
+
+datasets:
+  - path: data_sft/mixed_arc_sft_train.jsonl
+    type: chat_template
+    chat_template: qwen2
+
+dataset_prepared_path: data_sft/prepared/qwen25_arc_sft
+output_dir: outputs/qwen25_7b_arc_lora_r32_a64
+
+val_set_size: 0.02
+
+sequence_len: 8192
+sample_packing: true
+pad_to_sequence_len: true
+
+bf16: true
+fp16: false
+tf32: true
+
+load_in_8bit: false
+load_in_4bit: false
+
+adapter: lora
+lora_r: 32
+lora_alpha: 64
+lora_dropout: 0.05
+lora_target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
+
+num_epochs: 3
+micro_batch_size: 2
+gradient_accumulation_steps: 16
+
+learning_rate: 0.00012
+lr_scheduler: cosine
+warmup_ratio: 0.03
+weight_decay: 0.01
+optimizer: adamw_torch_fused
+
+gradient_checkpointing: true
+flash_attention: true
+
+train_on_inputs: false
+group_by_length: false
+
+logging_steps: 10
+eval_steps: 250
+save_steps: 500
+save_total_limit: 3
+
+seed: 42
+strict: false
