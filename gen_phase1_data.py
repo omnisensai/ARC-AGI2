@@ -47,6 +47,8 @@ from substrate import (background_of, encode, decode, is_same_size,
 PHASE1A_SYSTEM = "A"
 PHASE1B_SYSTEM = "B"
 HIERARCHY_SYSTEM = "H"
+MULTI_PAIR_SYSTEM = "M"     # Task M: all pairs -> all substrates (cross-pair rule)
+SUBSTRATE_TO_CODE_SYSTEM = "C"  # Task C: substrates -> code
 
 
 def rotate90(grid):
@@ -128,6 +130,90 @@ def make_record_hierarchy(grid, puzzle_id, aug_tag, side):
             {"role": "assistant", "content": format_grid(sub)},
         ],
     }
+
+
+def make_record_multi_pair(train_pairs, puzzle_id, aug_tag):
+    """Task M: ALL training pairs together -> ALL their substrates together.
+    Teaches cross-pair rule consistency (the substrate pattern should be the
+    same across pairs because the rule is the same)."""
+    user_parts = []
+    asst_parts = []
+    for i, (inp, out) in enumerate(train_pairs, start=1):
+        bg = background_of(inp)
+        sub = encode(inp, out, bg)
+        user_parts.append(f"P{i} INPUT:\n{format_grid(inp)}\n\nP{i} OUTPUT:\n{format_grid(out)}")
+        asst_parts.append(f"P{i} SUBSTRATE:\n{format_grid(sub)}")
+    return {
+        "task": "phase1_multi_pair",
+        "puzzle_id": puzzle_id,
+        "aug": aug_tag,
+        "messages": [
+            {"role": "system", "content": MULTI_PAIR_SYSTEM},
+            {"role": "user", "content": "\n\n".join(user_parts)},
+            {"role": "assistant", "content": "\n\n".join(asst_parts)},
+        ],
+    }
+
+
+def make_record_substrate_to_code(train_pairs, test_input, right_code, puzzle_id):
+    """Task C: pairs + their substrates -> Python solve(). Bridges substrate
+    perception to code generation. No D4 augmentation (code is orientation-
+    specific). One record per (puzzle, right_code)."""
+    user_parts = []
+    for i, (inp, out) in enumerate(train_pairs, start=1):
+        bg = background_of(inp)
+        sub = encode(inp, out, bg)
+        user_parts.append(
+            f"P{i} INPUT:\n{format_grid(inp)}\n\n"
+            f"P{i} OUTPUT:\n{format_grid(out)}\n\n"
+            f"P{i} SUBSTRATE:\n{format_grid(sub)}"
+        )
+    user_parts.append(f"TEST INPUT:\n{format_grid(test_input)}")
+    return {
+        "task": "phase1_substrate_to_code",
+        "puzzle_id": puzzle_id,
+        "messages": [
+            {"role": "system", "content": SUBSTRATE_TO_CODE_SYSTEM},
+            {"role": "user", "content": "\n\n".join(user_parts)},
+            {"role": "assistant", "content": right_code},
+        ],
+    }
+
+
+def gen_puzzle_records(puzzle, puzzle_id, same_size, no_augment, right_codes):
+    """Yield Task M and Task C records for one puzzle (whole-puzzle level)."""
+    if not same_size:
+        return
+    train_pairs_raw = [(p["input"], p["output"]) for p in puzzle["train"]]
+    test_input_raw = puzzle["test"][0]["input"]
+    if no_augment:
+        d4_pair_sets = [(train_pairs_raw, test_input_raw, "d4_0")]
+    else:
+        # Apply same D4 transform to all pairs in a puzzle (rule is rotation-equivariant)
+        d4_pair_sets = []
+        for i in range(8):
+            if i < 4:
+                rotated_pairs = [(rotate90_n(inp, i), rotate90_n(out, i)) for inp, out in train_pairs_raw]
+                rotated_test = rotate90_n(test_input_raw, i)
+            else:
+                # flipped then rotated
+                rotated_pairs = [(rotate90_n(flip_h(inp), i-4), rotate90_n(flip_h(out), i-4)) for inp, out in train_pairs_raw]
+                rotated_test = rotate90_n(flip_h(test_input_raw), i-4)
+            d4_pair_sets.append((rotated_pairs, rotated_test, f"d4_{i}"))
+
+    for train_pairs, test_input, aug_tag in d4_pair_sets:
+        yield make_record_multi_pair(train_pairs, puzzle_id, aug_tag)
+
+    # Task C: no augmentation (code is orientation-specific), one record per right_code
+    for code in right_codes:
+        yield make_record_substrate_to_code(train_pairs_raw, test_input_raw, code, puzzle_id)
+
+
+def rotate90_n(grid, n):
+    g = grid
+    for _ in range(n):
+        g = rotate90(g)
+    return g
 
 
 def gen_pair_records(inp, out, puzzle_id, n_color_perms, no_augment, rng, same_size):
@@ -270,13 +356,25 @@ def main():
 
     rec_rng = random.Random(args.seed + 1)
 
-    counts = {"phase1a": 0, "phase1b": 0, "phase1a_hierarchy": 0}
+    # Load corpus right_codes for Task C
+    corpus_dir = repo_root / "research" / "agent_corpus" / "by_puzzle"
+    right_codes_by_pid = {}
+    for cf in corpus_dir.glob("*.json"):
+        rec = json.loads(cf.read_text())
+        codes = [r["code"] for r in rec.get("right_codes", []) if r.get("code")]
+        if codes:
+            right_codes_by_pid[cf.stem] = codes
+    print(f"Corpus right_codes: {sum(len(v) for v in right_codes_by_pid.values())} codes across {len(right_codes_by_pid)} puzzles")
+
+    counts = {"phase1a": 0, "phase1b": 0, "phase1a_hierarchy": 0,
+              "phase1_multi_pair": 0, "phase1_substrate_to_code": 0}
     n_train = 0
     n_dev = 0
     with open(train_path, "w") as ft, open(dev_path, "w") as fd:
         for pid, src, path, same_size in universe:
             puzzle = json.loads(path.read_text())
             sink = ft if pid in train_ids else fd
+            # Per-pair records (A, B, H)
             for pair in puzzle["train"] + puzzle["test"]:
                 inp, out = pair["input"], pair["output"]
                 for rec in gen_pair_records(inp, out, pid,
@@ -288,6 +386,16 @@ def main():
                         n_train += 1
                     else:
                         n_dev += 1
+            # Whole-puzzle records (M, C)
+            right_codes = right_codes_by_pid.get(pid, [])
+            for rec in gen_puzzle_records(puzzle, pid, same_size,
+                                          args.no_augment, right_codes):
+                sink.write(json.dumps(rec) + "\n")
+                counts[rec["task"]] += 1
+                if pid in train_ids:
+                    n_train += 1
+                else:
+                    n_dev += 1
 
     print(f"\nWrote:")
     print(f"  {train_path}  {n_train:>7,} records")
