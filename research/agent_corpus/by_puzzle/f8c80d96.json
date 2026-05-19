@@ -1,0 +1,46 @@
+{
+  "puzzle_id": "f8c80d96",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    H = len(input_grid)\n    W = len(input_grid[0])\n\n    # Find the non-zero color\n    C = 0\n    for r in range(H):\n        for c in range(W):\n            if input_grid[r][c] != 0:\n                C = input_grid[r][c]\n                break\n        if C:\n            break\n\n    # Find maximal horizontal segments (length >= 2)\n    h_segs = []\n    for r in range(H):\n        c = 0\n        while c < W:\n            if input_grid[r][c] == C:\n                s = c\n                while c < W and input_grid[r][c] == C:\n                    c += 1\n                if c - 1 > s:\n                    h_segs.append((r, s, c - 1))\n            else:\n                c += 1\n\n    # Find maximal vertical segments (length >= 2)\n    v_segs = []\n    for c in range(W):\n        r = 0\n        while r < H:\n            if input_grid[r][c] == C:\n                s = r\n                while r < H and input_grid[r][c] == C:\n                    r += 1\n                if r - 1 > s:\n                    v_segs.append((c, s, r - 1))\n            else:\n                r += 1\n\n    # Union-find to group segments into brackets via shared corners\n    n_h = len(h_segs)\n    n_v = len(v_segs)\n    parent = list(range(n_h + n_v))\n\n    def find(x):\n        while parent[x] != x:\n            parent[x] = parent[parent[x]]\n            x = parent[x]\n        return x\n\n    def union(x, y):\n        rx, ry = find(x), find(y)\n        if rx != ry:\n            parent[rx] = ry\n\n    for i, (hr, hc1, hc2) in enumerate(h_segs):\n        for j, (vc, vr1, vr2) in enumerate(v_segs):\n            if (vc == hc1 or vc == hc2) and (vr1 == hr or vr2 == hr):\n                union(i, n_h + j)\n\n    groups = {}\n    for i in range(n_h):\n        g = find(i)\n        groups.setdefault(g, {'h': [], 'v': []})['h'].append(h_segs[i])\n    for j in range(n_v):\n        g = find(n_h + j)\n        groups.setdefault(g, {'h': [], 'v': []})['v'].append(v_segs[j])\n\n    brackets = list(groups.values())\n\n    # Compute bounding box for each bracket\n    for b in brackets:\n        rs = []\n        cs = []\n        for hr, hc1, hc2 in b['h']:\n            rs.append(hr)\n            cs.extend([hc1, hc2])\n        for vc, vr1, vr2 in b['v']:\n            rs.extend([vr1, vr2])\n            cs.append(vc)\n        b['r_min'] = min(rs)\n        b['r_max'] = max(rs)\n        b['c_min'] = min(cs)\n        b['c_max'] = max(cs)\n\n    # Sort brackets by bbox size (inner first)\n    brackets.sort(key=lambda b: (b['r_max'] - b['r_min']) + (b['c_max'] - b['c_min']))\n\n    def get_active_sides(b):\n        r_min, r_max, c_min, c_max = b['r_min'], b['r_max'], b['c_min'], b['c_max']\n        active = {'top': False, 'bottom': False, 'left': False, 'right': False}\n        for hr, hc1, hc2 in b['h']:\n            if hr == r_min and hc1 == c_min and hc2 == c_max:\n                active['top'] = True\n            if hr == r_max and hc1 == c_min and hc2 == c_max:\n                active['bottom'] = True\n        for vc, vr1, vr2 in b['v']:\n            if vc == c_min and vr1 == r_min and vr2 == r_max:\n                active['left'] = True\n            if vc == c_max and vr1 == r_min and vr2 == r_max:\n                active['right'] = True\n        return active\n\n    out = [[5] * W for _ in range(H)]\n\n    def render(r_min, r_max, c_min, c_max, active):\n        if active['top'] and 0 <= r_min < H:\n            for c in range(max(0, c_min), min(W, c_max + 1)):\n                out[r_min][c] = C\n        if active['bottom'] and 0 <= r_max < H:\n            for c in range(max(0, c_min), min(W, c_max + 1)):\n                out[r_max][c] = C\n        if active['left'] and 0 <= c_min < W:\n            for r in range(max(0, r_min), min(H, r_max + 1)):\n                out[r][c_min] = C\n        if active['right'] and 0 <= c_max < W:\n            for r in range(max(0, r_min), min(H, r_max + 1)):\n                out[r][c_max] = C\n\n    # Render existing brackets\n    for b in brackets:\n        render(b['r_min'], b['r_max'], b['c_min'], b['c_max'], get_active_sides(b))\n\n    if len(brackets) < 2:\n        return out\n\n    # Compute stride from second-to-last to last bracket (inner to outer)\n    inner = brackets[-2]\n    outer = brackets[-1]\n    d_r_min = outer['r_min'] - inner['r_min']\n    d_r_max = outer['r_max'] - inner['r_max']\n    d_c_min = outer['c_min'] - inner['c_min']\n    d_c_max = outer['c_max'] - inner['c_max']\n\n    active = get_active_sides(outer)\n\n    # Extend outward\n    r_min = outer['r_min']\n    r_max = outer['r_max']\n    c_min = outer['c_min']\n    c_max = outer['c_max']\n\n    safety = 0\n    while safety < 100:\n        safety += 1\n        r_min += d_r_min\n        r_max += d_r_max\n        c_min += d_c_min\n        c_max += d_c_max\n\n        any_in_grid = False\n        if active['top'] and 0 <= r_min < H:\n            if max(0, c_min) <= min(W - 1, c_max):\n                any_in_grid = True\n        if active['bottom'] and 0 <= r_max < H:\n            if max(0, c_min) <= min(W - 1, c_max):\n                any_in_grid = True\n        if active['left'] and 0 <= c_min < W:\n            if max(0, r_min) <= min(H - 1, r_max):\n                any_in_grid = True\n        if active['right'] and 0 <= c_max < W:\n            if max(0, r_min) <= min(H - 1, r_max):\n                any_in_grid = True\n\n        if not any_in_grid:\n            break\n\n        render(r_min, r_max, c_min, c_max, active)\n\n    return out\n",
+      "source": "claude_agent_batch_068_v2_direct_write",
+      "approach": "Agent v2 prompt; direct-to-disk."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": null
+}
