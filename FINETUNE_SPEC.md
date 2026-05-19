@@ -13,6 +13,8 @@ Qwen-2.5-7B-Instruct via OpenRouter, temp=0.7, 10 samples per puzzle:
 - **1.4% pass@10** (10 puzzles solved at least once out of 706 same-size puzzles)
 - Baseline solved only trivial puzzles (shifts, recolors). Fails on anything requiring pattern recognition.
 
+Note: baseline was measured with space-separated grids in the prompt. Training now uses compact format (no spaces between cells). A fresh baseline on compact prompts is optional — we mainly care about absolute post-fine-tune pass@10, not delta from old baseline.
+
 **Goal**: post-fine-tune target ≥ **25% pass@10** on same-size training set, then final benchmark on `data/arc2_eval/` (114 puzzles, held out from all training).
 
 ## Training data — full inventory (committed in `data_sft/`)
@@ -33,10 +35,12 @@ DPO format: `phase3_dpo.jsonl` (7,261 chosen/rejected pairs).
 
 ### Substrate format (used by A/B/M/C tasks)
 
-3 symbols only, space-separated rows:
+**Compact** — each cell is one character, no spaces between cells. Cuts grid token count ~30% vs space-separated. 3 symbols only:
 - `.` background → background (both bg)
 - `=` non-bg cell unchanged (input value == output value, not bg)
 - `0`-`9` cell changed → write the output digit
+
+Example: `..=4=.` not `. . = 4 = .`
 
 Hierarchy substrate (task H) uses different symbols:
 - `.` most common color (background-ish)
