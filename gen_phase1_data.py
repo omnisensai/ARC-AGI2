@@ -217,7 +217,11 @@ def main():
     splits_dir.mkdir(exist_ok=True)
 
     # Locked eval puzzles (final benchmark, never train on these)
-    locked_eval = set(json.loads((splits_dir / "baseline_10.json").read_text())["puzzle_ids"])
+    # = arc2_eval (official ARC-AGI-2 held-out benchmark)
+    locked_eval = set()
+    arc2_eval_dir = repo_root / "data" / "arc2_eval"
+    if arc2_eval_dir.exists():
+        locked_eval = {p.stem for p in arc2_eval_dir.glob("*.json")}
 
     universe = collect_universe(repo_root, locked_eval)
     unique_ids = sorted({pid for pid, _, _, _ in universe})
