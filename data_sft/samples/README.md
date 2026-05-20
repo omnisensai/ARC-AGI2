@@ -1,7 +1,9 @@
 # Training-data samples — one per task
 
 One representative SFT record per task, drawn from the live training files.
-Useful for inspecting what the model actually sees.
+Code targets (C/D/E) are now comment-free and docstring-free — only
+executable Python — per the design choice that unverified natural language
+is risky training signal.
 
 - **A** — [`task_A_phase1a.md`](task_A_phase1a.md) — single-pair encode (input + output -> substrate)
 - **B** — [`task_B_phase1b.md`](task_B_phase1b.md) — single-pair decode (input + substrate -> output)

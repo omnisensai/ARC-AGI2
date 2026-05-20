@@ -202,7 +202,6 @@ Test input:
 def solve(input_grid):
     H = len(input_grid)
     W = len(input_grid[0])
-    # Collect 1-cells (key shape)
     ones = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 1]
     if not ones:
         key = frozenset()
@@ -211,7 +210,6 @@ def solve(input_grid):
         min_c = min(c for _, c in ones)
         key = frozenset((r - min_r, c - min_c) for r, c in ones)
 
-    # Known key shapes -> color
     plus = frozenset({(0, 1), (1, 0), (1, 1), (1, 2), (2, 1)})
     shape_3 = frozenset({(0, 0), (0, 2), (1, 1), (2, 0), (2, 1), (2, 2)})
     shape_7 = frozenset({(0, 0), (0, 1), (0, 2), (1, 0), (1, 2), (2, 1)})

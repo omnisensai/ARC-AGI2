@@ -31,7 +31,7 @@ from itertools import product
 from pathlib import Path
 
 from substrate import (background_of, encode, decode, is_same_size,
-                       hierarchy_substrate, format_grid)
+                       hierarchy_substrate, format_grid, strip_python_comments)
 
 
 # Single-letter task selectors (the entire system prompt). The verbose
@@ -175,7 +175,7 @@ def make_record_substrate_to_code(train_pairs, test_input, right_code, puzzle_id
         "messages": [
             {"role": "system", "content": SUBSTRATE_TO_CODE_SYSTEM},
             {"role": "user", "content": "\n\n".join(user_parts)},
-            {"role": "assistant", "content": right_code},
+            {"role": "assistant", "content": strip_python_comments(right_code)},
         ],
     }
 

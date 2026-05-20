@@ -30,7 +30,7 @@ import argparse
 import json
 from pathlib import Path
 
-from substrate import format_grid
+from substrate import format_grid, strip_python_comments
 
 
 PHASE2_SYSTEM = "D"
@@ -96,7 +96,7 @@ def make_phase2_record(puzzle: dict, puzzle_id: str, right_code: dict) -> dict:
                 "the training pairs below.\n\n"
                 + render_puzzle_pairs(puzzle, include_test_answer=False)
             )},
-            {"role": "assistant", "content": right_code["code"]},
+            {"role": "assistant", "content": strip_python_comments(right_code["code"])},
         ],
     }
 
@@ -116,10 +116,10 @@ def make_phase3_record(puzzle: dict, puzzle_id: str,
                 "The following Python `solve(input_grid)` function is incorrect on "
                 "this ARC puzzle. Rewrite it so all training pairs pass.\n\n"
                 + render_puzzle_pairs(puzzle, include_test_answer=False)
-                + "\n\nWrong code:\n```python\n" + wrong_code["code"] + "\n```\n\n"
+                + "\n\nWrong code:\n```python\n" + strip_python_comments(wrong_code["code"]) + "\n```\n\n"
                 "Validation against the wrong code:\n" + feedback
             )},
-            {"role": "assistant", "content": right_code["code"]},
+            {"role": "assistant", "content": strip_python_comments(right_code["code"])},
         ],
     }
 
@@ -142,8 +142,8 @@ def make_phase3_dpo_record(puzzle: dict, puzzle_id: str,
             {"role": "system", "content": PHASE2_SYSTEM},
             {"role": "user", "content": prompt_text},
         ],
-        "chosen": [{"role": "assistant", "content": right_code["code"]}],
-        "rejected": [{"role": "assistant", "content": wrong_code["code"]}],
+        "chosen": [{"role": "assistant", "content": strip_python_comments(right_code["code"])}],
+        "rejected": [{"role": "assistant", "content": strip_python_comments(wrong_code["code"])}],
     }
 
 

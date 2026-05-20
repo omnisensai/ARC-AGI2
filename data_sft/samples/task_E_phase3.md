@@ -203,7 +203,6 @@ def print_grid(grid):
     for row in grid:
         print(' '.join(map(str, row)))
 
-# Training pair 1
 input_grid = [
     [0]*15,
     [0,0,0,0,0,0,0,8,8,0,8,8,0,0],
@@ -226,7 +225,6 @@ output_grid = solve(input_grid)
 print("Training pair 1:")
 print_grid(output_grid)
 
-# Test input
 test_input = [
     [0]*15,
     [0,0,0,0,0,8,8,8,8,8,8,8,8,8],
@@ -247,10 +245,11 @@ test_input = [
 test_output = solve(test_input)
 print("\nTest input:")
 print_grid(test_output)
+
 ```
 
 Validation against the wrong code:
-
+  (no pair-level results: wrong code failed at import/exec — exec failed: NameError: name 'solve' is not defined)
 ```
 
 ## Assistant target
@@ -258,7 +257,6 @@ Validation against the wrong code:
 def solve(input_grid):
     H = len(input_grid)
     W = len(input_grid[0])
-    # Collect 1-cells (key shape)
     ones = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 1]
     if not ones:
         key = frozenset()
@@ -267,7 +265,6 @@ def solve(input_grid):
         min_c = min(c for _, c in ones)
         key = frozenset((r - min_r, c - min_c) for r, c in ones)
 
-    # Known key shapes -> color
     plus = frozenset({(0, 1), (1, 0), (1, 1), (1, 2), (2, 1)})
     shape_3 = frozenset({(0, 0), (0, 2), (1, 1), (2, 0), (2, 1), (2, 2)})
     shape_7 = frozenset({(0, 0), (0, 1), (0, 2), (1, 0), (1, 2), (2, 1)})

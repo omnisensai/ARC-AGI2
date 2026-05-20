@@ -239,7 +239,6 @@ def solve(input_grid):
     H = len(input_grid)
     W = len(input_grid[0]) if H else 0
     grid = [row[:] for row in input_grid]
-    # Flood fill from border: all 0-cells reachable from boundary via 4-connectivity through 0s
     reachable = [[False] * W for _ in range(H)]
     stack = []
     for r in range(H):

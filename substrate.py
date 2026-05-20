@@ -16,6 +16,76 @@ eval script. Keep it dependency-free (stdlib only).
 """
 from collections import Counter
 from typing import List
+import ast
+import io
+import tokenize
+
+
+def strip_python_comments(src: str) -> str:
+    """Remove # comments and docstrings from Python source.
+
+    Unverified natural language (comments, docstrings) is risky training
+    signal: models can hallucinate prose that doesn't match the code. We
+    strip everything but executable code. Behavior of the code is preserved.
+
+    Uses AST for docstring detection and tokenize for # comments — both are
+    safe against # inside strings. If the source can't be parsed (rare for
+    our verified codes), the input is returned unchanged.
+    """
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return src
+
+    # Find docstring line ranges (module + functions + classes + async funcs)
+    docstring_lines = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.FunctionDef,
+                             ast.AsyncFunctionDef, ast.ClassDef)):
+            if (node.body
+                    and isinstance(node.body[0], ast.Expr)
+                    and isinstance(node.body[0].value, ast.Constant)
+                    and isinstance(node.body[0].value.value, str)):
+                ds = node.body[0]
+                end = ds.end_lineno if ds.end_lineno is not None else ds.lineno
+                for ln in range(ds.lineno, end + 1):
+                    docstring_lines.add(ln)
+
+    # Find inline-comment column on each line (leftmost)
+    try:
+        toks = tokenize.generate_tokens(io.StringIO(src).readline)
+        comment_col = {}
+        for t in toks:
+            if t.type == tokenize.COMMENT:
+                ln = t.start[0]
+                comment_col[ln] = min(comment_col.get(ln, t.start[1]), t.start[1])
+    except tokenize.TokenizeError:
+        comment_col = {}
+
+    out = []
+    for i, line in enumerate(src.split("\n"), start=1):
+        if i in docstring_lines:
+            continue
+        if i in comment_col:
+            line = line[:comment_col[i]].rstrip()
+        if line.strip() == "" and (i in docstring_lines or i in comment_col):
+            continue
+        out.append(line)
+
+    # Collapse runs of blank lines (>1 in a row → 1)
+    collapsed = []
+    blank = 0
+    for ln in out:
+        if ln.strip() == "":
+            blank += 1
+            if blank > 1:
+                continue
+        else:
+            blank = 0
+        collapsed.append(ln)
+    return "\n".join(collapsed).rstrip() + "\n"
+
+
 
 
 Grid = List[List[int]]
