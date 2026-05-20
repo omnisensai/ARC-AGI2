@@ -8,10 +8,12 @@ Usage:
 Resolves the puzzle by searching data/arc1_train, data/arc1_eval, data/arc2_train,
 data/arc2_eval. If --out is omitted, writes /tmp/<pid>.png.
 
-The substrate column visualizes substrate.encode():
-  '.' (background unchanged) -> rendered as the background color (black for 0-bg)
-  '=' (non-bg cell unchanged) -> rendered as grey (color 5)
-  '0'-'9' (changed) -> rendered as that ARC color
+Substrate visualization uses two non-ARC colors so unchanged cells can never be
+confused with any output digit:
+  '.' (both bg unchanged) -> off-white (#DDDDDD)
+  '=' (non-bg unchanged)  -> white (#FFFFFF)
+  '0'-'9' (changed)       -> that ARC color
+Any colored cell in the substrate panel is therefore a rule-driven change.
 """
 import argparse
 import json
@@ -38,10 +40,21 @@ ARC_COLORS = [
     "#7FDBFF",  # 8 sky
     "#870C25",  # 9 maroon
 ]
+# Indices 10 and 11 = sentinels for substrate '.' and '='. Non-ARC colors.
+SUBSTRATE_COLORS = ARC_COLORS + [
+    "#DDDDDD",  # 10 — '.' (both bg, unchanged)
+    "#FFFFFF",  # 11 — '=' (non-bg, unchanged)
+]
 PUZZLE_DIRS = [
     "data/arc1_train", "data/arc1_eval",
     "data/arc2_train", "data/arc2_eval",
 ]
+
+GRID_CMAP = mcolors.ListedColormap(ARC_COLORS)
+GRID_NORM = mcolors.BoundaryNorm(range(11), 10)
+
+SUB_CMAP = mcolors.ListedColormap(SUBSTRATE_COLORS)
+SUB_NORM = mcolors.BoundaryNorm(range(13), 12)
 
 
 def find_puzzle(pid: str) -> Path:
@@ -52,16 +65,12 @@ def find_puzzle(pid: str) -> Path:
     raise FileNotFoundError(f"puzzle {pid} not found in {PUZZLE_DIRS}")
 
 
-def substrate_to_display(sub, bg):
-    """Map substrate symbols to ARC color indices for rendering.
-    '.' -> bg (so background unchanged cells use the actual bg color)
-    '=' -> 5 (grey, signifies stable non-bg)
-    digit -> that digit
-    """
+def substrate_to_display(sub):
+    """Map substrate symbols to indices 0-11 for rendering."""
     out = []
     for row in sub:
         out.append([
-            bg if c == '.' else 5 if c == '=' else int(c)
+            10 if c == '.' else 11 if c == '=' else int(c)
             for c in row
         ])
     return out
@@ -71,8 +80,6 @@ def render(pid: str, out_path: Path) -> None:
     puzzle_path = find_puzzle(pid)
     puz = json.loads(puzzle_path.read_text())
     n_train = len(puz["train"])
-    cmap = mcolors.ListedColormap(ARC_COLORS)
-    norm = mcolors.BoundaryNorm(range(11), 10)
 
     fig, axes = plt.subplots(n_train, 3, figsize=(14, 4.5 * n_train),
                              facecolor="white", squeeze=False)
@@ -80,14 +87,14 @@ def render(pid: str, out_path: Path) -> None:
         inp, out = pair["input"], pair["output"]
         bg = background_of(inp)
         sub = encode(inp, out, bg)
-        sub_disp = substrate_to_display(sub, bg)
-        for ax, grid, title in [
-            (axes[i, 0], inp, f"Pair {i+1} Input"),
-            (axes[i, 1], out, f"Pair {i+1} Output"),
-            (axes[i, 2], sub_disp, f"Pair {i+1} Substrate"),
-        ]:
-            ax.imshow(np.array(grid), cmap=cmap, norm=norm)
-            ax.set_title(title, fontsize=10)
+        sub_disp = substrate_to_display(sub)
+        axes[i, 0].imshow(np.array(inp), cmap=GRID_CMAP, norm=GRID_NORM)
+        axes[i, 0].set_title(f"Pair {i+1} Input", fontsize=10)
+        axes[i, 1].imshow(np.array(out), cmap=GRID_CMAP, norm=GRID_NORM)
+        axes[i, 1].set_title(f"Pair {i+1} Output", fontsize=10)
+        axes[i, 2].imshow(np.array(sub_disp), cmap=SUB_CMAP, norm=SUB_NORM)
+        axes[i, 2].set_title(f"Pair {i+1} Substrate", fontsize=10)
+        for ax in axes[i]:
             ax.set_xticks([]); ax.set_yticks([])
 
     plt.tight_layout()
@@ -108,3 +115,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
