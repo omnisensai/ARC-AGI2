@@ -93,7 +93,26 @@ Substrate = List[List[str]]
 
 
 def background_of(grid: Grid) -> int:
-    """Most common color in a grid; smallest value wins ties."""
+    """Most common color in a grid; smallest value wins ties.
+
+    EDGE CASE — densely-colored grids: the algorithm is purely statistical, not
+    semantic. For typical ARC puzzles (mostly 0/black with a few colored shapes)
+    background detection is unambiguous: 0 wins by a wide margin (60-95% of cells)
+    and the substrate is mostly `.`. For dense puzzles where no color dominates,
+    the chosen "background" is essentially arbitrary and changes per-pair within
+    the same puzzle.
+
+    Worked example — puzzle f9d67f8b (30x30, 4 pairs, all 9 colors used heavily):
+      Pair 1: grey 15.6% beats green 13.8%        -> background = 5 (grey)
+      Pair 2: magenta 19.6% wins clearly          -> background = 6 (magenta)
+      Pair 3: green 18.8% beats red 18.6% (by 2)  -> background = 3 (green)
+      Pair 4: grey and magenta tied at 165 cells  -> background = 5 (smallest wins)
+
+    Implication: when no color dominates, the substrate becomes less interpretable
+    to humans (a noisy mix of `.`, `=`, and digits) but remains deterministic and
+    consistent (encode/decode round-trip still holds). The model still learns from
+    it, because what matters is the consistency of the mapping, not human
+    legibility. The "noise reduction" property is strongest on sparse puzzles."""
     counts = Counter(c for row in grid for c in row)
     most = max(counts.values())
     return min(c for c, n in counts.items() if n == most)
