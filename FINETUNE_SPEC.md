@@ -19,19 +19,21 @@ Note: baseline was measured with space-separated grids in the prompt. Training n
 
 ## Training data — full inventory (committed in `data_sft/`)
 
-7 SFT tasks tagged by single-letter system messages, plus DPO pairs. Total **226,909 training records**.
+7 SFT tasks tagged by single-letter system messages, plus DPO pairs. Total **198,496 SFT records + 7,221 DPO pairs** (verified 2026-05-20).
 
 | Tag | Task | Records | Purpose |
 |-----|------|---------|---------|
-| **A** | `phase1a` — pair → substrate | 40,352 | Per-pair "what changed" perception |
-| **B** | `phase1b` — substrate + input → output | 40,352 | Decode substrate back to grid |
-| **H** | `phase1a_hierarchy` — grid → hierarchy substrate | 120,032 | Foreground vs background marking |
-| **M** | `phase1_multi_pair` — all pairs → all substrates | 9,664 | Cross-pair rule consistency (the key invariant) |
-| **C** | `phase1_substrate_to_code` — substrates + test → code | 1,257 | Substrate-as-scratchpad → code |
-| **D** | `phase2` — full puzzle → code | 730 | End-to-end puzzle solving (the actual task) |
-| **E** | `phase3` — puzzle + wrong code + feedback → right code | 7,261 | Self-correction from validation feedback |
+| **A** | `phase1a` — pair → substrate | 36,328 | Per-pair "what changed" perception |
+| **B** | `phase1b` — substrate + input → output | 36,328 | Decode substrate back to grid |
+| **H** | `phase1a_hierarchy` — grid → hierarchy substrate | 108,072 | Foreground vs background marking |
+| **M** | `phase1_multi_pair` — all pairs → all substrates | 8,704 | Cross-pair rule consistency (the key invariant) |
+| **C** | `phase1_substrate_to_code` — substrates + test → code | 1,117 | Substrate-as-scratchpad → code |
+| **D** | `phase2` — full puzzle → code | 726 | End-to-end puzzle solving (the actual task) |
+| **E** | `phase3` — puzzle + wrong code + feedback → right code | 7,221 | Self-correction from validation feedback |
 
-DPO format: `phase3_dpo.jsonl` (7,261 chosen/rejected pairs).
+DPO format: `phase3_dpo.jsonl` (7,221 chosen/rejected pairs).
+
+**Data integrity audit (2026-05-20):** all 730 right_codes execute correctly on their training pairs; D4 augmentation verified in-sync via 5,000-sample round-trip; zero train/dev overlap; zero arc2_eval leakage in any file; 50/50 spot-checked D records produce correct outputs.
 
 ### Substrate format (used by A/B/M/C tasks)
 
