@@ -135,27 +135,20 @@ def compare(got, expected):
 
 
 def validate(code, puzzle, timeout=20):
-    """Run code on every train and test pair, return per-pair results."""
-    import signal
+    """Run code on every train and test pair, return per-pair results.
 
-    class TimeoutErr(Exception):
-        pass
-
-    def alarm(s, f):
-        raise TimeoutErr()
-
+    Note: no signal-based timeout because ThreadPoolExecutor workers can't
+    install signal handlers (signal only works in main thread). ARC codes
+    usually finish in milliseconds; the rare infinite-loop just hangs one
+    worker, which we accept.
+    """
     pairs = []
     if code is None:
         return pairs, "no code"
 
     ns = {}
     try:
-        signal.signal(signal.SIGALRM, alarm)
-        signal.alarm(timeout)
         exec(code, ns)
-        signal.alarm(0)
-    except TimeoutErr:
-        return pairs, f"exec timeout >{timeout}s"
     except Exception as e:
         return pairs, f"exec error: {type(e).__name__}: {e}"
 
@@ -165,13 +158,7 @@ def validate(code, puzzle, timeout=20):
 
     def run_one(grid, expected, is_train, idx):
         try:
-            signal.alarm(timeout)
             out = solve([row[:] for row in grid])
-            signal.alarm(0)
-        except TimeoutErr:
-            return {"type": "train" if is_train else "test", "idx": idx,
-                    "passed": False, "cell_diff": None,
-                    "error": f"timeout >{timeout}s"}
         except Exception as e:
             return {"type": "train" if is_train else "test", "idx": idx,
                     "passed": False, "cell_diff": None,
