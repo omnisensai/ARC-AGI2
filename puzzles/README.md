@@ -14,8 +14,14 @@ a compact comma-free text format aligned with `substrate.format_grid`.
 | **Total** | | **1,920** |
 
 Unique puzzle ids: 800 in ARC1, 1,120 in ARC2. 773 ids appear in both
-corpora (many ARC1 puzzles were re-used inside ARC2, sometimes moved
-between training/evaluation splits).
+corpora. Of those shared ids:
+
+- 391 stayed in training for both,
+- 6 stayed in evaluation for both,
+- 376 were in ARC1 **evaluation** but moved to ARC2 **training**
+  (likely because the old eval set was public/memorised, so ARC2 needed
+  a fresh held-out set),
+- 0 moved the other way (training → evaluation).
 
 Total size on disk: 3.3 MB.
 
