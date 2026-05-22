@@ -8,11 +8,10 @@ Usage:
 Resolves the puzzle by searching data/arc1_train, data/arc1_eval, data/arc2_train,
 data/arc2_eval. If --out is omitted, writes /tmp/<pid>.png.
 
-Substrate visualization uses two non-ARC colors so unchanged cells can never be
+Substrate visualization uses a non-ARC color so unchanged cells can never be
 confused with any output digit:
-  '.' (both bg unchanged) -> off-white (#DDDDDD)
-  '=' (non-bg unchanged)  -> white (#FFFFFF)
-  '0'-'9' (changed)       -> that ARC color
+  '.'     (unchanged) -> white (#FFFFFF)
+  '0'-'9' (changed)   -> that ARC color
 Any colored cell in the substrate panel is therefore a rule-driven change.
 """
 import argparse
@@ -25,7 +24,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from substrate import background_of, encode
+from substrate import encode
 
 
 ARC_COLORS = [
@@ -40,10 +39,9 @@ ARC_COLORS = [
     "#7FDBFF",  # 8 sky
     "#870C25",  # 9 maroon
 ]
-# Indices 10 and 11 = sentinels for substrate '.' and '='. Non-ARC colors.
+# Index 10 = sentinel for substrate '.'. Non-ARC color.
 SUBSTRATE_COLORS = ARC_COLORS + [
-    "#DDDDDD",  # 10 — '.' (both bg, unchanged)
-    "#FFFFFF",  # 11 — '=' (non-bg, unchanged)
+    "#FFFFFF",  # 10 — '.' (unchanged)
 ]
 PUZZLE_DIRS = [
     "data/arc1_train", "data/arc1_eval",
@@ -54,7 +52,7 @@ GRID_CMAP = mcolors.ListedColormap(ARC_COLORS)
 GRID_NORM = mcolors.BoundaryNorm(range(11), 10)
 
 SUB_CMAP = mcolors.ListedColormap(SUBSTRATE_COLORS)
-SUB_NORM = mcolors.BoundaryNorm(range(13), 12)
+SUB_NORM = mcolors.BoundaryNorm(range(12), 11)
 
 
 def find_puzzle(pid: str) -> Path:
@@ -66,11 +64,11 @@ def find_puzzle(pid: str) -> Path:
 
 
 def substrate_to_display(sub):
-    """Map substrate symbols to indices 0-11 for rendering."""
+    """Map substrate symbols to indices 0-10 for rendering."""
     out = []
     for row in sub:
         out.append([
-            10 if c == '.' else 11 if c == '=' else int(c)
+            10 if c == '.' else int(c)
             for c in row
         ])
     return out
@@ -85,8 +83,7 @@ def render(pid: str, out_path: Path) -> None:
                              facecolor="white", squeeze=False)
     for i, pair in enumerate(puz["train"]):
         inp, out = pair["input"], pair["output"]
-        bg = background_of(inp)
-        sub = encode(inp, out, bg)
+        sub = encode(inp, out)
         sub_disp = substrate_to_display(sub)
         axes[i, 0].imshow(np.array(inp), cmap=GRID_CMAP, norm=GRID_NORM)
         axes[i, 0].set_title(f"Pair {i+1} Input", fontsize=10)
