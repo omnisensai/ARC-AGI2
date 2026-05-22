@@ -1,14 +1,10 @@
 """Substrate encode/decode — lossless transformation grid for same-size ARC pairs.
 
 Substrate alphabet (per cell):
-  '.'    = background unchanged (bg in input, bg in output)
-  '='    = non-background preserved (input[r,c] == output[r,c], not bg)
+  '='     = cell preserved (input[r,c] == output[r,c])
   '0'-'9' = output is this color (input[r,c] != output[r,c])
 
-Background convention: bg = most common color in input grid.
-For ties, the smallest color value wins (deterministic).
-
-Roundtrip property: encode(input, output, bg) then decode(input, substrate, bg)
+Roundtrip property: encode(input, output) then decode(input, substrate)
 returns the original output, for any same-size pair.
 
 This file is the shared library imported by gen_phase1_data.py and any future
@@ -118,30 +114,26 @@ def background_of(grid: Grid) -> int:
     return min(c for c, n in counts.items() if n == most)
 
 
-def encode(inp: Grid, out: Grid, bg: int) -> Substrate:
-    """(input, output, bg) -> substrate. Requires input.shape == output.shape."""
+def encode(inp: Grid, out: Grid) -> Substrate:
+    """(input, output) -> substrate. Requires input.shape == output.shape."""
     if len(inp) != len(out) or any(len(ir) != len(oR) for ir, oR in zip(inp, out)):
         raise ValueError("encode requires input and output of the same shape")
     return [
         [
-            '.' if (i == bg and o == bg)
-            else '=' if i == o
-            else str(o)
+            '=' if i == o else str(o)
             for i, o in zip(ir, oR)
         ]
         for ir, oR in zip(inp, out)
     ]
 
 
-def decode(inp: Grid, substrate: Substrate, bg: int) -> Grid:
-    """(input, substrate, bg) -> output. Inverse of encode."""
+def decode(inp: Grid, substrate: Substrate) -> Grid:
+    """(input, substrate) -> output. Inverse of encode."""
     if len(inp) != len(substrate) or any(len(ir) != len(sr) for ir, sr in zip(inp, substrate)):
         raise ValueError("decode requires input and substrate of the same shape")
     return [
         [
-            bg if s == '.'
-            else i if s == '='
-            else int(s)
+            i if s == '=' else int(s)
             for i, s in zip(ir, sr)
         ]
         for ir, sr in zip(inp, substrate)

@@ -30,7 +30,7 @@ import random
 from itertools import product
 from pathlib import Path
 
-from substrate import (background_of, encode, decode, is_same_size,
+from substrate import (encode, decode, is_same_size,
                        hierarchy_substrate, format_grid, strip_python_comments)
 
 
@@ -78,9 +78,9 @@ def apply_color_perm(grid, perm):
     return [[perm[c] if isinstance(c, int) else c for c in row] for row in grid]
 
 
-def make_record_1a(inp, out, bg, puzzle_id, aug_tag):
+def make_record_1a(inp, out, puzzle_id, aug_tag):
     """Phase 1a: (input, output) -> substrate."""
-    sub = encode(inp, out, bg)
+    sub = encode(inp, out)
     return {
         "task": "phase1a",
         "puzzle_id": puzzle_id,
@@ -93,9 +93,9 @@ def make_record_1a(inp, out, bg, puzzle_id, aug_tag):
     }
 
 
-def make_record_1b(inp, out, bg, puzzle_id, aug_tag):
+def make_record_1b(inp, out, puzzle_id, aug_tag):
     """Phase 1b: (input, substrate) -> output."""
-    sub = encode(inp, out, bg)
+    sub = encode(inp, out)
     return {
         "task": "phase1b",
         "puzzle_id": puzzle_id,
@@ -139,8 +139,7 @@ def make_record_multi_pair(train_pairs, puzzle_id, aug_tag):
     user_parts = []
     asst_parts = []
     for i, (inp, out) in enumerate(train_pairs, start=1):
-        bg = background_of(inp)
-        sub = encode(inp, out, bg)
+        sub = encode(inp, out)
         user_parts.append(f"P{i} INPUT:\n{format_grid(inp)}\n\nP{i} OUTPUT:\n{format_grid(out)}")
         asst_parts.append(f"P{i} SUBSTRATE:\n{format_grid(sub)}")
     return {
@@ -161,8 +160,7 @@ def make_record_substrate_to_code(train_pairs, test_input, right_code, puzzle_id
     specific). One record per (puzzle, right_code)."""
     user_parts = []
     for i, (inp, out) in enumerate(train_pairs, start=1):
-        bg = background_of(inp)
-        sub = encode(inp, out, bg)
+        sub = encode(inp, out)
         user_parts.append(
             f"P{i} INPUT:\n{format_grid(inp)}\n\n"
             f"P{i} OUTPUT:\n{format_grid(out)}\n\n"
@@ -235,18 +233,16 @@ def gen_pair_records(inp, out, puzzle_id, n_color_perms, no_augment, rng, same_s
     for i_d4, o_d4, tag in zip(d4_inputs, d4_outputs, d4_tags):
         # Phase 1a + 1b: same-size only
         if same_size:
-            bg = background_of(i_d4)
-            yield make_record_1a(i_d4, o_d4, bg, puzzle_id, tag)
-            yield make_record_1b(i_d4, o_d4, bg, puzzle_id, tag)
+            yield make_record_1a(i_d4, o_d4, puzzle_id, tag)
+            yield make_record_1b(i_d4, o_d4, puzzle_id, tag)
             for k in range(n_color_perms):
                 perm = list(range(10))
                 rng.shuffle(perm)
                 i_perm = apply_color_perm(i_d4, perm)
                 o_perm = apply_color_perm(o_d4, perm)
-                bg_perm = background_of(i_perm)
                 aug_tag = f"{tag}_cp{k}"
-                yield make_record_1a(i_perm, o_perm, bg_perm, puzzle_id, aug_tag)
-                yield make_record_1b(i_perm, o_perm, bg_perm, puzzle_id, aug_tag)
+                yield make_record_1a(i_perm, o_perm, puzzle_id, aug_tag)
+                yield make_record_1b(i_perm, o_perm, puzzle_id, aug_tag)
 
         # Task A2 (hierarchy): one record per grid, regardless of same-size.
         # Color permutations don't apply: hierarchy is frequency-based and
