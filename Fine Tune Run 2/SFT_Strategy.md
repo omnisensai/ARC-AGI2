@@ -124,86 +124,134 @@ discipline.
 
 ## 4. Phase 1 — Transformation grid literacy
 
-### 4.1 Why two sub-phases (1.A and 1.B)
+### 4.1 One skill, one system message
+
+Phase 1 trains **one unified skill**: infer and express the
+transformation rule between ARC grids. We do *not* train the model to
+recognize task labels like `T1`, `T2`, `T5`. Every Phase 1 record uses
+the same system message:
+
+```
+Transformation Rule
+```
+
+The **field contract** in the user prompt — which trailing field the
+prompt ends with — determines what the assistant must produce:
+
+| User prompt ends with… | Assistant produces… |
+|---|---|
+| `SUBSTRATE:` | the substrate for the (input, output) pair shown |
+| `OUTPUT:` | the output grid (from input + substrate, or from train pairs + test input) |
+| `SUBSTRATES:` | per-pair substrates for every pair shown |
+| `COLD SUBSTRATE:` | the substrate for the unseen cold pair |
+| `TEST SUBSTRATE:` | the substrate for the test pair, inferred from the train pairs |
+
+This is the single coherent transformation-rule language the model
+learns. The six "task formats" below are internal bookkeeping for mix
+ratios and per-task metrics; the model sees only the field contract.
+
+Phase 2 and Phase 3 use their own system messages — `Code Solver` and
+`Code Repair` respectively — because they're a different skill. Within
+each phase, one system message.
+
+### 4.2 Two sub-phases (1.A and 1.B) — why
 
 Phase 1 teaches two distinct skills that are easy to confuse:
 
 - **Substrate literacy:** given a single pair, encode/decode it
   mechanically. Roughly "1:1 mapping."
-- **Rule induction:** given several pairs, generalize the
-  transformation and apply it to a new input. Multi-pair reasoning.
+- **Rule induction:** given several pairs, generalize the transformation
+  and apply it to a new input. Multi-pair reasoning.
 
 Mixing them from step 0 means the loss on rule-induction tasks confounds
 both errors. Phase 1.A teaches the atomic substrate skill alone; Phase
 1.B builds rule-induction on top.
 
-### 4.2 Task tags
+### 4.3 Phase 1 task formats
 
-| Tag | Context | Target | Sub-phase |
-|---|---|---|---|
-| `T1` | 1 pair: (input, output) | substrate for that pair | 1.A |
-| `T2` | 1 pair: (input, write-substrate) | output | 1.A — *same-size only* |
-| `T3` | all train pairs: (input, output) | substrate per pair | 1.A |
-| `T4` | N-1 worked pairs + 1 cold pair input | substrate for the cold pair | 1.B |
-| `T5` | all train pairs + test input | **test substrate** | 1.B |
-| `T6` | all train pairs + test input | test output grid | 1.B |
+All six formats use the `Transformation Rule` system message. They
+differ only in user-prompt structure and target field. The two columns
+on the right show which sub-phase each format belongs to and the
+per-pair substrate kind it requires.
 
-**Per-task pair dispatch:**
+| Internal label | User-prompt ends with | Target | Sub-phase | Per-pair dispatch |
+|---|---|---|---|---|
+| `pair_to_substrate` | `SUBSTRATE:` | substrate for that pair | 1.A | per pair via `encode_auto` |
+| `substrate_to_output` | `OUTPUT:` | output grid | 1.A | **same-size pixel substrate only** |
+| `all_pairs_to_substrates` | `SUBSTRATES:` | per-pair substrates for all train pairs | 1.A | per pair via `encode_auto` |
+| `cold_pair_to_substrate` | `COLD SUBSTRATE:` | substrate for the cold pair | 1.B | per pair via `encode_auto` |
+| `test_substrate_prediction` | `TEST SUBSTRATE:` | substrate for the test pair | 1.B | per pair via `encode_auto` |
+| `direct_output_grid` | `OUTPUT:` | test output grid | 1.B | n/a (output is the target) |
 
-- `T2` requires the *lossless* same-size pixel substrate (because that
-  is the only substrate form with a decoder). For mixed-shape puzzles,
-  T2 emits examples only for the same-size pairs and skips the diff-
-  size ones.
-- All other tasks use `encode_auto`, which dispatches per pair to the
-  appropriate substrate (pixel for same-size, aggregate for diff-size).
-  Both substrate forms are valid prediction targets.
+`substrate_to_output` requires the lossless same-size pixel substrate
+(because that is the only substrate form with a deterministic decoder).
+For mixed-shape puzzles the generator emits this format only for the
+same-size pairs and skips the diff-size ones.
 
-### 4.3 Phase 1.A — substrate literacy
+All other formats use `encode_auto`, which dispatches per pair to the
+appropriate substrate (pixel for same-size, aggregate for diff-size).
+Both substrate forms are valid prediction targets in those formats.
 
-Train **from the base Qwen-2.5-7B-Instruct checkpoint** on T1 + T2 +
-T3 only. The target mix:
+The full conversation schema for each format — exact field labels,
+target structure — is in §7.
 
-| Task | Mix share |
+### 4.4 Phase 1.A — substrate literacy
+
+Train **from the base Qwen-2.5-7B-Instruct checkpoint** on the three
+single-pair literacy formats only. Target mix:
+
+| Format | Mix share |
 |---|---|
-| T1 | 40% |
-| T2 | 35% |
-| T3 | 25% |
+| `pair_to_substrate` | 40% |
+| `substrate_to_output` | 35% |
+| `all_pairs_to_substrates` | 25% |
 
-T2 is intentionally heavily weighted: it forces the model to learn the
-*decoding* direction, which is the harder half of the substrate
-relationship. T3 introduces multi-pair input but with mechanical
-per-pair targets — still "literacy," just batched.
+`substrate_to_output` is intentionally heavily weighted: it forces the
+model to learn the *decoding* direction, which is the harder half of
+the substrate relationship. `all_pairs_to_substrates` introduces
+multi-pair input but with mechanical per-pair targets — still
+"literacy," just batched.
 
-**Probe / stopping criterion:** before kicking off 1.B, hold out a small
-set (~50 puzzles from the train pool, never seen during 1.A) and
-measure substrate-prediction exact-match accuracy on T1. The "1.A done"
-threshold is ≥ 95% on same-size pairs and ≥ 90% on diff-size pairs.
-Below that, 1.B will compound errors.
+**Probe / stopping criterion (1.A done signal):** before kicking off
+1.B, hold out ~50 puzzles never seen during 1.A and measure exact-match
+on each literacy task:
+
+| Probe | Threshold |
+|---|---|
+| `pair_to_substrate` exact-match (same-size) | ≥ 95% |
+| `pair_to_substrate` exact-match (diff-size) | ≥ 90% |
+| `substrate_to_output` exact-match (same-size only) | ≥ 95% |
+| `all_pairs_to_substrates` exact-match | ≥ 90% |
+
+Below threshold, 1.B will compound errors — extend 1.A instead. Above
+threshold, do **not** overtrain the alphabet; move to 1.B.
 
 Save the 1.A LoRA as `outputs/phase1a/...` (path TBD by training
 script).
 
-### 4.4 Phase 1.B — rule application
+### 4.5 Phase 1.B — rule application
 
-Continue from the 1.A LoRA. Train on T4 + T5 + T6 with a small carry of
-T1 + T2 + T3 to prevent catastrophic forgetting of the atomic skill.
+Continue from the 1.A LoRA. Train the three multi-pair / inference
+formats with a small carry of the 1.A formats to prevent catastrophic
+forgetting of the atomic skill.
 
-| Task | Mix share |
+| Format | Mix share |
 |---|---|
-| T1 | 5% (carry) |
-| T2 | 5% (carry) |
-| T3 | 10% (carry) |
-| T4 | 25% |
-| T5 | 40% |
-| T6 | 15% |
+| `pair_to_substrate` | 5% (carry) |
+| `substrate_to_output` | 5% (carry) |
+| `all_pairs_to_substrates` | 10% (carry) |
+| `cold_pair_to_substrate` | 25% |
+| `test_substrate_prediction` | 40% |
+| `direct_output_grid` | 15% |
 
-T5 — "given the worked pairs and the test input, predict the test
-substrate" — is the load-bearing bridge task between substrate literacy
-and full output prediction. It puts the loss signal where the *rule*
-lives (the substrate target) rather than diluting it across an entire
-output grid where most cells are trivial copies of the input.
+`test_substrate_prediction` — "given the worked pairs and the test
+input, predict the test substrate" — is the load-bearing bridge task
+between substrate literacy and full output prediction. It puts the loss
+signal where the *rule* lives (the substrate target) rather than
+diluting it across an entire output grid where most cells are trivial
+copies of the input.
 
-### 4.5 Eval protocol (Phase 1)
+### 4.6 Eval protocol (Phase 1)
 
 Protocol C, with per-test-pair dispatch. ARC's official scoring rule
 applies: every test pair in a puzzle must be exactly correct for that
@@ -212,13 +260,14 @@ attempt to count.
 For each test pair:
 
 - **Same-size pair**:
-  - Attempt 1: predict `write` substrate → mechanically `decode` →
+  - Attempt 1: `test_substrate_prediction` → mechanically `decode` →
     output.
-  - Attempt 2: predict output directly.
+  - Attempt 2: `direct_output_grid`.
 - **Diff-size pair**:
-  - Attempt 1: predict `struct` substrate as a CoT prefix, then
-    continue generating the output.
-  - Attempt 2: predict output directly with no substrate prefix.
+  - Attempt 1: `test_substrate_prediction` as CoT prefix, then continue
+    generating output (substrate diagnostic; not mechanically
+    decodable).
+  - Attempt 2: `direct_output_grid` with no substrate prefix.
 
 Puzzle is counted as solved if any single attempt path produces the
 correct output for *all* test pairs.
@@ -242,6 +291,20 @@ Reporting on `a2e_final_hard`:
 High-level only at this stage; detailed spec will land before Phase 2
 training starts.
 
+Phase 2 uses its own system message:
+
+```
+Code Solver
+```
+
+A subsequent repair phase (Phase 3) uses:
+
+```
+Code Repair
+```
+
+One system message per phase — same principle as Phase 1.
+
 ### 5.1 What changes from Run 1
 
 Run 1's Phase 2-style data had **1 correct code + 10 wrong code per
@@ -257,15 +320,15 @@ signal capped what the model could learn. Phase 2 of Run 2:
    produced by Phase 1 (e.g. operate on the cell-changed-set rather
    than the full grid), shrinking the search space.
 
-### 5.2 Tasks (provisional)
+### 5.2 Formats (provisional)
 
-| Tag | Context | Target |
+| Internal label | User prompt | Target |
 |---|---|---|
-| `T7` | train pairs + substrates + test substrate | `def solve()` Python |
-| `T8` | raw puzzle (no substrate scaffold) | substrate blocks + `def solve()` |
-| `T9` | wrong code + validator feedback | corrected code |
+| `substrate_to_code` | train pairs + substrates + test substrate | `def solve()` Python |
+| `raw_to_substrate_plus_code` | raw puzzle (no substrate scaffold) | substrate blocks + `def solve()` |
+| `repair_from_feedback` | wrong code + validator feedback | corrected code (Phase 3, `Code Repair`) |
 
-Phase 2 mix and weighting TBD pending Phase 1.B results.
+Mix and weighting TBD pending Phase 1.B results.
 
 ### 5.3 Eval
 
@@ -395,15 +458,21 @@ instances encode without error.
 
 ## 7. Training data format
 
-The Phase 1 generator emits JSONL records, one example per line:
+### 7.1 Record envelope
+
+Phase 1 records are JSONL, one example per line, in standard chat-message
+format with a sibling `provenance` block for hold-out verification:
 
 ```json
 {
-  "task": "T5",
-  "stage": "phase1b",
-  "prompt": "<assembled context, task-specific>",
-  "target": "<assembled target, task-specific>",
+  "messages": [
+    {"role": "system",    "content": "Transformation Rule"},
+    {"role": "user",      "content": "<assembled context, format-specific>"},
+    {"role": "assistant", "content": "<target, format-specific>"}
+  ],
   "provenance": {
+    "format": "test_substrate_prediction",
+    "stage": "phase1b",
     "puzzle_id": "00576224",
     "source": "A1E",
     "d4_op": "rot90",
@@ -414,15 +483,258 @@ The Phase 1 generator emits JSONL records, one example per line:
 }
 ```
 
-The `provenance` block is what makes hold-out verification a one-line
-grep. The `task` and `stage` fields are required so the trainer can
-compute per-task validation loss (one of the Run 1 lessons:
-aggregate val-loss hides which task is actually being learned).
+The `messages` array is what the trainer reads. The `provenance` block
+is metadata: most trainers ignore unknown top-level keys, and our
+holdout-check and per-format validation-loss tracking depend on it. The
+`format` and `stage` fields in particular must be set — the Run 1
+lesson was that aggregate val-loss hides which format is actually being
+learned.
 
-Per-task prompt/target schemas (T1–T6) are codified in the dataset
-generator; this doc describes intent, not byte-level format. The
-canonical reference is the generator + a sample JSONL file checked
-into `Fine Tune Run 2/data_sft/`.
+### 7.2 The Transformation Rule system message
+
+Every Phase 1 record uses:
+
+```json
+{"role": "system", "content": "Transformation Rule"}
+```
+
+No prose instructions, no examples in the system slot, no task IDs.
+The user prompt's trailing field tells the model what to produce.
+
+### 7.3 Field-contract conventions
+
+User prompts assemble fields in a fixed grammar so the model can rely
+on layout:
+
+- **Pair labels:** `P1`, `P2`, `P3`, … in order of presentation.
+- **Field labels (block-leading):** `INPUT:`, `OUTPUT:`, `SUBSTRATE:`,
+  `SUBSTRATES:` (plural for the multi-pair format), `COLD INPUT:`,
+  `COLD OUTPUT:`, `COLD SUBSTRATE:`, `TEST INPUT:`,
+  `TEST SUBSTRATE:`.
+- **Per-pair fields:** prefixed with the pair label and a space, e.g.
+  `P1 INPUT:`, `P1 SUBSTRATE:`.
+- **Block separator:** one blank line between fields. Field label and
+  its content are separated by a single newline.
+- **Grids** are rendered via `substrate.format_grid` — one row per
+  line, one character per cell, no spaces, no commas.
+- **Pixel substrates** render the same way (one character per cell,
+  `.` and digits).
+- **Aggregate substrates** render as the verbatim
+  `diffsize_encode` output (multi-line text block).
+- The user prompt **ends** with the field label whose value the
+  assistant must produce, followed by a single newline. No content
+  after that label.
+
+### 7.4 The six formats
+
+#### Format 1 — `pair_to_substrate`
+
+**Purpose:** encode a single (input, output) pair as its substrate.
+
+**User:**
+```
+INPUT:
+<grid>
+
+OUTPUT:
+<grid>
+
+SUBSTRATE:
+```
+
+**Assistant:** the substrate for that pair (pixel grid for same-size,
+aggregate text block for diff-size).
+
+**Sub-phase:** 1.A.
+
+#### Format 2 — `substrate_to_output`
+
+**Purpose:** apply a pixel substrate back to recover the output. Trains
+the *decode* direction of the substrate relationship.
+
+**Constraint:** same-size pixel substrate only. The generator must
+skip diff-size pairs for this format. Diff-size aggregate substrates
+are lossy and cannot mechanically reconstruct the output.
+
+**User:**
+```
+INPUT:
+<grid>
+
+SUBSTRATE:
+<pixel substrate>
+
+OUTPUT:
+```
+
+**Assistant:** the output grid.
+
+**Sub-phase:** 1.A.
+
+#### Format 3 — `all_pairs_to_substrates`
+
+**Purpose:** multi-pair substrate formatting with mechanical per-pair
+targets. Still literacy, but at the puzzle level.
+
+**User:**
+```
+P1 INPUT:
+<grid>
+
+P1 OUTPUT:
+<grid>
+
+P2 INPUT:
+<grid>
+
+P2 OUTPUT:
+<grid>
+
+SUBSTRATES:
+```
+
+**Assistant:**
+```
+P1 SUBSTRATE:
+<substrate>
+
+P2 SUBSTRATE:
+<substrate>
+```
+
+**Sub-phase:** 1.A.
+
+#### Format 4 — `cold_pair_to_substrate`
+
+**Purpose:** analogy across pairs. Worked examples show the
+input→output→substrate chain; the model must encode the cold pair's
+substrate from its (input, output) alone, but with the rule context
+the worked examples provide.
+
+**User:**
+```
+P1 INPUT:
+<grid>
+
+P1 OUTPUT:
+<grid>
+
+P1 SUBSTRATE:
+<substrate>
+
+P2 INPUT:
+<grid>
+
+P2 OUTPUT:
+<grid>
+
+P2 SUBSTRATE:
+<substrate>
+
+COLD INPUT:
+<grid>
+
+COLD OUTPUT:
+<grid>
+
+COLD SUBSTRATE:
+```
+
+**Assistant:** the cold pair's substrate.
+
+**Sub-phase:** 1.B. Requires ≥ 2 worked train pairs + 1 cold pair, so
+puzzles with fewer than 3 train pairs (after subsetting) are skipped
+for this format.
+
+#### Format 5 — `test_substrate_prediction`
+
+**Purpose:** the load-bearing bridge. Infer the transformation rule
+from train pairs and apply it to the test input, expressing the answer
+as substrate rather than output.
+
+**User:**
+```
+P1 INPUT:
+<grid>
+
+P1 OUTPUT:
+<grid>
+
+P1 SUBSTRATE:
+<substrate>
+
+P2 INPUT:
+<grid>
+
+P2 OUTPUT:
+<grid>
+
+P2 SUBSTRATE:
+<substrate>
+
+TEST INPUT:
+<grid>
+
+TEST SUBSTRATE:
+```
+
+**Assistant:** the test pair's substrate.
+
+**Sub-phase:** 1.B. Test pair's *output* is never shown in the prompt
+— that's the whole point.
+
+For same-size test pairs the predicted substrate is mechanically
+decodable into the output. For diff-size test pairs the predicted
+substrate is diagnostic / scaffold only.
+
+#### Format 6 — `direct_output_grid`
+
+**Purpose:** direct output prediction without substrate scaffolding.
+Useful as attempt-2 in the eval protocol, but should not dominate
+Phase 1 — the substrate path is the structured signal we want the
+model leaning on.
+
+**User:**
+```
+P1 INPUT:
+<grid>
+
+P1 OUTPUT:
+<grid>
+
+P2 INPUT:
+<grid>
+
+P2 OUTPUT:
+<grid>
+
+TEST INPUT:
+<grid>
+
+OUTPUT:
+```
+
+**Assistant:** the test output grid.
+
+**Sub-phase:** 1.B.
+
+### 7.5 Per-stage filenames
+
+The dataset generator writes:
+
+```
+Fine Tune Run 2/data_sft/phase1a_train.jsonl
+Fine Tune Run 2/data_sft/phase1a_dev.jsonl
+Fine Tune Run 2/data_sft/phase1b_train.jsonl
+Fine Tune Run 2/data_sft/phase1b_dev.jsonl
+Fine Tune Run 2/data_sft/phase1_final_eval.jsonl
+Fine Tune Run 2/data_sft/phase1_manifest.json
+Fine Tune Run 2/splits/phase1_splits.json
+```
+
+`phase1_final_eval.jsonl` is the locked 34 — generated once, regenerated
+only if the split seed changes (which itself is a deliberate decision,
+not an automatic operation).
 
 ---
 
