@@ -419,16 +419,28 @@ def make_record(format_name, variant_puzzle, prov_aug, rep_pid, sources,
 
 def generate_for_bucket(bucket_name, cluster_list, aug_cfg, stage_cfg,
                         master_seed, max_per_puzzle):
-    """Generate records for one bucket. Returns list of records."""
-    records = []
-    fmt_counter = Counter()
+    """Generate records for one bucket using target-driven sampling.
+
+    Two-phase algorithm:
+      1. Enumerate all (cluster, augmented_variant) items with their
+         eligible-format sets.
+      2. For each format independently, sample target_ratio*total_items
+         from that format's eligible pool. The same (cluster, variant)
+         can be drawn by multiple formats — each yields a different
+         record (different conversational framing).
+
+    This hits target mix ratios cleanly, even when single-train-pair
+    puzzles are only eligible for pair_to_substrate. Previously those
+    puzzles dragged the mix because the per-variant sampler used
+    "eligible-only" weights, which over-counted pair_to_substrate.
+    """
+    # Phase 1: enumerate all variants with eligibility info.
+    items = []
     skip_counter = Counter()
 
     for cluster in cluster_list:
         rep_pid = cluster["rep_pid"]
         sources = cluster["sources"]
-        # Use the first available source file for this cluster — they're
-        # all the same canonical content.
         fname = cluster["files"][0]
         path = PUZZLES_DIR / fname
         if not path.exists():
@@ -436,37 +448,68 @@ def generate_for_bucket(bucket_name, cluster_list, aug_cfg, stage_cfg,
             continue
         puzzle = load_puzzle(path)
 
-        # Deterministic per-puzzle RNG seeded by (master_seed, pid).
         per_puzzle_seed = (master_seed * 1000003 + sum(ord(c) for c in rep_pid)) & 0x7FFFFFFF
         rng = random.Random(per_puzzle_seed)
 
         variants = augmentation_variants(puzzle, aug_cfg, rng)
-        # Cap variants per puzzle to keep dataset size manageable.
         if len(variants) > max_per_puzzle:
             variants = rng.sample(variants, max_per_puzzle)
 
         for variant_puzzle, prov_aug in variants:
-            eligible = eligible_formats(variant_puzzle, stage_cfg["task_mix"])
+            eligible = set(eligible_formats(variant_puzzle, stage_cfg["task_mix"]))
             if not eligible:
                 skip_counter["no_eligible_format"] += 1
                 continue
-            fmt_name = sample_format(eligible, stage_cfg["task_mix"], rng)
+            items.append({
+                "cluster_rep_pid": rep_pid,
+                "cluster_sources": sources,
+                "variant_puzzle":  variant_puzzle,
+                "prov_aug":        prov_aug,
+                "eligible":        eligible,
+            })
+
+    # Phase 2: per-format target-driven sampling.
+    total_items = len(items)
+    format_targets = {
+        fmt: int(round(ratio * total_items))
+        for fmt, ratio in stage_cfg["task_mix"].items()
+    }
+    pool_sizes = {fmt: 0 for fmt in stage_cfg["task_mix"]}
+    for it in items:
+        for fmt in it["eligible"]:
+            if fmt in pool_sizes:
+                pool_sizes[fmt] += 1
+
+    records = []
+    fmt_counter = Counter()
+    rng_pick = random.Random(master_seed + 99)
+
+    for fmt, target in format_targets.items():
+        eligible_items = [it for it in items if fmt in it["eligible"]]
+        if len(eligible_items) < target:
+            skip_counter[f"{fmt}_pool_short_by"] = target - len(eligible_items)
+            chosen = eligible_items
+        else:
+            chosen = rng_pick.sample(eligible_items, target)
+        for it in chosen:
             rec = make_record(
-                format_name=fmt_name,
-                variant_puzzle=variant_puzzle,
-                prov_aug=prov_aug,
-                rep_pid=rep_pid,
-                sources=sources,
+                format_name=fmt,
+                variant_puzzle=it["variant_puzzle"],
+                prov_aug=it["prov_aug"],
+                rep_pid=it["cluster_rep_pid"],
+                sources=it["cluster_sources"],
                 bucket=bucket_name,
                 stage_name=stage_cfg["stage_name"],
-                rng=rng,
+                rng=rng_pick,
             )
             if rec is None:
-                skip_counter[f"{fmt_name}_returned_none"] += 1
+                skip_counter[f"{fmt}_returned_none"] += 1
                 continue
             records.append(rec)
-            fmt_counter[fmt_name] += 1
+            fmt_counter[fmt] += 1
 
+    skip_counter["_pool_sizes"] = pool_sizes
+    skip_counter["_n_variants"] = total_items
     return records, fmt_counter, skip_counter
 
 
