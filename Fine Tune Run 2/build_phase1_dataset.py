@@ -470,6 +470,23 @@ def generate_for_bucket(bucket_name, cluster_list, aug_cfg, stage_cfg,
     return records, fmt_counter, skip_counter
 
 
+def augmentation_rank(prov: dict) -> int:
+    """Difficulty rank of an augmented variant.
+
+      0: identity, no color perm (closest to original surface form)
+      1: identity + color perm  (palette change, spatial unchanged)
+      2: D4 + no color perm     (spatial change, palette unchanged)
+      3: D4 + color perm        (both)
+
+    Pair-subsetting is intentionally NOT in the rank — it changes the
+    puzzle's effective pair count, not its surface form. Curriculum is
+    about surface-form difficulty, not example coverage.
+    """
+    has_d4 = prov.get("d4_op", "identity") != "identity"
+    has_color = prov.get("color_perm_seed") is not None
+    return (2 if has_d4 else 0) + (1 if has_color else 0)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage", choices=["1a", "1b"], required=True)
@@ -477,6 +494,11 @@ def main():
                     help="Generate ~50 examples per bucket for review.")
     ap.add_argument("--max-per-puzzle", type=int, default=24,
                     help="Cap augmented variants per puzzle. Default 24.")
+    ap.add_argument("--curriculum", choices=["sort", "shuffle"], default="sort",
+                    help="train.jsonl ordering. 'sort' (default) orders by "
+                         "augmentation difficulty rank (identity -> color -> "
+                         "D4 -> combined), with deterministic shuffle within "
+                         "each rank. 'shuffle' does a single global shuffle.")
     args = ap.parse_args()
 
     cfg = STAGE_CONFIG[args.stage]
@@ -536,9 +558,30 @@ def main():
     if dev_skip:
         print(f"  skips: {dict(dev_skip)}")
 
-    # Shuffle the train file so format batches don't cluster by puzzle.
+    # Order the train file. Two modes:
+    #
+    #   sort     curriculum-by-augmentation-difficulty (default). Group
+    #            records by augmentation rank 0..3, shuffle within each
+    #            rank, then concatenate. Easier surface forms (identity,
+    #            color-only) come first; harder (D4, D4+color) come last.
+    #            For the first epoch (the one that matters in our SFT
+    #            regime), the trainer sees the curriculum order. Most
+    #            trainers reshuffle on epoch 2+, which doesn't hurt us.
+    #
+    #   shuffle  single global shuffle. Status quo, no curriculum.
     rng_shuf = random.Random(seed + 2)
-    rng_shuf.shuffle(train_records)
+    if args.curriculum == "sort":
+        by_rank = defaultdict(list)
+        for r in train_records:
+            by_rank[augmentation_rank(r["provenance"])].append(r)
+        train_records = []
+        for rank in (0, 1, 2, 3):
+            rng_shuf.shuffle(by_rank[rank])
+            train_records.extend(by_rank[rank])
+        rank_counts = {r: len(by_rank[r]) for r in (0, 1, 2, 3)}
+    else:
+        rng_shuf.shuffle(train_records)
+        rank_counts = None
 
     out_train = cfg["out_files"]["train"]
     out_dev = cfg["out_files"]["dev"]
@@ -561,11 +604,13 @@ def main():
         "seed": seed,
         "max_per_puzzle": args.max_per_puzzle,
         "sample_only": args.sample_only,
+        "curriculum": args.curriculum,
         "train": {
             "file": str(out_train.relative_to(REPO)),
             "n_records": len(train_records),
             "n_clusters": len(train_clusters),
             "format_counts": dict(train_fmt),
+            "augmentation_rank_counts": rank_counts,
             "skipped": dict(train_skip),
         },
         "dev": {
