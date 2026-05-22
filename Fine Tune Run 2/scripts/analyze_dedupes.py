@@ -1,19 +1,22 @@
-"""Find content-level duplicates in Fine Tune Run 2/puzzles/.
+"""Classify puzzles in Fine Tune Run 2/puzzles/ by content-origin family.
 
-A puzzle is defined by its content, not its filename. Two files are
-duplicates if they encode the same puzzle — same multiset of training
-pairs and same multiset of test pairs — regardless of the order in
-which pairs appear in the JSON.
+A puzzle is defined by its content, not its filename. Two files encode
+the same puzzle if they have the same multiset of training pairs and
+the same multiset of test pairs (pair ordering ignored).
 
-Pair ordering inside `train` and `test` lists is treated as
-insignificant. Everything else (grid values, shapes, palette, test
-solution) must match exactly.
+For each unique-by-content puzzle, classify which source family it
+came from:
 
-Usage:
-    python3 analyze_dedupes.py            # analysis only, no changes
-    python3 analyze_dedupes.py --dedupe   # remove duplicates, keep one
-                                           # per group, merge source tags
-                                           # into combined filename
+    A1-only       only A1T and/or A1E files contain this content
+    A2-only       only A2T and/or A2E files contain this content (= new in ARC-2)
+    A1-and-A2     both families contain this content (ARC-2 imported it from ARC-1;
+                  for accounting we attribute origin to A1 since A1 preceded A2)
+
+The interesting number is A2-only: the count of puzzles that are
+genuinely new in ARC-2, not carried over from ARC-1 with shuffled pair
+order.
+
+No files are modified. This is read-only analysis.
 """
 import argparse
 import hashlib
@@ -43,14 +46,6 @@ def content_hash(puzzle: dict) -> str:
     return hashlib.sha256(canonical_repr(puzzle).encode()).hexdigest()[:16]
 
 
-def group_by_content(files: list[Path]) -> dict[str, list[Path]]:
-    groups: dict[str, list[Path]] = defaultdict(list)
-    for f in files:
-        puzzle = json.loads(f.read_text())
-        groups[content_hash(puzzle)].append(f)
-    return groups
-
-
 def parse_filename(name: str) -> tuple[str, str]:
     """<puzzle_id>_<src>.json -> (puzzle_id, src)."""
     stem = name.removesuffix(".json")
@@ -58,96 +53,98 @@ def parse_filename(name: str) -> tuple[str, str]:
     return pid, src
 
 
-def combined_source_tag(files: list[Path]) -> str:
-    """Merge source tags from a duplicate group into a single sorted suffix.
-    Example: [00576224_A1E.json, 00576224_A2T.json] -> "A1E+A2T"."""
-    srcs = sorted({parse_filename(f.name)[1] for f in files})
-    return "+".join(srcs)
-
-
-def report(groups: dict[str, list[Path]]) -> tuple[int, int, int, int]:
-    total = sum(len(v) for v in groups.values())
-    unique = len(groups)
-    dup_groups = sum(1 for v in groups.values() if len(v) > 1)
-    removable = sum(len(v) - 1 for v in groups.values() if len(v) > 1)
-
-    print(f"Total files:                  {total}")
-    print(f"Unique puzzles (by content):  {unique}")
-    print(f"Duplicate groups (size > 1):  {dup_groups}")
-    print(f"Files removable by dedup:     {removable}")
-    print(f"Final count after dedup:      {total - removable}")
-    return total, unique, dup_groups, removable
-
-
-def show_samples(groups: dict[str, list[Path]], n: int = 10) -> None:
-    print(f"\nFirst {n} duplicate groups (filename only):")
-    shown = 0
-    for h, names in sorted(groups.items()):
-        if len(names) <= 1:
-            continue
-        print(f"  [{h[:8]}] {sorted(f.name for f in names)}")
-        shown += 1
-        if shown >= n:
-            break
-
-
-def dedupe(groups: dict[str, list[Path]]) -> None:
-    """Keep one file per content group, rename to combined source tag,
-    delete the others. Filename pattern: <puzzle_id>_<srcA+srcB+...>.json."""
-    kept = 0
-    removed = 0
-    renamed = 0
-    for h, files in groups.items():
-        if len(files) == 1:
-            kept += 1
-            continue
-        # All files in this group share the same puzzle_id (since the
-        # canonical content matches). Verify and combine src tags.
-        pids = {parse_filename(f.name)[0] for f in files}
-        merged_tag = combined_source_tag(files)
-        # The chosen kept file gets the merged name; the rest are deleted.
-        # If pids differ across the group (would be surprising — same
-        # content under different ids), we still merge but warn.
-        if len(pids) != 1:
-            print(f"WARNING group {h[:8]} has multiple ids {pids}; "
-                  f"using lexicographically first", file=sys.stderr)
-        pid = sorted(pids)[0]
-        # Sort files so the kept one is deterministic (first alphabetically)
-        files_sorted = sorted(files, key=lambda p: p.name)
-        keep = files_sorted[0]
-        target = keep.with_name(f"{pid}_{merged_tag}.json")
-        # Delete the others first to avoid clashing names
-        for f in files_sorted[1:]:
-            f.unlink()
-            removed += 1
-        if target != keep:
-            keep.rename(target)
-            renamed += 1
-        kept += 1
-    print(f"\nDedupe done: kept {kept} files, removed {removed}, renamed {renamed}")
+def classify_origin(sources: set[str]) -> str:
+    """A1-only, A2-only, or A1-and-A2."""
+    has_a1 = any(s.startswith("A1") for s in sources)
+    has_a2 = any(s.startswith("A2") for s in sources)
+    if has_a1 and has_a2:
+        return "A1-and-A2"
+    if has_a1:
+        return "A1-only"
+    return "A2-only"
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--dedupe", action="store_true",
-                    help="Apply the dedupe (destructive). Without this flag, "
-                         "only report stats.")
-    ap.add_argument("--samples", type=int, default=10,
-                    help="Number of duplicate groups to show as samples.")
+    ap.add_argument("--manifest", type=Path, default=None,
+                    help="If given, write per-puzzle manifest JSON here. "
+                         "Each row: hash, sources, origin_family, "
+                         "representative_filename.")
     args = ap.parse_args()
 
     files = sorted(PUZZLES_DIR.glob("*.json"))
     if not files:
-        print(f"No files found in {PUZZLES_DIR}", file=sys.stderr)
+        print(f"No files in {PUZZLES_DIR}", file=sys.stderr)
         sys.exit(1)
 
-    groups = group_by_content(files)
-    report(groups)
-    show_samples(groups, args.samples)
+    # Group files by content hash
+    groups: dict[str, list[Path]] = defaultdict(list)
+    for f in files:
+        puzzle = json.loads(f.read_text())
+        groups[content_hash(puzzle)].append(f)
 
-    if args.dedupe:
-        print("\n--- Applying dedupe ---")
-        dedupe(groups)
+    # Counts by origin family
+    by_origin: dict[str, int] = defaultdict(int)
+    by_origin_singletons: dict[str, int] = defaultdict(int)
+    by_origin_multifile: dict[str, int] = defaultdict(int)
+    # File-level counts by source tag (raw)
+    files_by_src: dict[str, int] = defaultdict(int)
+    for f in files:
+        files_by_src[parse_filename(f.name)[1]] += 1
+
+    rows = []
+    for h, fs in groups.items():
+        srcs = {parse_filename(f.name)[1] for f in fs}
+        origin = classify_origin(srcs)
+        by_origin[origin] += 1
+        if len(fs) == 1:
+            by_origin_singletons[origin] += 1
+        else:
+            by_origin_multifile[origin] += 1
+        rows.append({
+            "hash": h,
+            "sources": sorted(srcs),
+            "origin_family": origin,
+            "files": sorted(f.name for f in fs),
+        })
+
+    total_files = sum(files_by_src.values())
+    total_unique = sum(by_origin.values())
+
+    print("=" * 60)
+    print("File-level counts (by source tag, raw)")
+    print("=" * 60)
+    for src in sorted(files_by_src):
+        print(f"  {src}: {files_by_src[src]}")
+    print(f"  TOTAL files: {total_files}")
+    print()
+    print("=" * 60)
+    print("Content-unique puzzles, classified by origin family")
+    print("=" * 60)
+    print(f"  A1-only        {by_origin['A1-only']:5d}   "
+          f"(only ARC-1 has this content)")
+    print(f"  A2-only        {by_origin['A2-only']:5d}   "
+          f"(genuinely NEW in ARC-2)")
+    print(f"  A1-and-A2      {by_origin['A1-and-A2']:5d}   "
+          f"(ARC-2 imported from ARC-1, same content)")
+    print(f"  TOTAL unique   {total_unique:5d}")
+    print()
+    print(f"Of the {total_files} files in the corpus, {total_unique} encode")
+    print(f"distinct puzzles. The {total_files - total_unique} 'extra' files are")
+    print(f"copies that came from A2 importing A1 content with shuffled")
+    print(f"pair order — they're attributed to A1 as the origin.")
+    print()
+    print("=" * 60)
+    print(f"What ARC-2 actually added: {by_origin['A2-only']} new puzzles")
+    print("=" * 60)
+    print(f"  A2T new (training):   "
+          f"{sum(1 for r in rows if r['origin_family'] == 'A2-only' and any(s == 'A2T' for s in r['sources']))}")
+    print(f"  A2E new (evaluation): "
+          f"{sum(1 for r in rows if r['origin_family'] == 'A2-only' and any(s == 'A2E' for s in r['sources']))}")
+
+    if args.manifest:
+        args.manifest.write_text(json.dumps(rows, indent=2))
+        print(f"\nManifest written to {args.manifest}")
 
 
 if __name__ == "__main__":
