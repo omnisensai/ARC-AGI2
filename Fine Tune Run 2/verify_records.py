@@ -64,7 +64,7 @@ TRAILING_LABEL_RE = re.compile(r"\n?[A-Z][A-Z0-9 _]*:\n$")
 # Mirror of build_phase1_dataset.py SYSTEM_MESSAGE_BY_STAGE. Must stay
 # in sync.
 
-EXPECTED_SAME = """Encode the transformation from INPUT to OUTPUT as a T grid. Each cell
+EXPECTED_SAME = """T represents the transformation between INPUT and OUTPUT. Each cell
 is an atomic unit colored 0-9.
 
 T grid legend when INPUT and OUTPUT have the same dimensions
@@ -75,7 +75,7 @@ Each cell is independent: T[r,c] depends only on INPUT[r,c] and
 OUTPUT[r,c], not on neighbors. Lossless — OUTPUT is fully
 reconstructible from INPUT + T."""
 
-EXPECTED_DIFF = """Encode the transformation from INPUT to OUTPUT as a T grid. Each cell
+EXPECTED_DIFF = """T represents the transformation between INPUT and OUTPUT. Each cell
 is an atomic unit colored 0-9.
 
 T grid legend when INPUT and OUTPUT have the same dimensions
