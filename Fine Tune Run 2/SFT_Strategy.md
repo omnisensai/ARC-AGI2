@@ -85,25 +85,31 @@ feedback?"
 
 ## 1. Overview — Two-phase curriculum
 
-Run 2 trains in two phases with two distinct goals:
+Run 2 trains in three phases with three distinct goals:
 
 | Phase | Goal | Targets |
 |---|---|---|
-| **Phase 1: Transformation grid literacy** | Teach the model to *see* the input→output transformation as a structured object (the "substrate"). No code generation. | Substrate fields and output grids. |
-| **Phase 2: Coding + debug** | Teach the model to emit `def solve(input_grid)` Python that produces the correct output, and to repair its own wrong code given validator feedback. | Python functions. |
+| **Phase 1: Transformation grid literacy** | Teach the model to *see* the input→output transformation as a structured object (the "T grid"). No code generation. | T grids and output grids. |
+| **Phase 2: Coding** | Teach the model to emit `def solve(input_grid)` Python that produces the correct output. | Python functions. |
+| **Phase 3: Repair** | Teach the model to repair its own wrong code given validator feedback. | Corrected Python functions. |
 
-The previous run (Run 1, commit `268648f` and earlier) hit 18% pass@1 /
-24% pass@2 on a clean held-out — with only **1 correct code per puzzle
-and 10 wrong** in the training mix, and the "solve" task only 8% of the
-mix. That result establishes the thesis: substrate-flavored SFT
-transfers. Run 2 builds on it with:
+Phase 1 itself is a three-stage curriculum (SAME → DIFF → MIXED) split
+by substrate representation. See §4.
 
-1. A **curriculum** (Phase 1 → Phase 2) instead of one mixed run.
-2. **Strict held-outs** (60 A2E puzzles never touched) instead of the
+The previous run (Run 1) hit 18% pass@1 / 24% pass@2 on a clean
+held-out — with only **1 correct code per puzzle and 10 wrong** in the
+training mix, and the "solve" task only 8% of the mix. That result
+establishes the thesis: substrate-flavored SFT transfers. Run 2 builds
+on it with:
+
+1. A **curriculum** (Phase 1 → Phase 2 → Phase 3) instead of one mixed
+   run, with Phase 1 itself split into three substrate-specific
+   sub-stages.
+2. **Strict held-outs** (34 A2E puzzles never touched) instead of the
    ad-hoc Run 1 splits.
-3. **Disciplined task mix** in each phase.
-4. A **per-pair substrate** (`encode_auto`) that handles diff-size
-   puzzles natively, not just same-size.
+3. **Disciplined task mix** in each stage.
+4. A **per-pair substrate** (`encode_auto`) that handles diff-dimensions
+   puzzles natively, not just same-dimensions.
 
 ---
 
@@ -195,141 +201,168 @@ discipline.
 
 ## 4. Phase 1 — Transformation grid literacy
 
-### 4.1 One skill, one system message
+### 4.1 Three-stage substrate-split curriculum
 
-Phase 1 trains **one unified skill**: infer and express the
-transformation rule between ARC grids. We do *not* train the model to
-recognize task labels like `T1`, `T2`, `T5`. Every Phase 1 record uses
-the same system message:
+Phase 1 trains three sequential LoRA checkpoints. The decomposition is
+by **substrate representation**, not by skill level:
 
-```
-Transformation Rule
-```
+| Stage | LoRA name | Trains on | Continues from |
+|---|---|---|---|
+| **1-SAME** | `outputs/phase1_same` | Records whose T target is a same-dimensions grid | Base Qwen-2.5-7B-Instruct |
+| **1-DIFF** | `outputs/phase1_diff` | Records whose T target is a diff-dimensions aggregate text block | `phase1_same` LoRA |
+| **1-MIXED** | `outputs/phase1_mixed` | Both, plus ARC puzzle framing | `phase1_diff` LoRA |
 
-The **field contract** in the user prompt — which trailing field the
-prompt ends with — determines what the assistant must produce:
+The motivation is that same-dimensions and diff-dimensions encodings
+are different alphabets:
 
-| User prompt ends with… | Assistant produces… |
-|---|---|
-| `RULE:` | the rule (substrate) for the relevant pair |
-| `OUTPUT:` | the output grid |
+- **Same-dim T grid:** per-cell, lossless. Cell-sovereign (`T[r,c]`
+  depends only on `INPUT[r,c]` and `OUTPUT[r,c]`).
+- **Diff-dim T text block:** aggregate, lossy, whole-grid statistics
+  organized into fixed sections (`SIZE / BG / PALETTE / ROWS / COLS /
+  BBOX`).
 
-Two field labels for the assistant target. Which one the model
-produces depends on which one the user prompt ends with. The five
-"task formats" below are internal bookkeeping for mix ratios and
-per-task metrics; the model sees only the field contract and the
-trailing label.
+Forcing one checkpoint to learn both from step zero would conflate two
+unrelated representations. Splitting them gives the model a clean
+ladder: master the simpler representation first, then layer in the
+second, then learn to dispatch between them.
 
-Phase 2 and Phase 3 use their own system messages — `Code Solver` and
-`Code Repair` respectively — because they're a different skill. Within
-each phase, one system message.
+### 4.2 Per-stage system prompts
 
-### 4.2 Two sub-phases (1.A and 1.B) — why
+Each stage uses its own system prompt. The model sees one prompt
+during the training of that stage, and the prompt is what the eval
+harness must use at inference for that adapter.
 
-Phase 1 teaches two distinct skills that are easy to confuse:
+- **1-SAME prompt** describes only the same-dimensions alphabet. No
+  diff-dimensions section. No puzzle-level multi-pair framing. The
+  records are all single-pair or multi-pair same-dim; that's all the
+  prompt mentions.
 
-- **Substrate literacy:** given a single pair, encode/decode it
-  mechanically. Roughly "1:1 mapping."
-- **Rule induction:** given several pairs, generalize the transformation
-  and apply it to a new input. Multi-pair reasoning.
+- **1-DIFF prompt** describes both alphabets (same + diff). The
+  records all target diff-dim, but the model has already learned
+  same-dim from the prior LoRA, and we want to preserve it. The
+  prompt acknowledges both so the same-dim skill is not forgotten.
 
-Mixing them from step 0 means the loss on rule-induction tasks confounds
-both errors. Phase 1.A teaches the atomic substrate skill alone; Phase
-1.B builds rule-induction on top.
+- **1-MIXED prompt** adds the ARC-AGI puzzle framing: "exactly one
+  transformation rule generalizes across all input/output pairs of a
+  puzzle. The rule is encoded in T grids — one T per pair." This is
+  the explicit invitation to perform rule transfer across pairs.
+
+Exact byte content of all three prompts is the source of truth in
+`build_phase1_dataset.py` (constants `SYSTEM_MESSAGE_SAME`,
+`SYSTEM_MESSAGE_DIFF`, `SYSTEM_MESSAGE_MIXED`); the verifier
+(`verify_records.py`) enforces them byte-for-byte.
+
+Phase 2 and Phase 3 will use their own system messages (`Code Solver`,
+`Code Repair`).
 
 ### 4.3 Phase 1 task formats
 
-All five formats use the same `Transformation Rule` system message.
-They differ only in user-prompt structure and which field label the
-prompt ends with. The two columns on the right show which sub-phase
-each format belongs to and the per-pair substrate kind it requires.
+All five formats use the field-contract grammar (`INPUT:` / `OUTPUT:`
+/ `T:`). The model sees only the field labels and the trailing-label
+contract; internal format names below are bookkeeping for mix ratios
+and per-task probe metrics.
 
-| Internal label | User-prompt ends with | Target | Sub-phase | Per-pair dispatch |
-|---|---|---|---|---|
-| `pair_to_substrate` | `RULE:` | rule for the single pair shown | 1.A | per pair via `encode_auto` |
-| `substrate_to_output` | `OUTPUT:` | output grid (reconstructed from input + rule) | 1.A | **same-size pixel substrate only** |
-| `multi_pair_to_rule` | `RULE:` | rule for the trailing pair, given N-1 worked pairs | 1.B | per pair via `encode_auto` |
-| `test_substrate_prediction` | `RULE:` | rule for the test pair, inferred from worked pairs | 1.B | per pair via `encode_auto` |
-| `direct_output_grid` | `OUTPUT:` | test output grid | 1.B | n/a (output is the target) |
+| Internal label | User-prompt ends with | Target | Per-pair dispatch |
+|---|---|---|---|
+| `pair_to_substrate` | `T:` | T for the single pair shown | per pair via `encode_auto` |
+| `substrate_to_output` | `OUTPUT:` | output grid (reconstructed from input + T) | **same-dim only** (no decoder for diff) |
+| `multi_pair_to_rule` | `T:` | T for the trailing pair, given N-1 worked pairs | per pair via `encode_auto` |
+| `test_substrate_prediction` | `T:` | T for the test pair, inferred from worked pairs | per pair via `encode_auto` |
+| `direct_output_grid` | `OUTPUT:` | test output grid | n/a (output is the target) |
 
-`substrate_to_output` requires the lossless same-size pixel rule
-(because that is the only rule form with a deterministic decoder).
-For mixed-shape puzzles the generator emits this format only for the
-same-size pairs and skips the diff-size ones.
+`substrate_to_output` requires the lossless same-dim T (because that
+is the only T form with a deterministic decoder).
 
-All other formats use `encode_auto`, which dispatches per pair to the
-appropriate rule (pixel for same-size, aggregate for diff-size). Both
-rule forms are valid prediction targets in those formats.
-
-**`multi_pair_to_rule` position rotation:** for each augmented variant
-of a puzzle with N train pairs, the generator emits N candidate items
-— one per choice of which pair is the trailing one. This guarantees
-systematic coverage of all positions across the training set, rather
-than leaving it to random sampling.
+`multi_pair_to_rule` position rotation: for each augmented variant
+with N train pairs, the generator emits N candidate items — one per
+choice of trailing pair. The substrate-type filter applies per
+candidate, so a stage only sees candidates whose trailing pair matches
+its filter.
 
 Format disambiguation by structure (no special labels needed):
 
-- `pair_to_substrate`: one (INPUT, OUTPUT) shown, trailing `RULE:`.
-- `substrate_to_output`: one (INPUT, RULE) shown, trailing `OUTPUT:`.
-- `multi_pair_to_rule`: N-1 worked (INPUT, OUTPUT, RULE) triples + 1
-  pair with (INPUT, OUTPUT) but no RULE → trailing `RULE:`.
-- `test_substrate_prediction`: N worked (INPUT, OUTPUT, RULE) triples +
-  test pair with INPUT only → trailing `RULE:`.
+- `pair_to_substrate`: one (INPUT, OUTPUT) shown, trailing `T:`.
+- `substrate_to_output`: one (INPUT, T) shown, trailing `OUTPUT:`.
+- `multi_pair_to_rule`: N-1 worked (INPUT, OUTPUT, T) triples + 1 pair
+  with (INPUT, OUTPUT) but no T → trailing `T:`.
+- `test_substrate_prediction`: N worked (INPUT, OUTPUT, T) triples +
+  test pair with INPUT only → trailing `T:`.
 - `direct_output_grid`: N (INPUT, OUTPUT) pairs + test INPUT only →
   trailing `OUTPUT:`.
 
-The full conversation schema for each format is in §7.
+### 4.4 Per-stage mix ratios
 
-### 4.4 Phase 1.A — substrate literacy
-
-Train **from the base Qwen-2.5-7B-Instruct checkpoint** on the two
-single-pair literacy formats only. Target mix:
+**1-SAME** (filter: only candidates whose target T is a same-dim grid):
 
 | Format | Mix share |
 |---|---|
-| `pair_to_substrate` | 50% |
-| `substrate_to_output` | 50% |
+| `pair_to_substrate` | 15% |
+| `substrate_to_output` | 15% |
+| `multi_pair_to_rule` | 25% |
+| `test_substrate_prediction` | 35% |
+| `direct_output_grid` | 10% |
 
-The two formats balance the *encode* and *decode* directions of the
-substrate relationship. With one system message containing the legend,
-the model learns the alphabet from English priors and uses these two
-formats to ground it in concrete grid examples.
+**1-DIFF** (filter: only candidates whose target T is a diff-dim text
+block). `substrate_to_output` is absent because the diff-dim T has no
+decoder:
 
-**Probe / stopping criterion (1.A done signal):** before kicking off
-1.B, hold out 50 puzzles never seen during 1.A and measure exact-match
-on each literacy task:
+| Format | Mix share |
+|---|---|
+| `pair_to_substrate` | 20% |
+| `multi_pair_to_rule` | 30% |
+| `test_substrate_prediction` | 40% |
+| `direct_output_grid` | 10% |
+
+**1-MIXED** (no filter — both same and diff candidates):
+
+| Format | Mix share |
+|---|---|
+| `pair_to_substrate` | 5% |
+| `substrate_to_output` | 5% |
+| `multi_pair_to_rule` | 25% |
+| `test_substrate_prediction` | 40% |
+| `direct_output_grid` | 25% |
+
+`direct_output_grid` is weighted up in 1-MIXED because diff-dim pairs
+can no longer ride on `substrate_to_output` to learn the input→output
+relationship; raw-output prediction picks up that slack.
+
+### 4.5 Per-stage probes
+
+Each stage's probe (`phase1_<stage>_probe.jsonl`) is identity-augmented
+records from the 50 held-out probe puzzles, filtered to the stage's
+substrate type. Probes are evaluated with greedy decode and exact-match
+scoring.
+
+**1-SAME done signal:**
 
 | Probe | Threshold |
 |---|---|
-| `pair_to_substrate` exact-match (same-size) | ≥ 95% |
-| `pair_to_substrate` exact-match (diff-size) | ≥ 90% |
-| `substrate_to_output` exact-match (same-size only) | ≥ 95% |
+| `pair_to_substrate` exact (same-dim) | ≥ 95% |
+| `substrate_to_output` exact | ≥ 95% |
+| `multi_pair_to_rule` exact (same-dim) | ≥ 90% |
+| `test_substrate_prediction` exact (same-dim) | meaningfully above baseline |
 
-Below threshold, 1.B will compound errors — extend 1.A instead. Above
-threshold, do **not** overtrain the alphabet; move to 1.B.
+**1-DIFF done signal:**
 
-Save the 1.A LoRA as `outputs/phase1a_substrate_literacy/`.
-
-### 4.5 Phase 1.B — rule application
-
-Continue from the 1.A LoRA. Train the three multi-pair / inference
-formats with a small carry of the 1.A formats to prevent catastrophic
-forgetting of the atomic skill.
-
-| Format | Mix share |
+| Probe | Threshold |
 |---|---|
-| `pair_to_substrate` | 5% (carry) |
-| `substrate_to_output` | 5% (carry) |
-| `multi_pair_to_rule` | 35% |
-| `test_substrate_prediction` | 40% |
-| `direct_output_grid` | 15% |
+| `pair_to_substrate` exact (diff-dim) | ≥ 90% |
+| `multi_pair_to_rule` exact (diff-dim) | ≥ 85% |
+| `test_substrate_prediction` exact (diff-dim) | meaningfully above baseline |
+| Forgetting check: same-dim probe metrics from 1-SAME | within 5pp of 1-SAME |
 
-`test_substrate_prediction` — "given the worked pairs and the test
-input, predict the test substrate" — is the load-bearing bridge task
-between substrate literacy and full output prediction. It puts the loss
-signal where the *rule* lives (the substrate target) rather than
-diluting it across an entire output grid where most cells are trivial
-copies of the input.
+**1-MIXED done signal:**
+
+| Probe | Threshold |
+|---|---|
+| All same-dim probe metrics | within 5pp of 1-SAME (no forgetting) |
+| All diff-dim probe metrics | within 5pp of 1-DIFF (no forgetting) |
+| `test_substrate_prediction` and `direct_output_grid` combined accuracy | exceeds either single-stage baseline |
+
+If any threshold misses, the responsible stage gets extended before
+moving on. Same-dim and diff-dim metrics are always reported
+separately so degradation is localized to the right substrate type.
 
 ### 4.6 Eval protocol (Phase 1)
 
@@ -570,32 +603,53 @@ holdout-check and per-format validation-loss tracking depend on it. The
 lesson was that aggregate val-loss hides which format is actually being
 learned.
 
-### 7.2 The Transformation Rule system message
+### 7.2 The three Phase 1 system messages
 
-Every Phase 1 record uses the same system message — a compact legend
-that defines the substrate alphabet and dispatch rule. Putting the
-legend in the system prompt leverages Qwen's English pretraining
-instead of forcing the model to learn the symbols by gradient descent.
+Phase 1 uses **three distinct system messages**, one per sub-stage
+(SAME / DIFF / MIXED). Each is a compact English-prose legend that
+defines the substrate alphabet appropriate to that stage. Putting the
+legend in the system prompt leverages Qwen's pretraining instead of
+forcing the model to learn the symbols by gradient descent.
 
-Exact byte content (must match `EXPECTED_SYSTEM_MESSAGE` in
-`verify_records.py`):
+Each stage's records carry only that stage's system message. The
+byte-level source of truth is `build_phase1_dataset.py` (constants
+`SYSTEM_MESSAGE_SAME`, `SYSTEM_MESSAGE_DIFF`, `SYSTEM_MESSAGE_MIXED`);
+`verify_records.py` enforces them per-record via `provenance.stage_key`.
+
+**SAME prompt (~85 tokens):** only the same-dimensions alphabet.
 
 ```
-Transformation Rule
+Encode the transformation from INPUT to OUTPUT as a T grid. Each cell
+is an atomic unit colored 0-9.
 
-A RULE encodes one input/output grid transformation.
-
-If input.shape == output.shape, the RULE is a same-shape grid:
+T grid legend when INPUT and OUTPUT have the same dimensions
+(e.g. 3x3 -> 3x3):
   .       cell unchanged
   0-9     cell changed to this output color
-Each cell is independent: RULE[r,c] depends only on input[r,c] and output[r,c],
-not on neighbors.
-Lossless: the output can be fully reconstructed from input + RULE.
+Each cell is independent: T[r,c] depends only on INPUT[r,c] and
+OUTPUT[r,c], not on neighbors. Lossless — OUTPUT is fully
+reconstructible from INPUT + T.
+```
 
-If input.shape != output.shape, the RULE is an aggregate text block with sections
-in this order: SIZE, BG, PALETTE, ROWS, COLS, BBOX. Sections are separated by
-blank lines.
-Whole-grid statistics — diagnostic only, not a per-cell reconstruction recipe.
+**DIFF prompt (~210 tokens):** same opener plus a diff-dimensions
+section and the relation-tag table. The SAME prompt's body is
+preserved so the model retains its same-dim skill while learning diff.
+
+```
+[SAME body unchanged]
+
+T grid legend when INPUT and OUTPUT have different dimensions
+(e.g. 3x3 -> 2x4):
+T is an aggregate text block with these sections in fixed order,
+separated by blank lines:
+  SIZE     overall dimensions:  H x W -> h x w  with relation tags
+  BG       background color:  in_bg -> out_bg  with relation tag
+  PALETTE  per-color count change
+  ROWS     per-row dominant colors + non-bg counts (INPUT and OUTPUT)
+  COLS     per-column dominant colors + non-bg counts (INPUT and OUTPUT)
+  BBOX     per-color bounding box (INPUT and OUTPUT)
+Whole-grid statistics — diagnostic only, not lossless. No per-cell
+decoder.
 
 Relation tags for numeric pairs a -> b:
   =        a == b
@@ -606,17 +660,29 @@ Relation tags for numeric pairs a -> b:
   dropped  a > 0 and b == 0
 ```
 
-This is ~175 tokens, identical across every Phase 1 record (train, dev,
-probe). With `train_on_inputs: false` the system tokens contribute zero
-loss — pure context. The legend hits four pieces that the model would
-otherwise have to discover from data: substrate alphabet (`.` and
-`0-9`), section schema for diff-size, the relation tag table, and the
-key invariants ("each cell independent," "lossless same-shape,"
-"lossy diff-shape").
+**MIXED prompt (~250 tokens):** replaces the opening with the ARC-AGI
+puzzle framing — "exactly one transformation rule generalizes across
+all input/output pairs of a puzzle." This is the explicit invitation
+to perform rule transfer in `multi_pair_to_rule` and
+`test_substrate_prediction`. Body (both alphabets + relation tags) is
+identical to DIFF.
 
-Phase 2 will use a different system message (`Code Solver`) with its
-own legend describing `def solve(input_grid)` and friends. Phase 3
-uses `Code Repair`. One system message per phase.
+```
+ARC-AGI puzzle contains INPUT/OUTPUT grid pairs where each cell is an
+atomic unit colored 0-9. There is exactly one transformation rule that
+generalizes across all input/output pairs of a puzzle. The rule is
+encoded in T grids — one T per pair, and the underlying rule is the
+same across all of them.
+
+[same body as DIFF]
+```
+
+With `train_on_inputs: false` the system tokens contribute zero loss
+— pure context. The progression (SAME → DIFF → MIXED) is the legend
+growing in lockstep with the model's expanding capability.
+
+Phase 2 will use its own system messages (`Code Solver` for codegen,
+`Code Repair` for repair). One system message per phase-stage.
 
 ### 7.3 Field-contract conventions
 
@@ -936,21 +1002,25 @@ the above ever drifts.
 
 ### 7.6 Per-stage filenames
 
-The dataset generator writes:
+The dataset generator writes (per stage in {`same`, `diff`, `mixed`}):
 
 ```
-Fine Tune Run 2/data_sft/phase1a_train.jsonl
-Fine Tune Run 2/data_sft/phase1a_dev.jsonl
-Fine Tune Run 2/data_sft/phase1b_train.jsonl
-Fine Tune Run 2/data_sft/phase1b_dev.jsonl
-Fine Tune Run 2/data_sft/phase1_final_eval.jsonl
-Fine Tune Run 2/data_sft/phase1_manifest.json
+Fine Tune Run 2/data_sft/phase1_<stage>_train.jsonl.gz
+Fine Tune Run 2/data_sft/phase1_<stage>_dev.jsonl
+Fine Tune Run 2/data_sft/phase1_<stage>_probe.jsonl
+Fine Tune Run 2/data_sft/phase1_<stage>_manifest.json
+```
+
+Plus the locked split files (shared across stages):
+
+```
 Fine Tune Run 2/splits/phase1_splits.json
+Fine Tune Run 2/splits/frozen_final_eval_ids.txt   (34 puzzle ids)
+Fine Tune Run 2/splits/phase1_probe_ids.txt         (50 puzzle ids)
 ```
 
-`phase1_final_eval.jsonl` is the locked 34 — generated once, regenerated
-only if the split seed changes (which itself is a deliberate decision,
-not an automatic operation).
+The frozen 34 puzzles live physically isolated in
+`Fine Tune Run 2/puzzles_frozen/` and are never read by the generator.
 
 ---
 
@@ -959,13 +1029,20 @@ not an automatic operation).
 | Path | Purpose |
 |---|---|
 | `Fine Tune Run 2/SFT_Strategy.md` | this document |
-| `Fine Tune Run 2/phase1a_config.yaml` | locked Phase 1.A parameters |
-| `Fine Tune Run 2/phase1b_config.yaml` | locked Phase 1.B parameters |
-| `Fine Tune Run 2/puzzles/` | input corpus (1920 files) |
-| `Fine Tune Run 2/puzzles/README.md` | puzzle fact sheet |
+| `Fine Tune Run 2/phase1_same_axolotl.yaml` | trainer config for SAME stage |
+| `Fine Tune Run 2/phase1_diff_axolotl.yaml` | trainer config for DIFF stage (continues SAME LoRA) |
+| `Fine Tune Run 2/phase1_mixed_axolotl.yaml` | trainer config for MIXED stage (continues DIFF LoRA) |
+| `Fine Tune Run 2/build_phase1_dataset.py` | dataset generator (per-stage substrate filter) |
+| `Fine Tune Run 2/build_splits.py` | split + isolate the 34 frozen puzzles |
+| `Fine Tune Run 2/verify_records.py` | byte-level invariant checker for all stages |
+| `Fine Tune Run 2/run_probe.py` | per-format exact-match probe harness |
 | `Fine Tune Run 2/classify_origin.py` | content-unique origin classifier |
-| `Fine Tune Run 2/data_sft/` | generated SFT training data |
-| `Fine Tune Run 2/splits/` | locked train/dev/final puzzle id lists |
+| `Fine Tune Run 2/verify_augmentations.py` | D4 + color + subset rule-preservation checks |
+| `Fine Tune Run 2/puzzles/` | input corpus (1886 files after frozen 34 isolated) |
+| `Fine Tune Run 2/puzzles_frozen/` | locked 34 final-eval puzzles, isolated from generator |
+| `Fine Tune Run 2/puzzles/README.md` | puzzle fact sheet |
+| `Fine Tune Run 2/data_sft/` | generated SFT training data (3 stages × train/dev/probe/manifest) |
+| `Fine Tune Run 2/splits/` | locked train/dev/probe/final puzzle id lists |
 | `substrate.py` | substrate library (top of repo, shared) |
 | `scripts/test_diffsize_substrate.py` | substrate regression test |
 
@@ -973,51 +1050,56 @@ not an automatic operation).
 
 ## 9. Execution — LoRA chaining across stages and phases
 
-The model goes through three distinct skill regimes (substrate
-literacy, code generation, code repair). Default execution: **continue
-the same LoRA within a phase; merge into the base model between
+The model goes through five distinct training regimes: three
+substrate sub-stages within Phase 1 (SAME → DIFF → MIXED), then
+Phase 2 (code generation), then Phase 3 (code repair). Default
+execution: **continue the same LoRA within Phase 1; merge between
 phases.**
 
-### 9.1 Within-phase chain (no merge)
-
-Phase 1.A → 1.B both train the **same LoRA adapter** with the same
-system message (`Transformation Rule`):
+### 9.1 Within-Phase-1 chain (no merge between sub-stages)
 
 ```
 Base Qwen2.5-7B-Instruct
-  ↓ axolotl train phase1a_axolotl.yaml
-outputs/phase1a_substrate_literacy/   (LoRA after 1.A)
-  ↓ axolotl train phase1b_axolotl.yaml
-  ↑ lora_model_dir: outputs/phase1a_substrate_literacy
-outputs/phase1b_rule_application/     (same LoRA, more training)
+  ↓ axolotl train phase1_same_axolotl.yaml
+outputs/phase1_same/         LoRA after SAME stage
+  ↓ axolotl train phase1_diff_axolotl.yaml
+  ↑ lora_model_dir: outputs/phase1_same
+outputs/phase1_diff/         same adapter, more training
+  ↓ axolotl train phase1_mixed_axolotl.yaml
+  ↑ lora_model_dir: outputs/phase1_diff
+outputs/phase1_mixed/        same adapter, fully trained Phase 1
 ```
 
-Defensible because 1.A and 1.B are the same skill family and 1.B's mix
-carries 10% of 1.A's formats to prevent forgetting (`pair_to_substrate`
-5% + `substrate_to_output` 5%).
+Sub-stages 1-SAME, 1-DIFF, 1-MIXED all share the same LoRA shape and
+target modules. Each stage's system prompt is a superset of the
+previous (DIFF adds the diff-dim section, MIXED adds the ARC puzzle
+framing). The model knowledge accumulates within one adapter.
 
-### 9.2 Cross-phase chain (merge between)
+Probe between each sub-stage. If a stage misses its done-signal
+thresholds, extend it before moving on. Cross-stage forgetting is
+monitored by re-running the prior stage's probe after the next stage
+trains.
+
+### 9.2 Cross-phase chain (merge between phases)
 
 Between Phase 1 and Phase 2 we **merge** the Phase 1 LoRA into the
 base model and train a **fresh** Phase 2 LoRA on the merged
 checkpoint. Reasons:
 
-- Phase 1 (`Transformation Rule`) and Phase 2 (`Code Solver`) are
-  different skill families with different system messages and target
-  vocabularies. Continuing the same LoRA risks catastrophic forgetting
-  of substrate literacy when the code-generation loss takes over.
-- Merge bakes the Phase 1 skill into base weights. Phase 2's LoRA only
-  has to learn code, not "code while re-learning substrate."
-- Cleaner ablations later: you can compare "raw base + Phase 2 LoRA"
-  vs "Phase-1-merged + Phase 2 LoRA" to measure exactly what Phase 1
-  contributed.
-- Avoids LoRA stacking at inference (adapter ordering, serving
-  compatibility, attribution complexity).
+- Phase 1 and Phase 2 are different skill families with different
+  system messages and target vocabularies. Continuing the same LoRA
+  risks catastrophic forgetting of substrate literacy.
+- Merge bakes Phase 1 into base weights. Phase 2's LoRA only has to
+  learn code, not "code while re-learning substrate."
+- Cleaner ablations later: "raw base + Phase 2 LoRA" vs "Phase-1-merged
+  + Phase 2 LoRA" isolates Phase 1's contribution.
+- Avoids LoRA stacking at inference (adapter ordering, serving compat,
+  attribution complexity).
 
 ```
 Base Qwen
-  ↓ Phase 1.A + 1.B (LoRA continues across, no merge)
-outputs/phase1b_rule_application/     LoRA adapter
+  ↓ Phase 1 SAME + DIFF + MIXED (LoRA continues across, no merge)
+outputs/phase1_mixed/                 LoRA adapter (final Phase 1)
   ↓ merge into base weights
 outputs/phase1_merged/                full 7B model, ~15GB bf16
   ↓ Phase 2 trains fresh LoRA on phase1_merged
@@ -1029,15 +1111,16 @@ outputs/phase3_code_repair/           Phase 3 LoRA adapter
 ```
 
 Disk note: each merged checkpoint is the full model (~15GB bf16).
-We accept that cost.
+Accepted.
 
 ### 9.3 Naming convention
 
 | Output dir | What it is |
 |---|---|
-| `outputs/phase1a_substrate_literacy/` | LoRA adapter after 1.A |
-| `outputs/phase1b_rule_application/` | LoRA adapter after 1.B (continues 1.A) |
-| `outputs/phase1_merged/` | base + Phase 1 LoRA merged into one model |
+| `outputs/phase1_same/` | LoRA adapter after the SAME stage |
+| `outputs/phase1_diff/` | same adapter, after DIFF stage (continues `phase1_same`) |
+| `outputs/phase1_mixed/` | same adapter, fully trained Phase 1 (continues `phase1_diff`) |
+| `outputs/phase1_merged/` | base + Phase 1 LoRA merged into one full model |
 | `outputs/phase2_code_solver/` | Phase 2 LoRA, trained on `phase1_merged` |
 | `outputs/phase2_merged/` | `phase1_merged` + Phase 2 LoRA merged |
 | `outputs/phase3_code_repair/` | Phase 3 LoRA, trained on `phase2_merged` |
@@ -1049,7 +1132,7 @@ For each merge step:
 
 1. Load base (or previous merged) model.
 2. Attach the most recent LoRA adapter via `peft.PeftModel.from_pretrained`.
-3. Call `model = model.merge_and_unload()` — peft's standard merge.
+3. Call `model = model.merge_and_unload()`.
 4. Save: `model.save_pretrained(out_dir)` + tokenizer.
 
 A short script will live at `Fine Tune Run 2/merge_lora.py` when Phase
@@ -1057,12 +1140,16 @@ A short script will live at `Fine Tune Run 2/merge_lora.py` when Phase
 
 ### 9.5 Decision points
 
-- **After Phase 1.A:** Run probe. If thresholds pass, proceed to 1.B.
-  If not, extend 1.A.
-- **After Phase 1.B:** Run probe on `phase1b_probe.jsonl` to check
-  literacy was preserved and rule-application accuracy is non-trivial.
-  Then **merge** Phase 1 → `phase1_merged`.
-- **Phase 2 onwards:** out of scope for Phase 1 documents — separate
+- **After 1-SAME:** Run probe on `phase1_same_probe.jsonl`. If
+  thresholds pass, proceed to 1-DIFF. If not, extend 1-SAME.
+- **After 1-DIFF:** Run probe on `phase1_diff_probe.jsonl` + forgetting
+  check via `phase1_same_probe.jsonl`. If diff thresholds pass AND
+  same-dim metrics stay within 5pp of post-SAME baseline, proceed to
+  1-MIXED.
+- **After 1-MIXED:** Run probes on all three (same, diff, mixed). If
+  no degradation and mixed metrics exceed single-stage baselines,
+  Phase 1 is done. Then **merge** → `phase1_merged`.
+- **Phase 2 onwards:** out of scope for Phase 1 documents. Separate
   config + axolotl yaml + data generator will land when Phase 1 is
   validated end-to-end.
 

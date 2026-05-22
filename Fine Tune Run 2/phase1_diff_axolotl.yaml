@@ -1,0 +1,74 @@
+# Phase 1 — DIFF stage — Axolotl trainer config
+#
+# Second stage. Continues from the SAME LoRA. Trains on records whose
+# T target is a diff-dimensions aggregate text block only. System
+# prompt now describes both alphabets (same + diff) so the model
+# retains same-dimensions knowledge while learning diff.
+
+base_model: Qwen/Qwen2.5-7B-Instruct
+model_type: AutoModelForCausalLM
+tokenizer_type: AutoTokenizer
+trust_remote_code: true
+
+lora_model_dir: outputs/phase1_same
+
+datasets:
+  - path: Fine Tune Run 2/data_sft/phase1_diff_train.jsonl.gz
+    type: chat_template
+    chat_template: qwen2
+
+test_datasets:
+  - path: Fine Tune Run 2/data_sft/phase1_diff_dev.jsonl
+    type: chat_template
+    chat_template: qwen2
+    split: train
+
+dataset_prepared_path: Fine Tune Run 2/data_sft/prepared/phase1_diff
+output_dir: outputs/phase1_diff
+
+sequence_len: 8192
+sample_packing: true
+pad_to_sequence_len: true
+
+bf16: true
+fp16: false
+tf32: true
+load_in_8bit: false
+load_in_4bit: false
+
+adapter: lora
+lora_r: 32
+lora_alpha: 64
+lora_dropout: 0.05
+lora_target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
+
+num_epochs: 1
+micro_batch_size: 2
+gradient_accumulation_steps: 16
+
+learning_rate: 0.00012
+lr_scheduler: cosine
+warmup_ratio: 0.03
+weight_decay: 0.01
+optimizer: adamw_torch_fused
+
+gradient_checkpointing: true
+flash_attention: true
+
+train_on_inputs: false
+group_by_length: false
+
+logging_steps: 10
+eval_steps: 50
+save_steps: 50
+save_total_limit: 6
+
+seed: 42
+strict: false
