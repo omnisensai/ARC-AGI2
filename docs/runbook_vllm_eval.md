@@ -77,17 +77,22 @@ nohup bash -c '
 disown
 ```
 
-### 5. vLLM has a SILENT 90-second warmup after weights load
+### 5. vLLM has a SILENT 90-second warmup after weights load (sometimes longer)
 
-The log line `Loading weights took 14 seconds` is followed by ~90 seconds of nothing while vLLM profiles KV cache memory. **This is not a hang.** Last time we kept Ctrl-C'ing during this phase, killing perfectly good launches.
+The log line `Loading weights took 14 seconds` is followed by ~90 seconds of nothing while vLLM profiles KV cache memory. **This is not a hang** — usually. The first successful run we did showed exactly `init engine (profile, create kv cache, warmup model) took 88.80 s`. But on a different pod the same launch went silent for 6+ minutes past `Using FlashAttention version 2` and never bound to port 8000. Variability is real.
 
-Fix: a polling loop on `/v1/models` with up to a 5-minute timeout:
+Defensive polling — wait up to 8 minutes, monitor disk + GPU during the wait:
 
 ```bash
-for i in $(seq 1 60); do
+for i in $(seq 1 96); do                # 96 * 5s = 8 min cap
   if curl -s --max-time 3 localhost:8000/v1/models 2>/dev/null | grep -q '"id":"arc"'; then
     echo "vLLM READY after $((i*5))s"
     break
+  fi
+  # every 30s, show signs of progress
+  if [ $((i % 6)) = 0 ]; then
+    echo "  ($((i*5))s) GPU=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader), \
+log=$(stat -c%s /workspace/vllm.log) bytes"
   fi
   sleep 5
 done
@@ -97,10 +102,19 @@ Expected timing on A100:
 - Banner + non-default args: 5 s
 - Model download (first run, ~15 GB): 60–120 s
 - Safetensors load: 15 s
-- **Silent KV warmup: ~90 s** ← this is the bit we kept giving up on
+- **Silent KV warmup: ~90 s typical, up to several minutes** ← variable
 - `Application startup complete`
 
-Total first-launch: ~3–4 min. Subsequent (cached model): ~2 min.
+Total first-launch: 3–10 min depending on pod state. Subsequent (cached model): ~90 s.
+
+### 5b. Escalation if vLLM is still hung after 8 minutes
+
+Order of escalation (each cheaper than the previous):
+
+1. **Lower `--max-model-len` to 8192** and `--gpu-memory-utilization 0.80` → smaller KV profile.
+2. **Drop `--enable-lora` flags and confirm base Qwen serves** — proves vLLM works on this pod, isolates LoRA as the cause.
+3. **Restart the pod** — sometimes the GPU driver state is just bad. RunPod's "Stop → Start" gives a clean GPU.
+4. **Check vllm version pin** — newer 0.22+ releases have known LoRA init regressions for some configs; pin to `vllm==0.21.0` if a newer version was auto-installed.
 
 ### 6. vLLM flags that actually work
 
@@ -122,6 +136,21 @@ vllm serve Qwen/Qwen2.5-7B-Instruct \
 - `--enforce-eager` — skips torch.compile + CUDA graph capture, which silently hung us once. Tradeoff: ~10% slower inference. Worth it for stability.
 - `--max-lora-rank 32` — must be ≥ adapter rank. For rank-32 LoRA, set 32. For unknown rank, look at `adapter_config.json["r"]` first.
 - The chat template comes from the LoRA repo (`hf_hub_download(...,"chat_template.jinja")`); vLLM's auto-detected one may not match training.
+
+### 6b. Verify a flag exists before adding it
+
+vLLM's CLI changes between versions. A wrong flag fails the launch *instantly* with `unrecognized arguments: --foo`. Examples that bit us:
+
+- `--disable-log-requests` exists in vLLM 0.5–0.7 but was removed by 0.21.
+- `--guided-decoding-backend` renamed several times.
+
+Before adding any flag you saw on a Stack Overflow post or in an old script, verify with:
+
+```bash
+vllm serve --help 2>&1 | grep -A1 -- '--flag-name'
+```
+
+If a flag doesn't exist on this version, the whole process dies before the banner prints — the symptom is "log file is 0 bytes and process exited immediately."
 
 ### 7. `pkill -9 -f 'vllm serve'` MISSES the engine subprocess
 
@@ -191,6 +220,8 @@ Newer `huggingface_hub` prints `Warning: huggingface-cli is deprecated. Use hf i
 
 Long bash blocks, heredocs, and interactive auth prompts work cleanly in a Jupyter Terminal (`File → New → Terminal`). Notebook cells with `%%bash` or `!...` mangle multi-line content and don't handle heredocs.
 
+If the Jupyter terminal session disappears mid-task (browser disconnect, idle timeout), backgrounded processes (`nohup ... & disown`) keep running. Just open a new terminal and tail the log files to re-attach mentally.
+
 ### 15. `data/arc2_eval/` isn't in this repo — fetch from upstream
 
 The 120 locked puzzles come from `arcprize/ARC-AGI-2/data/evaluation/`. Sparse-checkout to avoid cloning the whole upstream repo:
@@ -205,6 +236,16 @@ git checkout
 
 Then copy the 120 JSONs into `data/arc2_eval/`. Byte-identical to the locked split (SHAs verified).
 
+### 16. Don't paste Python scripts into bash
+
+Sounds dumb but it happens. If you `cat > file.py <<EOF ... EOF` heredoc, you're safe. If you just paste the raw Python into a bash prompt, every line becomes a shell command and you get hundreds of `command not found` errors.
+
+Tell from the first line of error output:
+- `bash: import: command not found` → Python pasted into bash
+- `SyntaxError: invalid syntax` → bash pasted into Python
+
+Fix: always use a heredoc OR save to a file via the file browser OR use the editor that comes with Jupyter Lab.
+
 ---
 
 ## Symptoms → causes cheat sheet
@@ -212,23 +253,27 @@ Then copy the 120 JSONs into `data/arc2_eval/`. Byte-identical to the locked spl
 | Symptom | Likely cause |
 |---|---|
 | `OSError: [Errno 122] Disk quota exceeded` on download | HF cache landed on overlay disk OR xet duplicated weights — set `HF_HOME` + `HF_HUB_DISABLE_XET=1` BEFORE running |
-| vLLM hangs after `Loading weights took N seconds` | Normal 90 s KV cache warmup — wait for it |
+| vLLM hangs after `Loading weights took N seconds` | Normal 90 s KV cache warmup, sometimes longer — see lesson #5 |
+| vLLM log file is **0 bytes** and process exited immediately | Invalid CLI flag — `vllm serve --help \| grep <flag>` to verify |
+| vLLM log stops at `Using FlashAttention version 2` and GPU has 15 GB used | Mid-warmup, no log progress — wait up to 8 min before escalating per #5b |
 | `RuntimeError: Engine core initialization failed` (wrapper, no root cause) | Real error is higher in log — `grep Traceback /workspace/vllm.log \| head -30` |
 | GPU still has 15 GB used after `pkill -9 -f 'vllm serve'` | EngineCore subprocess survived — `pkill -9 -f 'VLLM::EngineCore'` |
 | `400 Client Error: max context length` during eval | Bump `--max-model-len` from 8192 to 16384 |
 | Eval crashes mid-run with `OSError: [Errno 5] I/O error` | Writing to `/workspace` (MooseFS) — symlink `eval_runs → /root/eval_runs` |
 | `python: can't open file '/workspace/analyze_X.py'` | Wrong cwd — `cd /workspace/ARC-AGI2` first; `substrate.py` import needs repo root on sys.path |
 | `bash: command not found` for `Counter`, `deque` etc. | You pasted a Python file into bash, not a bash block |
+| `bash: ...: unrecognized arguments: --foo` | Flag doesn't exist on this vLLM version — verify with `vllm serve --help` |
 | Jupyter terminal vanishes mid-run | Browser/WebSocket disconnect — background processes survive, open new terminal and re-attach to logs |
 | `RepositoryNotFoundError: 404` on a private HF repo | Token doesn't have access to that specific repo — fix token scope |
 | `tmux new -s X` exits immediately | tmux can't write its socket — `mkdir -p /root/.tmux_tmp && chmod 700 /root/.tmux_tmp && export TMUX_TMPDIR=/root/.tmux_tmp` |
+| HTTP 000 / connection refused on `localhost:8000` | API server not listening yet (still in KV warmup) OR vLLM died — check `pgrep -af 'vllm serve\|VLLM::EngineCore'` and log tail |
 
 ---
 
 ## Files in this repo to use
 
 - `scripts/preflight.sh` — runs lessons #1, 2, 3, 7, 11, 15 idempotently
-- `scripts/launch_vllm.sh` — runs lesson #5, 6 with the readiness probe
+- `scripts/launch_vllm.sh` — runs lessons #5, 6 with the readiness probe
 - `scripts/run_diagnostic_eval.sh` — kicks off `eval_collect_failures.py` with the auto-backup loop
 - `scripts/eval_collect_failures.py` — diagnostic eval per Phase-2 spec (failure traces, not score)
 - `run_eval_lora.py` — older / simpler eval client (pass@k scoring)
