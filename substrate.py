@@ -1,6 +1,6 @@
 """Substrate encode/decode — transformation grid for ARC pairs.
 
-Two-family representation:
+Two-family representation, dispatched per pair by `encode_auto`:
 
 (1) SAME-SIZE WRITE FIELD — `encode` / `decode`
     Use when input.shape == output.shape. Per-cell, lossless:
@@ -8,15 +8,16 @@ Two-family representation:
       '0'-'9' = output is this color (input[r,c] != output[r,c])
     Roundtrip: decode(input, encode(input, output)) == output.
 
-(2) VARIABLE-SIZE STRUCTURE FIELD — `encode_structure`
+(2) DIFF-SIZE AGGREGATE FIELD — `diffsize_encode`
     Use when input.shape != output.shape. Coordinates do not align, so
-    per-cell encoding is impossible. Instead, returns deterministic
-    metadata (shape, dim relation, color sets, color counts, uniform
-    rows/cols, integer dim ratios). Lossy by design — there is no
-    `decode_structure`. The structure field is training-signal evidence,
-    not a reconstruction recipe.
+    per-cell encoding is impossible. Emits a fixed-shape text block of
+    mechanical spatial facts: SIZE, BG, PALETTE, ROWS, COLS, BBOX. No
+    semantic labels (no "tiling", "crop", "object", etc.). Lossy by
+    design — there is no `diffsize_decode`. The aggregate field is
+    training-signal evidence, not a reconstruction recipe.
 
-`encode_any(inp, out)` dispatches to (1) or (2) based on shape match.
+`encode_auto(inp, out)` dispatches: returns a Substrate (grid of strings)
+for same-size pairs, a str for diff-size pairs.
 
 Keep this file dependency-free (stdlib only).
 """
@@ -151,106 +152,187 @@ def decode(inp: Grid, substrate: Substrate) -> Grid:
 
 
 def _shape(g: Grid):
-    return len(g), len(g[0]) if g else 0
+    return len(g), (len(g[0]) if g else 0)
 
 
-def _uniform_rows(g: Grid):
-    """Indices of rows whose cells are all the same color, with that color."""
-    return [(r, row[0]) for r, row in enumerate(g) if len(set(row)) == 1]
+def relate(a: int, b: int) -> str:
+    """Mechanical relation between two non-negative ints.
 
+    Treats 0 as a special absent/empty value:
+      relate(0, 0)   -> "="
+      relate(0, b)   -> "new"      (b > 0)
+      relate(a, 0)   -> "dropped"  (a > 0)
+    For both > 0:
+      a == b              -> "="
+      b is a*k (k>=2)     -> "×K"
+      a is b*k (k>=2)     -> "÷K"
+      otherwise           -> "Δ±N"
 
-def _uniform_cols(g: Grid):
-    """Indices of cols whose cells are all the same color, with that color."""
-    if not g:
-        return []
-    out = []
-    for c in range(len(g[0])):
-        col = [row[c] for row in g]
-        if len(set(col)) == 1:
-            out.append((c, col[0]))
-    return out
-
-
-def _dim_relation(a: int, b: int) -> str:
-    """Compact relation between two positive ints.
-
-    '=' if equal, 'aXb' if b is an integer multiple (b = a*k), 'a/k'
-    if a is an integer multiple (a = b*k), 'a>b' otherwise.
+    Multiplicative checks precede additive on purpose: when both ratio
+    and difference hold, the ratio is the more informative tag.
     """
+    if a == 0 and b == 0:
+        return "="
+    if a == 0:
+        return "new"
+    if b == 0:
+        return "dropped"
     if a == b:
-        return '='
-    if a and b and b % a == 0:
-        return f'*{b // a}'
-    if a and b and a % b == 0:
-        return f'/{a // b}'
-    return f'{a}>{b}'
+        return "="
+    if b % a == 0:
+        return f"×{b // a}"
+    if a % b == 0:
+        return f"÷{a // b}"
+    return f"Δ{b - a:+d}"
 
 
-def encode_structure(inp: Grid, out: Grid) -> str:
-    """Variable-size structure field. Lossy by design.
+def _row_dominant(row, bg):
+    """Most-frequent color in a row, preferring non-bg colors when any exist.
 
-    Returns a multi-line string of deterministic facts about the
-    input/output pair. Intended for puzzles where input.shape !=
-    output.shape (per-cell coordinates don't align). Safe to call on
-    same-size pairs too, but `encode` carries strictly more information
-    in that case.
+    Tie-break by smaller numeric color. If only bg appears, returns bg.
     """
-    ih, iw = _shape(inp)
-    oh, ow = _shape(out)
-    in_colors = sorted({c for row in inp for c in row})
-    out_colors = sorted({c for row in out for c in row})
-    common = sorted(set(in_colors) & set(out_colors))
-    dropped = sorted(set(in_colors) - set(out_colors))
-    new = sorted(set(out_colors) - set(in_colors))
-    in_counts = Counter(c for row in inp for c in row)
-    out_counts = Counter(c for row in out for c in row)
-
-    def _set(xs):
-        return ''.join(str(x) for x in xs) if xs else '-'
-
-    def _counts(cs, counts):
-        return ' '.join(f'{c}:{counts[c]}' for c in cs) if cs else '-'
-
-    lines = [
-        f"SHAPE {ih}x{iw}>{oh}x{ow}",
-        f"HEIGHT {_dim_relation(ih, oh)}",
-        f"WIDTH {_dim_relation(iw, ow)}",
-        f"IN_COLORS {_set(in_colors)}",
-        f"OUT_COLORS {_set(out_colors)}",
-        f"COMMON {_set(common)}",
-        f"DROPPED {_set(dropped)}",
-        f"NEW {_set(new)}",
-        f"IN_COUNTS {_counts(in_colors, in_counts)}",
-        f"OUT_COUNTS {_counts(out_colors, out_counts)}",
-    ]
-
-    # Region hints — emitted only when present (no empty-line noise)
-    urows_in = _uniform_rows(inp)
-    ucols_in = _uniform_cols(inp)
-    urows_out = _uniform_rows(out)
-    ucols_out = _uniform_cols(out)
-    if urows_in:
-        lines.append("IN_UROWS " + ' '.join(f'{r}:{c}' for r, c in urows_in))
-    if ucols_in:
-        lines.append("IN_UCOLS " + ' '.join(f'{c}:{v}' for c, v in ucols_in))
-    if urows_out:
-        lines.append("OUT_UROWS " + ' '.join(f'{r}:{c}' for r, c in urows_out))
-    if ucols_out:
-        lines.append("OUT_UCOLS " + ' '.join(f'{c}:{v}' for c, v in ucols_out))
-
-    return "\n".join(lines)
+    counts = Counter(row)
+    non_bg = {c: n for c, n in counts.items() if c != bg}
+    pool = non_bg if non_bg else counts
+    best = max(pool.values())
+    return min(c for c, n in pool.items() if n == best)
 
 
-def encode_any(inp: Grid, out: Grid):
-    """Dispatch to write-field (same-size) or structure-field (variable-size).
+def _col_dominant(grid, c, bg):
+    return _row_dominant([row[c] for row in grid], bg)
 
-    Returns ('write', Substrate) or ('struct', str).
+
+def _row_non_bg_count(row, bg):
+    return sum(1 for v in row if v != bg)
+
+
+def _col_non_bg_count(grid, c, bg):
+    return sum(1 for row in grid if row[c] != bg)
+
+
+def _color_bbox(grid, color):
+    """Min/max row and col indices where `color` appears. None if absent."""
+    rows = [r for r, row in enumerate(grid) if color in row]
+    if not rows:
+        return None
+    cols = [c for row in grid for c, v in enumerate(row) if v == color]
+    return (min(rows), max(rows), min(cols), max(cols))
+
+
+def _fmt_bbox(bb):
+    if bb is None:
+        return "none"
+    r0, r1, c0, c1 = bb
+    return f"r{r0}-{r1},c{c0}-{c1}"
+
+
+def diffsize_encode(inp: Grid, out: Grid) -> str:
+    """Diff-size aggregate substrate. Lossy by design.
+
+    Returns a multi-line string of mechanical spatial facts. Intended
+    for puzzles where input.shape != output.shape. Raises ValueError
+    if shapes match (use `encode` for that case).
+
+    Format (sections separated by blank lines):
+
+        SIZE H x W -> h x w   h:<rel> w:<rel>
+        BG <in_bg> -> <out_bg>   <rel>
+
+        PALETTE
+          <color> <in_count> -> <out_count> <rel>
+          ...
+
+        ROWS
+          IN_DOM:  <per-row dominant colors of input>
+          OUT_DOM: <per-row dominant colors of output>
+          IN_NZ:   <per-row non-input-bg counts>
+          OUT_NZ:  <per-row non-output-bg counts>
+
+        COLS
+          IN_DOM:  ...
+          OUT_DOM: ...
+          IN_NZ:   ...
+          OUT_NZ:  ...
+
+        BBOX
+          <color> in:<bbox> out:<bbox>
+          ...
+
+    No semantic labels (no "tiling", "crop", "extraction", etc.). Facts
+    only. The model proposes hypotheses; the validator decides.
     """
     ih, iw = _shape(inp)
     oh, ow = _shape(out)
     if ih == oh and iw == ow:
-        return ('write', encode(inp, out))
-    return ('struct', encode_structure(inp, out))
+        raise ValueError("diffsize_encode requires differing shapes; use encode()")
+
+    in_bg = background_of(inp)
+    out_bg = background_of(out)
+
+    in_counts = Counter(c for row in inp for c in row)
+    out_counts = Counter(c for row in out for c in row)
+    all_colors = sorted(set(in_counts) | set(out_counts))
+
+    lines = []
+    lines.append(
+        f"SIZE {ih}x{iw} -> {oh}x{ow}   h:{relate(ih, oh)} w:{relate(iw, ow)}"
+    )
+    lines.append(f"BG {in_bg} -> {out_bg}   {relate(in_bg, out_bg)}")
+
+    lines.append("")
+    lines.append("PALETTE")
+    for c in all_colors:
+        a = in_counts.get(c, 0)
+        b = out_counts.get(c, 0)
+        lines.append(f"  {c} {a} -> {b} {relate(a, b)}")
+
+    in_row_dom = [_row_dominant(row, in_bg) for row in inp]
+    out_row_dom = [_row_dominant(row, out_bg) for row in out]
+    in_row_nz = [_row_non_bg_count(row, in_bg) for row in inp]
+    out_row_nz = [_row_non_bg_count(row, out_bg) for row in out]
+
+    lines.append("")
+    lines.append("ROWS")
+    lines.append("  IN_DOM:  " + " ".join(str(x) for x in in_row_dom))
+    lines.append("  OUT_DOM: " + " ".join(str(x) for x in out_row_dom))
+    lines.append("  IN_NZ:   " + " ".join(str(x) for x in in_row_nz))
+    lines.append("  OUT_NZ:  " + " ".join(str(x) for x in out_row_nz))
+
+    in_col_dom = [_col_dominant(inp, c, in_bg) for c in range(iw)]
+    out_col_dom = [_col_dominant(out, c, out_bg) for c in range(ow)]
+    in_col_nz = [_col_non_bg_count(inp, c, in_bg) for c in range(iw)]
+    out_col_nz = [_col_non_bg_count(out, c, out_bg) for c in range(ow)]
+
+    lines.append("")
+    lines.append("COLS")
+    lines.append("  IN_DOM:  " + " ".join(str(x) for x in in_col_dom))
+    lines.append("  OUT_DOM: " + " ".join(str(x) for x in out_col_dom))
+    lines.append("  IN_NZ:   " + " ".join(str(x) for x in in_col_nz))
+    lines.append("  OUT_NZ:  " + " ".join(str(x) for x in out_col_nz))
+
+    lines.append("")
+    lines.append("BBOX")
+    for c in all_colors:
+        in_bb = _color_bbox(inp, c)
+        out_bb = _color_bbox(out, c)
+        lines.append(f"  {c} in:{_fmt_bbox(in_bb)} out:{_fmt_bbox(out_bb)}")
+
+    return "\n".join(lines)
+
+
+def encode_auto(inp: Grid, out: Grid):
+    """Per-pair dispatch.
+
+    Returns a Substrate (grid of single-char strings) for same-size
+    pairs, a str (the diff-size aggregate block) for diff-size pairs.
+
+    Callers can disambiguate by `isinstance(result, str)`.
+    """
+    ih, iw = _shape(inp)
+    oh, ow = _shape(out)
+    if ih == oh and iw == ow:
+        return encode(inp, out)
+    return diffsize_encode(inp, out)
 
 
 def is_same_size(puzzle: dict) -> bool:
