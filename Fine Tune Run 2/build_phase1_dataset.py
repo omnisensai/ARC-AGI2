@@ -67,7 +67,7 @@ DATA_SFT_DIR = ROOT / "data_sft"
 # per pair. This is the context the rule-transfer formats
 # (multi_pair_to_rule, test_substrate_prediction) need.
 
-SYSTEM_MESSAGE_SAME = """Encode the transformation from INPUT to OUTPUT as a T grid. Each cell
+SYSTEM_MESSAGE_SAME = """T represents the transformation between INPUT and OUTPUT. Each cell
 is an atomic unit colored 0-9.
 
 T grid legend when INPUT and OUTPUT have the same dimensions
@@ -78,7 +78,7 @@ Each cell is independent: T[r,c] depends only on INPUT[r,c] and
 OUTPUT[r,c], not on neighbors. Lossless — OUTPUT is fully
 reconstructible from INPUT + T."""
 
-SYSTEM_MESSAGE_DIFF = """Encode the transformation from INPUT to OUTPUT as a T grid. Each cell
+SYSTEM_MESSAGE_DIFF = """T represents the transformation between INPUT and OUTPUT. Each cell
 is an atomic unit colored 0-9.
 
 T grid legend when INPUT and OUTPUT have the same dimensions
