@@ -257,14 +257,14 @@ def fmt_pair_to_substrate(puzzle, rng):
     user = (
         f"INPUT:\n{grid_to_str(pair['input'])}\n\n"
         f"OUTPUT:\n{grid_to_str(pair['output'])}\n\n"
-        f"SUBSTRATE:\n"
+        f"RULE:\n"
     )
     target = render_substrate(pair["input"], pair["output"])
     return user, target
 
 
 def fmt_substrate_to_output(puzzle, rng):
-    """substrate_to_output: same-size pairs only. Show input + substrate,
+    """substrate_to_output: same-size pairs only. Show input + rule,
     target the output."""
     candidates = [p for p in puzzle["train"] if is_same_size(p)]
     if not candidates:
@@ -273,7 +273,7 @@ def fmt_substrate_to_output(puzzle, rng):
     sub = encode(pair["input"], pair["output"])
     user = (
         f"INPUT:\n{grid_to_str(pair['input'])}\n\n"
-        f"SUBSTRATE:\n{format_grid(sub)}\n\n"
+        f"RULE:\n{format_grid(sub)}\n\n"
         f"OUTPUT:\n"
     )
     target = grid_to_str(pair["output"])
@@ -282,74 +282,90 @@ def fmt_substrate_to_output(puzzle, rng):
 
 def fmt_all_pairs_to_substrates(puzzle, rng):
     """all_pairs_to_substrates: show all train pairs as (input, output),
-    target the substrates per pair."""
+    target the rules per pair.
+
+    Style C — no P-prefixes. Triples of (INPUT, OUTPUT, RULE) blocks
+    in the assistant target, separated by blank lines. Implicit positional
+    mapping (i-th rule = i-th pair).
+    """
     if len(puzzle["train"]) < 2:
         return None
     user_lines = []
     target_lines = []
-    for i, pair in enumerate(puzzle["train"], start=1):
-        user_lines.append(f"P{i} INPUT:\n{grid_to_str(pair['input'])}")
-        user_lines.append(f"P{i} OUTPUT:\n{grid_to_str(pair['output'])}")
-        target_lines.append(f"P{i} SUBSTRATE:\n{render_substrate(pair['input'], pair['output'])}")
-    user = "\n\n".join(user_lines) + "\n\nSUBSTRATES:\n"
+    for pair in puzzle["train"]:
+        user_lines.append(f"INPUT:\n{grid_to_str(pair['input'])}")
+        user_lines.append(f"OUTPUT:\n{grid_to_str(pair['output'])}")
+        target_lines.append(f"RULE:\n{render_substrate(pair['input'], pair['output'])}")
+    user = "\n\n".join(user_lines) + "\n\nRULES:\n"
     target = "\n\n".join(target_lines)
     return user, target
 
 
 def fmt_cold_pair_to_substrate(puzzle, rng):
-    """cold_pair_to_substrate: pick one pair as the cold pair, the rest
-    are shown as worked (input + output + substrate)."""
+    """cold_pair_to_substrate (internal name kept for provenance/configs):
+    pick one pair as the cold pair, the rest are shown as worked
+    (INPUT + OUTPUT + RULE). The cold pair shows (INPUT + OUTPUT) and
+    has a trailing RULE: that the model must produce.
+
+    Style C — no COLD or P prefixes. Structure tells the model which
+    one is to-produce: the trailing pair is the only one missing its
+    RULE content.
+    """
     if len(puzzle["train"]) < 3:
         return None
     n = len(puzzle["train"])
     cold_idx = rng.randrange(n)
     user_lines = []
-    pcount = 0
     for i, pair in enumerate(puzzle["train"]):
         if i == cold_idx:
             continue
-        pcount += 1
-        user_lines.append(f"P{pcount} INPUT:\n{grid_to_str(pair['input'])}")
-        user_lines.append(f"P{pcount} OUTPUT:\n{grid_to_str(pair['output'])}")
-        user_lines.append(f"P{pcount} SUBSTRATE:\n{render_substrate(pair['input'], pair['output'])}")
+        user_lines.append(f"INPUT:\n{grid_to_str(pair['input'])}")
+        user_lines.append(f"OUTPUT:\n{grid_to_str(pair['output'])}")
+        user_lines.append(f"RULE:\n{render_substrate(pair['input'], pair['output'])}")
     cold = puzzle["train"][cold_idx]
-    user_lines.append(f"COLD INPUT:\n{grid_to_str(cold['input'])}")
-    user_lines.append(f"COLD OUTPUT:\n{grid_to_str(cold['output'])}")
-    user = "\n\n".join(user_lines) + "\n\nCOLD SUBSTRATE:\n"
+    user_lines.append(f"INPUT:\n{grid_to_str(cold['input'])}")
+    user_lines.append(f"OUTPUT:\n{grid_to_str(cold['output'])}")
+    user = "\n\n".join(user_lines) + "\n\nRULE:\n"
     target = render_substrate(cold["input"], cold["output"])
     return user, target
 
 
 def fmt_test_substrate_prediction(puzzle, rng):
-    """test_substrate_prediction: worked train pairs (input+output+substrate)
-    + test input. Target = test substrate."""
+    """test_substrate_prediction (internal name kept): worked train pairs
+    with their rules + test INPUT only. Target = test rule.
+
+    Style C — no TEST or P prefixes. The test pair is identifiable by
+    structure: it's the trailing pair missing both its OUTPUT and its
+    RULE content.
+    """
     if len(puzzle["train"]) < 2 or not puzzle["test"]:
         return None
     test_idx = rng.randrange(len(puzzle["test"]))
     test_pair = puzzle["test"][test_idx]
     user_lines = []
-    for i, pair in enumerate(puzzle["train"], start=1):
-        user_lines.append(f"P{i} INPUT:\n{grid_to_str(pair['input'])}")
-        user_lines.append(f"P{i} OUTPUT:\n{grid_to_str(pair['output'])}")
-        user_lines.append(f"P{i} SUBSTRATE:\n{render_substrate(pair['input'], pair['output'])}")
-    user_lines.append(f"TEST INPUT:\n{grid_to_str(test_pair['input'])}")
-    user = "\n\n".join(user_lines) + "\n\nTEST SUBSTRATE:\n"
+    for pair in puzzle["train"]:
+        user_lines.append(f"INPUT:\n{grid_to_str(pair['input'])}")
+        user_lines.append(f"OUTPUT:\n{grid_to_str(pair['output'])}")
+        user_lines.append(f"RULE:\n{render_substrate(pair['input'], pair['output'])}")
+    user_lines.append(f"INPUT:\n{grid_to_str(test_pair['input'])}")
+    user = "\n\n".join(user_lines) + "\n\nRULE:\n"
     target = render_substrate(test_pair["input"], test_pair["output"])
     return user, target, test_idx
 
 
 def fmt_direct_output_grid(puzzle, rng):
-    """direct_output_grid: train pairs (input, output) + test input.
-    Target = test output grid."""
+    """direct_output_grid: train pairs (INPUT, OUTPUT) + test INPUT.
+    Target = test OUTPUT grid. No rules anywhere in this format.
+    """
     if len(puzzle["train"]) < 2 or not puzzle["test"]:
         return None
     test_idx = rng.randrange(len(puzzle["test"]))
     test_pair = puzzle["test"][test_idx]
     user_lines = []
-    for i, pair in enumerate(puzzle["train"], start=1):
-        user_lines.append(f"P{i} INPUT:\n{grid_to_str(pair['input'])}")
-        user_lines.append(f"P{i} OUTPUT:\n{grid_to_str(pair['output'])}")
-    user_lines.append(f"TEST INPUT:\n{grid_to_str(test_pair['input'])}")
+    for pair in puzzle["train"]:
+        user_lines.append(f"INPUT:\n{grid_to_str(pair['input'])}")
+        user_lines.append(f"OUTPUT:\n{grid_to_str(pair['output'])}")
+    user_lines.append(f"INPUT:\n{grid_to_str(test_pair['input'])}")
     user = "\n\n".join(user_lines) + "\n\nOUTPUT:\n"
     target = grid_to_str(test_pair["output"])
     return user, target, test_idx
