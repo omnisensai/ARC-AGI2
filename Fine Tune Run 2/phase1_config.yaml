@@ -4,10 +4,17 @@
 # Lock this BEFORE running any generator. Reproducibility = (seed, this file,
 # the puzzle corpus snapshot, the generator code version).
 #
-# Scope: same-size (S) and diff-size (D) pairs both included.
-# - Same-size puzzles support the full substrate-decode path.
-# - Diff-size puzzles use the v1 aggregate substrate as a DIAGNOSTIC scaffold
-#   only; it is not mechanically decodable. Eval branches accordingly.
+# Scope: substrate is dispatched per PAIR (not per puzzle), per
+# substrate.encode_any (substrate.py:244):
+#   pair where inp.shape == out.shape  -> 'write' field (lossless,
+#                                          decode(inp, write) == out)
+#   pair where inp.shape != out.shape  -> 'struct' field (lossy by design,
+#                                          no decoder exists)
+# A puzzle with mixed-shape pairs (15 in the corpus) contributes both
+# formats. Every task except T2 trains the model to predict whichever
+# format the pair calls for. T2 (substrate->output) is the only task
+# that requires the lossless 'write' format because that's the only
+# substrate form with a deterministic decoder.
 
 seed: 42
 
@@ -75,20 +82,21 @@ phase1_grid_mix:
   T5_test_substrate_prediction: 0.30
   T6_direct_output_grid:        0.10
 
-# Per-task S/D applicability:
-#   T1 — S+D (T1 on D uses the v1 aggregate substrate as the target).
-#   T2 — S only. (Substrate not decodable for D; skip.)
-#   T3 — S+D (per-pair encoding handles each pair appropriately).
-#   T4 — S+D (target is substrate; for D, the target is the aggregate form).
-#   T5 — S+D (test substrate prediction; same caveat as T4 for D).
-#   T6 — S+D (direct output prediction is universal).
-task_sd_applicability:
-  T1: ["S", "D"]
-  T2: ["S"]
-  T3: ["S", "D"]
-  T4: ["S", "D"]
-  T5: ["S", "D"]
-  T6: ["S", "D"]
+# Per-task pair-level dispatch (per PAIR, not per puzzle):
+#   T1 — any pair; target is 'write' for S pairs, 'struct' for D pairs.
+#   T2 — same-size pairs only (the only ones with a decoder). Diff-size
+#        pairs from the same puzzle are simply skipped for T2.
+#   T3 — any pair; emit the appropriate format per pair within the puzzle.
+#   T4 — any pair as the cold pair; format follows pair shape.
+#   T5 — any test pair; format follows pair shape.
+#   T6 — any pair; output prediction is universal.
+task_pair_dispatch:
+  T1: ["write", "struct"]
+  T2: ["write"]              # struct pairs filtered out
+  T3: ["write", "struct"]
+  T4: ["write", "struct"]
+  T5: ["write", "struct"]
+  T6: ["write", "struct"]
 
 # ----- Eval protocol -----------------------------------------------------
 # ARC's official format is 2 attempts per puzzle, all test pairs must be
@@ -96,14 +104,19 @@ task_sd_applicability:
 eval:
   protocol: "C"
   pass_at_k: 2
-  same_size:
-    attempt_1: "T5_test_substrate -> T2_decode_to_output"
-    attempt_2: "T6_direct_output"
-    score: "either_output_correct"
-  diff_size:
-    attempt_1: "T5_diffsize_substrate_diagnostic_only"
-    attempt_2: "T6_direct_output"
-    score: "output_correct_for_T6_only; substrate metrics reported separately"
+  # Branching is per TEST PAIR, not per puzzle. All test pairs in a
+  # puzzle must be exactly correct for the puzzle to count under ARC's
+  # scoring rule. A mixed-pair puzzle will use the per-pair logic below
+  # for each of its test pairs.
+  per_pair_same_size:
+    attempt_1: "predict 'write' substrate -> mechanically decode -> output"
+    attempt_2: "predict output directly"
+    score: "either output exact-correct"
+  per_pair_diff_size:
+    attempt_1: "predict 'struct' substrate as CoT prefix, then generate output"
+    attempt_2: "predict output directly with no substrate prefix"
+    score: "either output exact-correct"
+  puzzle_score: "all test pairs in the puzzle correct, under either attempt path"
   decode_strategy:
     temperature: 0.0      # greedy for attempt 1; can sweep later
     max_new_tokens: 4096
