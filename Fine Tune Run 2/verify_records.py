@@ -51,23 +51,27 @@ KNOWN_FORMATS = {
 # Mirror of build_phase1_dataset.py SYSTEM_MESSAGE. Must stay in sync.
 EXPECTED_SYSTEM_MESSAGE = """Transformation Rule
 
-A RULE encodes one (input, output) transformation pair.
+A RULE encodes one input/output grid transformation.
 
-When input.shape == output.shape, the RULE is a same-shape grid:
+If input.shape == output.shape, the RULE is a same-shape grid:
   .       cell unchanged
-  0-9     cell took this new color
+  0-9     cell changed to this output color
+Each cell is independent: RULE[r,c] depends only on input[r,c] and output[r,c],
+not on neighbors.
+Lossless: the output can be fully reconstructed from input + RULE.
 
-When input.shape != output.shape, the RULE is an aggregate text block
-with fixed sections in order: SIZE, BG, PALETTE, ROWS, COLS, BBOX.
-Sections are separated by blank lines.
+If input.shape != output.shape, the RULE is an aggregate text block with sections
+in this order: SIZE, BG, PALETTE, ROWS, COLS, BBOX. Sections are separated by
+blank lines.
+Whole-grid statistics — diagnostic only, not a per-cell reconstruction recipe.
 
-Tags between numeric pairs a -> b:
+Relation tags for numeric pairs a -> b:
   =        a == b
-  ×N       b = a*N  (integer N > 1)
-  ÷N       a = b*N  (integer N > 1)
-  Δ±N      additive offset
-  new      a == 0, b > 0
-  dropped  a > 0, b == 0"""
+  ×N       b = a * N, integer N > 1
+  ÷N       a = b * N, integer N > 1
+  Δ±N      additive offset (b - a)
+  new      a == 0 and b > 0
+  dropped  a > 0 and b == 0"""
 
 REQUIRED_PROV_KEYS = {"format", "stage", "bucket", "puzzle_id",
                       "sources", "d4_op", "color_perm_seed",

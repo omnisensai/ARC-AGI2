@@ -73,9 +73,8 @@ Per-format probe accuracy maps directly onto the taxonomy:
 |---|---|
 | `pair_to_substrate` | "right substrate?" |
 | `substrate_to_output` | "right decode?" |
-| `all_pairs_to_substrates` | "right substrate, multi-pair?" |
-| `cold_pair_to_substrate` | "right rule transfer?" |
-| `test_substrate_prediction` | "right rule + apply?" |
+| `multi_pair_to_rule` | "right rule under multi-pair context?" |
+| `test_substrate_prediction` | "right rule + apply (test pair)?" |
 | `direct_output_grid` | "right output?" |
 
 Only after Phase 1 should Phase 2 ask "can it write code?" — and only
@@ -212,15 +211,14 @@ prompt ends with — determines what the assistant must produce:
 
 | User prompt ends with… | Assistant produces… |
 |---|---|
-| `SUBSTRATE:` | the substrate for the (input, output) pair shown |
-| `OUTPUT:` | the output grid (from input + substrate, or from train pairs + test input) |
-| `SUBSTRATES:` | per-pair substrates for every pair shown |
-| `COLD SUBSTRATE:` | the substrate for the unseen cold pair |
-| `TEST SUBSTRATE:` | the substrate for the test pair, inferred from the train pairs |
+| `RULE:` | the rule (substrate) for the relevant pair |
+| `OUTPUT:` | the output grid |
 
-This is the single coherent transformation-rule language the model
-learns. The six "task formats" below are internal bookkeeping for mix
-ratios and per-task metrics; the model sees only the field contract.
+Two field labels for the assistant target. Which one the model
+produces depends on which one the user prompt ends with. The five
+"task formats" below are internal bookkeeping for mix ratios and
+per-task metrics; the model sees only the field contract and the
+trailing label.
 
 Phase 2 and Phase 3 use their own system messages — `Code Solver` and
 `Code Repair` respectively — because they're a different skill. Within
@@ -241,51 +239,64 @@ both errors. Phase 1.A teaches the atomic substrate skill alone; Phase
 
 ### 4.3 Phase 1 task formats
 
-All six formats use the `Transformation Rule` system message. They
-differ only in user-prompt structure and target field. The two columns
-on the right show which sub-phase each format belongs to and the
-per-pair substrate kind it requires.
+All five formats use the same `Transformation Rule` system message.
+They differ only in user-prompt structure and which field label the
+prompt ends with. The two columns on the right show which sub-phase
+each format belongs to and the per-pair substrate kind it requires.
 
 | Internal label | User-prompt ends with | Target | Sub-phase | Per-pair dispatch |
 |---|---|---|---|---|
-| `pair_to_substrate` | `SUBSTRATE:` | substrate for that pair | 1.A | per pair via `encode_auto` |
-| `substrate_to_output` | `OUTPUT:` | output grid | 1.A | **same-size pixel substrate only** |
-| `all_pairs_to_substrates` | `SUBSTRATES:` | per-pair substrates for all train pairs | 1.A | per pair via `encode_auto` |
-| `cold_pair_to_substrate` | `COLD SUBSTRATE:` | substrate for the cold pair | 1.B | per pair via `encode_auto` |
-| `test_substrate_prediction` | `TEST SUBSTRATE:` | substrate for the test pair | 1.B | per pair via `encode_auto` |
+| `pair_to_substrate` | `RULE:` | rule for the single pair shown | 1.A | per pair via `encode_auto` |
+| `substrate_to_output` | `OUTPUT:` | output grid (reconstructed from input + rule) | 1.A | **same-size pixel substrate only** |
+| `multi_pair_to_rule` | `RULE:` | rule for the trailing pair, given N-1 worked pairs | 1.B | per pair via `encode_auto` |
+| `test_substrate_prediction` | `RULE:` | rule for the test pair, inferred from worked pairs | 1.B | per pair via `encode_auto` |
 | `direct_output_grid` | `OUTPUT:` | test output grid | 1.B | n/a (output is the target) |
 
-`substrate_to_output` requires the lossless same-size pixel substrate
-(because that is the only substrate form with a deterministic decoder).
+`substrate_to_output` requires the lossless same-size pixel rule
+(because that is the only rule form with a deterministic decoder).
 For mixed-shape puzzles the generator emits this format only for the
 same-size pairs and skips the diff-size ones.
 
 All other formats use `encode_auto`, which dispatches per pair to the
-appropriate substrate (pixel for same-size, aggregate for diff-size).
-Both substrate forms are valid prediction targets in those formats.
+appropriate rule (pixel for same-size, aggregate for diff-size). Both
+rule forms are valid prediction targets in those formats.
 
-The full conversation schema for each format — exact field labels,
-target structure — is in §7.
+**`multi_pair_to_rule` position rotation:** for each augmented variant
+of a puzzle with N train pairs, the generator emits N candidate items
+— one per choice of which pair is the trailing one. This guarantees
+systematic coverage of all positions across the training set, rather
+than leaving it to random sampling.
+
+Format disambiguation by structure (no special labels needed):
+
+- `pair_to_substrate`: one (INPUT, OUTPUT) shown, trailing `RULE:`.
+- `substrate_to_output`: one (INPUT, RULE) shown, trailing `OUTPUT:`.
+- `multi_pair_to_rule`: N-1 worked (INPUT, OUTPUT, RULE) triples + 1
+  pair with (INPUT, OUTPUT) but no RULE → trailing `RULE:`.
+- `test_substrate_prediction`: N worked (INPUT, OUTPUT, RULE) triples +
+  test pair with INPUT only → trailing `RULE:`.
+- `direct_output_grid`: N (INPUT, OUTPUT) pairs + test INPUT only →
+  trailing `OUTPUT:`.
+
+The full conversation schema for each format is in §7.
 
 ### 4.4 Phase 1.A — substrate literacy
 
-Train **from the base Qwen-2.5-7B-Instruct checkpoint** on the three
+Train **from the base Qwen-2.5-7B-Instruct checkpoint** on the two
 single-pair literacy formats only. Target mix:
 
 | Format | Mix share |
 |---|---|
-| `pair_to_substrate` | 40% |
-| `substrate_to_output` | 35% |
-| `all_pairs_to_substrates` | 25% |
+| `pair_to_substrate` | 50% |
+| `substrate_to_output` | 50% |
 
-`substrate_to_output` is intentionally heavily weighted: it forces the
-model to learn the *decoding* direction, which is the harder half of
-the substrate relationship. `all_pairs_to_substrates` introduces
-multi-pair input but with mechanical per-pair targets — still
-"literacy," just batched.
+The two formats balance the *encode* and *decode* directions of the
+substrate relationship. With one system message containing the legend,
+the model learns the alphabet from English priors and uses these two
+formats to ground it in concrete grid examples.
 
 **Probe / stopping criterion (1.A done signal):** before kicking off
-1.B, hold out ~50 puzzles never seen during 1.A and measure exact-match
+1.B, hold out 50 puzzles never seen during 1.A and measure exact-match
 on each literacy task:
 
 | Probe | Threshold |
@@ -293,13 +304,11 @@ on each literacy task:
 | `pair_to_substrate` exact-match (same-size) | ≥ 95% |
 | `pair_to_substrate` exact-match (diff-size) | ≥ 90% |
 | `substrate_to_output` exact-match (same-size only) | ≥ 95% |
-| `all_pairs_to_substrates` exact-match | ≥ 90% |
 
 Below threshold, 1.B will compound errors — extend 1.A instead. Above
 threshold, do **not** overtrain the alphabet; move to 1.B.
 
-Save the 1.A LoRA as `outputs/phase1a/...` (path TBD by training
-script).
+Save the 1.A LoRA as `outputs/phase1a_substrate_literacy/`.
 
 ### 4.5 Phase 1.B — rule application
 
@@ -311,8 +320,7 @@ forgetting of the atomic skill.
 |---|---|
 | `pair_to_substrate` | 5% (carry) |
 | `substrate_to_output` | 5% (carry) |
-| `all_pairs_to_substrates` | 10% (carry) |
-| `cold_pair_to_substrate` | 25% |
+| `multi_pair_to_rule` | 35% |
 | `test_substrate_prediction` | 40% |
 | `direct_output_grid` | 15% |
 
@@ -564,44 +572,84 @@ learned.
 
 ### 7.2 The Transformation Rule system message
 
-Every Phase 1 record uses:
+Every Phase 1 record uses the same system message — a compact legend
+that defines the substrate alphabet and dispatch rule. Putting the
+legend in the system prompt leverages Qwen's English pretraining
+instead of forcing the model to learn the symbols by gradient descent.
 
-```json
-{"role": "system", "content": "Transformation Rule"}
+Exact byte content (must match `EXPECTED_SYSTEM_MESSAGE` in
+`verify_records.py`):
+
+```
+Transformation Rule
+
+A RULE encodes one input/output grid transformation.
+
+If input.shape == output.shape, the RULE is a same-shape grid:
+  .       cell unchanged
+  0-9     cell changed to this output color
+Each cell is independent: RULE[r,c] depends only on input[r,c] and output[r,c],
+not on neighbors.
+Lossless: the output can be fully reconstructed from input + RULE.
+
+If input.shape != output.shape, the RULE is an aggregate text block with sections
+in this order: SIZE, BG, PALETTE, ROWS, COLS, BBOX. Sections are separated by
+blank lines.
+Whole-grid statistics — diagnostic only, not a per-cell reconstruction recipe.
+
+Relation tags for numeric pairs a -> b:
+  =        a == b
+  ×N       b = a * N, integer N > 1
+  ÷N       a = b * N, integer N > 1
+  Δ±N      additive offset (b - a)
+  new      a == 0 and b > 0
+  dropped  a > 0 and b == 0
 ```
 
-No prose instructions, no examples in the system slot, no task IDs.
-The user prompt's trailing field tells the model what to produce.
+This is ~175 tokens, identical across every Phase 1 record (train, dev,
+probe). With `train_on_inputs: false` the system tokens contribute zero
+loss — pure context. The legend hits four pieces that the model would
+otherwise have to discover from data: substrate alphabet (`.` and
+`0-9`), section schema for diff-size, the relation tag table, and the
+key invariants ("each cell independent," "lossless same-shape,"
+"lossy diff-shape").
+
+Phase 2 will use a different system message (`Code Solver`) with its
+own legend describing `def solve(input_grid)` and friends. Phase 3
+uses `Code Repair`. One system message per phase.
 
 ### 7.3 Field-contract conventions
 
 User prompts assemble fields in a fixed grammar so the model can rely
 on layout:
 
-- **Pair labels:** `P1`, `P2`, `P3`, … in order of presentation.
-- **Field labels (block-leading):** `INPUT:`, `OUTPUT:`, `SUBSTRATE:`,
-  `SUBSTRATES:` (plural for the multi-pair format), `COLD INPUT:`,
-  `COLD OUTPUT:`, `COLD SUBSTRATE:`, `TEST INPUT:`,
-  `TEST SUBSTRATE:`.
-- **Per-pair fields:** prefixed with the pair label and a space, e.g.
-  `P1 INPUT:`, `P1 SUBSTRATE:`.
-- **Block separator:** one blank line between fields. Field label and
-  its content are separated by a single newline.
+- **Field labels (block-leading):** `INPUT:`, `OUTPUT:`, `RULE:`. That
+  is the entire label vocabulary. No per-pair prefixes (`P1`, `P2`),
+  no special prefixes (`COLD`, `TEST`, `NEW`). Pairs are identified
+  by structure (consecutive INPUT/OUTPUT/RULE triples) and the
+  blank-line block separator.
+- **Block separator:** exactly one blank line (`\n\n`) between blocks.
+- **Label/content separator:** a single newline (`\n`) between a
+  label and its content. The label includes the colon.
 - **Grids** are rendered via `substrate.format_grid` — one row per
   line, one character per cell, no spaces, no commas.
-- **Pixel substrates** render the same way (one character per cell,
-  `.` and digits).
-- **Aggregate substrates** render as the verbatim
-  `diffsize_encode` output (multi-line text block).
+- **Pixel rules** render the same way (one character per cell,
+  `.` for unchanged and digits for changed).
+- **Aggregate rules** render as the verbatim `diffsize_encode` output
+  (multi-line text block starting with `SIZE …`).
 - The user prompt **ends** with the field label whose value the
   assistant must produce, followed by a single newline. No content
-  after that label.
+  after that label. This is the "trailing-label" contract.
 
-### 7.4 The six formats
+Disambiguation is purely structural. The model identifies which pair
+is the "to-produce" one by counting blocks: it's the trailing pair,
+i.e. the only one whose `RULE` (or `OUTPUT`) is missing content.
+
+### 7.4 The five formats
 
 #### Format 1 — `pair_to_substrate`
 
-**Purpose:** encode a single (input, output) pair as its substrate.
+**Purpose:** encode a single (input, output) pair as its rule.
 
 **User:**
 ```
@@ -611,30 +659,30 @@ INPUT:
 OUTPUT:
 <grid>
 
-SUBSTRATE:
+RULE:
 ```
 
-**Assistant:** the substrate for that pair (pixel grid for same-size,
+**Assistant:** the rule for that pair (pixel grid for same-size,
 aggregate text block for diff-size).
 
 **Sub-phase:** 1.A.
 
 #### Format 2 — `substrate_to_output`
 
-**Purpose:** apply a pixel substrate back to recover the output. Trains
+**Purpose:** apply a pixel rule back to recover the output. Trains
 the *decode* direction of the substrate relationship.
 
-**Constraint:** same-size pixel substrate only. The generator must
-skip diff-size pairs for this format. Diff-size aggregate substrates
-are lossy and cannot mechanically reconstruct the output.
+**Constraint:** same-size pixel rule only. The generator skips
+diff-size pairs for this format. Diff-size aggregate rules are lossy
+and cannot mechanically reconstruct the output.
 
 **User:**
 ```
 INPUT:
 <grid>
 
-SUBSTRATE:
-<pixel substrate>
+RULE:
+<pixel rule>
 
 OUTPUT:
 ```
@@ -643,145 +691,120 @@ OUTPUT:
 
 **Sub-phase:** 1.A.
 
-#### Format 3 — `all_pairs_to_substrates`
+#### Format 3 — `multi_pair_to_rule`
 
-**Purpose:** multi-pair substrate formatting with mechanical per-pair
-targets. Still literacy, but at the puzzle level.
+**Purpose:** rule transfer under multi-pair context. N-1 pairs are
+shown fully worked (INPUT + OUTPUT + RULE); 1 trailing pair shows
+INPUT + OUTPUT but no RULE — the model produces the trailing pair's
+rule. The worked examples scaffold the format the model should
+produce; the trailing pair's rule is still mechanically derivable from
+the pair itself.
 
-**User:**
-```
-P1 INPUT:
-<grid>
-
-P1 OUTPUT:
-<grid>
-
-P2 INPUT:
-<grid>
-
-P2 OUTPUT:
-<grid>
-
-SUBSTRATES:
-```
-
-**Assistant:**
-```
-P1 SUBSTRATE:
-<substrate>
-
-P2 SUBSTRATE:
-<substrate>
-```
-
-**Sub-phase:** 1.A.
-
-#### Format 4 — `cold_pair_to_substrate`
-
-**Purpose:** analogy across pairs. Worked examples show the
-input→output→substrate chain; the model must encode the cold pair's
-substrate from its (input, output) alone, but with the rule context
-the worked examples provide.
+**Position rotation:** for each augmented variant of a puzzle with
+N train pairs, the generator emits N candidate items — one per choice
+of which pair is the trailing one. Sampling from the expanded pool
+ensures every position gets coverage.
 
 **User:**
 ```
-P1 INPUT:
+INPUT:
 <grid>
 
-P1 OUTPUT:
+OUTPUT:
 <grid>
 
-P1 SUBSTRATE:
-<substrate>
+RULE:
+<rule>
 
-P2 INPUT:
+INPUT:
 <grid>
 
-P2 OUTPUT:
+OUTPUT:
 <grid>
 
-P2 SUBSTRATE:
-<substrate>
+RULE:
+<rule>
 
-COLD INPUT:
+INPUT:
 <grid>
 
-COLD OUTPUT:
+OUTPUT:
 <grid>
 
-COLD SUBSTRATE:
+RULE:
 ```
 
-**Assistant:** the cold pair's substrate.
+**Assistant:** the trailing pair's rule.
 
-**Sub-phase:** 1.B. Requires ≥ 2 worked train pairs + 1 cold pair, so
-puzzles with fewer than 3 train pairs (after subsetting) are skipped
-for this format.
+**Sub-phase:** 1.B. Requires ≥ 3 train pairs after subsetting (≥ 2
+worked + 1 trailing). Records the position via
+`provenance.trailing_pair_index`.
 
-#### Format 5 — `test_substrate_prediction`
+#### Format 4 — `test_substrate_prediction`
 
 **Purpose:** the load-bearing bridge. Infer the transformation rule
-from train pairs and apply it to the test input, expressing the answer
-as substrate rather than output.
+from train pairs and apply it to the test input, expressing the
+answer as rule (not output).
 
 **User:**
 ```
-P1 INPUT:
+INPUT:
 <grid>
 
-P1 OUTPUT:
+OUTPUT:
 <grid>
 
-P1 SUBSTRATE:
-<substrate>
+RULE:
+<rule>
 
-P2 INPUT:
+INPUT:
 <grid>
 
-P2 OUTPUT:
+OUTPUT:
 <grid>
 
-P2 SUBSTRATE:
-<substrate>
+RULE:
+<rule>
 
-TEST INPUT:
-<grid>
+INPUT:
+<test input grid>
 
-TEST SUBSTRATE:
+RULE:
 ```
 
-**Assistant:** the test pair's substrate.
+**Assistant:** the test pair's rule.
 
-**Sub-phase:** 1.B. Test pair's *output* is never shown in the prompt
-— that's the whole point.
+**Sub-phase:** 1.B. The test pair shows INPUT only — its OUTPUT is
+hidden (that's what makes it test-style). The model must infer the
+rule from the worked pairs and apply it to the test INPUT.
 
-For same-size test pairs the predicted substrate is mechanically
-decodable into the output. For diff-size test pairs the predicted
-substrate is diagnostic / scaffold only.
+For same-size test pairs the predicted rule is mechanically decodable
+into the output. For diff-size test pairs the predicted rule is
+diagnostic / scaffold only.
 
-#### Format 6 — `direct_output_grid`
+#### Format 5 — `direct_output_grid`
 
-**Purpose:** direct output prediction without substrate scaffolding.
+**Purpose:** direct output prediction without rule scaffolding.
 Useful as attempt-2 in the eval protocol, but should not dominate
-Phase 1 — the substrate path is the structured signal we want the
-model leaning on.
+Phase 1 — the rule path is the structured signal we want the model
+leaning on.
 
 **User:**
 ```
-P1 INPUT:
+INPUT:
 <grid>
 
-P1 OUTPUT:
+OUTPUT:
 <grid>
 
-P2 INPUT:
+INPUT:
 <grid>
 
-P2 OUTPUT:
+OUTPUT:
 <grid>
 
-TEST INPUT:
-<grid>
+INPUT:
+<test input grid>
 
 OUTPUT:
 ```
@@ -811,11 +834,15 @@ Special tokens: `<|im_start|>` and `<|im_end|>` are tokenizer-level
 special tokens (single token each in Qwen2's tokenizer). They MUST NOT
 appear inside any field content.
 
-**Concrete example — `pair_to_substrate` record fully rendered:**
+**Concrete example — `pair_to_substrate` record fully rendered** (the
+system content has been abbreviated; the full ~175-token legend lives
+inside the `<|im_start|>system ... <|im_end|>` block, see §7.2):
 
 ```
 <|im_start|>system
-Transformation Rule<|im_end|>
+Transformation Rule
+…[full legend, see §7.2]…
+  dropped  a > 0 and b == 0<|im_end|>
 <|im_start|>user
 INPUT:
 022
@@ -827,7 +854,7 @@ OUTPUT:
 022
 100
 
-SUBSTRATE:
+RULE:
 <|im_end|>
 <|im_start|>assistant
 ...
@@ -839,7 +866,7 @@ Note carefully:
 
 - A literal newline follows `<|im_start|>system`, then the system
   content (no trailing newline before `<|im_end|>`).
-- The user content ends with `SUBSTRATE:\n` (newline after the colon),
+- The user content ends with `RULE:\n` (newline after the colon),
   then `<|im_end|>`. The trailing-label-plus-newline is the prompt's
   contract with the model.
 - The assistant content starts immediately after
@@ -853,11 +880,12 @@ tokens themselves). The system and user blocks contribute no gradient.
 Verified at inference time: the model is prompted with everything up
 to and including `<|im_start|>assistant\n`, and must produce the rest.
 
-**Inference prompt (greedy decode):**
+**Inference prompt (greedy decode)** has the same shape, just stops
+after `<|im_start|>assistant\n`:
 
 ```
 <|im_start|>system
-Transformation Rule<|im_end|>
+[full legend]<|im_end|>
 <|im_start|>user
 INPUT:
 022
@@ -869,23 +897,22 @@ OUTPUT:
 022
 100
 
-SUBSTRATE:
+RULE:
 <|im_end|>
 <|im_start|>assistant
 ```
 
-Note no closing `<|im_end|>` — the model fills in the assistant
-content and emits `<|im_end|>` when done. The probe harness
-(`run_probe.py`) compares the model's stripped output against the
-expected assistant content for exact-match scoring.
+The model fills in the assistant content and emits `<|im_end|>` when
+done. The probe harness (`run_probe.py`) compares the model's stripped
+output against the expected assistant content for exact-match scoring.
 
 **Anti-patterns to NOT do** (lessons applied from Run 1):
 
 | Anti-pattern | Why it breaks |
 |---|---|
 | Putting task identifier (`T1`, `T5`, etc.) in the system message | Forces the model to learn artificial task identities; we want one unified skill. |
-| Trailing whitespace on the user prompt's final label line (e.g. `SUBSTRATE: \n`) | Tokenization may differ between train and inference; the model conditions on whitespace it doesn't see at inference. |
-| Putting prose instructions in the system message ("You are a helpful…") | Wastes context, biases the model away from the field contract. |
+| Trailing whitespace on the user prompt's final label line (e.g. `RULE: \n`) | Tokenization may differ between train and inference; the model conditions on whitespace it doesn't see at inference. |
+| Adding prose instructions (`identify the rule`) to the system message | Wastes context, biases the model away from the field contract. Note: the legend is *definition*, not instruction — it defines what symbols mean, not what the model should do. |
 | Forgetting to set `train_on_inputs: false` | Loss gets computed on the prompt too, which is a much bigger signal than the target — drowns out the actual learning. |
 | Different chat templates between train and inference | Qwen2 is finicky about exact token strings; only use `chat_template: qwen2` everywhere. |
 | Inconsistent field labels across formats (e.g. `INPUT:` vs `Input:`) | Loss of structure; model has to handle case variation that conveys nothing. |
@@ -893,9 +920,11 @@ expected assistant content for exact-match scoring.
 
 **What the generator guarantees** (matches the above):
 
-- System content is always literally `Transformation Rule` (the byte string).
+- System content is always identical to `EXPECTED_SYSTEM_MESSAGE` in
+  `verify_records.py` (the full ~175-token legend, byte-for-byte).
 - User content uses `\n\n` between blocks (one blank line). Block label and its data are separated by a single `\n`.
-- Trailing field label has the form `LABEL:` followed by exactly one `\n`, no spaces.
+- Trailing field label has the form `LABEL:` (one of `INPUT:`,
+  `OUTPUT:`, `RULE:`) followed by exactly one `\n`, no spaces.
 - Grids are rendered with `substrate.format_grid` — one cell per character, one row per line, no spaces, no commas.
 - Assistant content has no leading or trailing whitespace beyond what the substrate/grid renderer produces.
 - No occurrences of `<|im_start|>`, `<|im_end|>`, or any other Qwen2 special token inside content.
@@ -964,8 +993,8 @@ outputs/phase1b_rule_application/     (same LoRA, more training)
 ```
 
 Defensible because 1.A and 1.B are the same skill family and 1.B's mix
-carries 20% of 1.A's formats to prevent forgetting (`pair_to_substrate`
-5% + `substrate_to_output` 5% + `all_pairs_to_substrates` 10%).
+carries 10% of 1.A's formats to prevent forgetting (`pair_to_substrate`
+5% + `substrate_to_output` 5%).
 
 ### 9.2 Cross-phase chain (merge between)
 
@@ -1039,7 +1068,140 @@ A short script will live at `Fine Tune Run 2/merge_lora.py` when Phase
 
 ---
 
-## 10. Open items (tracked here, not blocking)
+## 10. Lessons from Run 1 (Phase 2/3 implications)
+
+A deep read of the Run 1 LoRA's generated Python code revealed a set of
+recurring failure patterns. None of them block Phase 1, but every one
+of them needs an explicit answer in Phase 2's training-data design.
+Captured here so they survive the Phase 1 → Phase 2 transition.
+
+### 10.1 Shape blind spot (highest-impact Phase 2 fix)
+
+**Finding:** in 9 of 13 fully-failed Run 1 puzzles, the model's code
+initialized the output at *input* dimensions and returned it unchanged,
+even when training pairs clearly showed `output.shape != input.shape`.
+Patterns like:
+
+```python
+result = [[bg]*W for _ in range(H)]   # H, W are INPUT dims
+return result                          # never reshaped
+```
+
+The model had no "compute output shape first" prior.
+
+**Phase 1 addresses this structurally:** every diff-size substrate
+starts with a `SIZE H×W -> h×w` header (with relation tags), and 22.7%
+of Phase 1.B training records target diff-size substrates. The model
+literally cannot generate a diff-size substrate without committing to
+output dimensions first.
+
+**Phase 2 needs:**
+
+1. Every shape-changing puzzle's `def solve()` target must begin with
+   explicit output-shape computation, e.g.
+
+   ```python
+   def solve(input_grid):
+       H, W = len(input_grid), len(input_grid[0])
+       # output shape derived from train pairs; do not assume == input shape
+       output_H, output_W = compute_output_shape(...)
+       output = [[bg] * output_W for _ in range(output_H)]
+   ```
+
+2. Training records should bias toward shape-changing puzzles in
+   the initial code-generation mix (above corpus-proportional 33%),
+   to drive the "commit to output shape" prior even harder.
+
+### 10.2 Missing imports (`from collections import …`)
+
+**Finding:** ~10-20% of Run 1 code crashed at runtime because `Counter`,
+`deque`, `defaultdict` were used without being imported. The model
+"forgot" the import line on long-context prompts.
+
+**Phase 2 fix:** standardize the first non-def lines of every code
+target:
+
+```python
+def solve(input_grid):
+    from collections import Counter, deque
+    H, W = len(input_grid), len(input_grid[0])
+    ...
+```
+
+Imports inside `solve()` rather than module-level so the SFT records
+self-contain. Eliminates the 10–20% no-import crash mode.
+
+### 10.3 Hardcoded background / palette values
+
+**Finding:** Run 1 code occasionally hardcoded values like `bg = 8`
+copied verbatim from a specific training pair's substrate. These fail
+on new puzzles where the background is different.
+
+**Phase 2 fix:** strip or rewrite hardcoded scalars in code training
+data. Every `bg` / `border_color` / palette assignment must be
+computed dynamically (e.g. `bg = Counter(c for row in grid for c in
+row).most_common(1)[0][0]`).
+
+The same principle goes back to Phase 1: our `substrate.background_of()`
+is mechanical (frequency-based, tie by smallest color), and the
+diff-size substrate's `BG <in_bg> -> <out_bg>` line trains the model
+to think of background as a function of the grid, not a fixed digit.
+
+### 10.4 Self-check before return
+
+**Finding:** several Run 1 attempts returned `None`, returned
+`input_grid` unchanged, or returned a 1D list because the output
+construction had silently failed.
+
+**Phase 2 fix:** training records should end every `solve()` with:
+
+```python
+    assert isinstance(output, list) and all(isinstance(r, list) for r in output)
+    return output
+```
+
+Catches `None` / shape-mismatch return modes at the model's own output
+boundary instead of in the validator.
+
+### 10.5 Phase 3 corrector on near-misses
+
+**Finding:** 7 Run 1 attempts achieved ≥90% cell-level accuracy but
+failed exact-match — single off-by-one or boundary-case bugs that a
+human reviewer could fix in minutes.
+
+**Phase 3 design (Code Repair):** target these near-misses explicitly.
+The system message is `Code Repair`. The user provides:
+
+- the puzzle
+- the wrong code
+- validator feedback (which cells differed, what the expected values
+  were)
+- the diff map (`expected_cell - generated_cell` per location)
+
+The assistant target is the corrected code. Training data is generated
+from Run 1's near-miss artifacts plus synthetic corruptions of correct
+code.
+
+### 10.6 Overuse of "components + body/marker"
+
+**Finding:** the model leans on connected-component detection as a
+hammer, even for puzzles whose rule is geometric (rotation, reflection,
+scaling).
+
+**Phase 2 fix:** explicit format diversity in code targets — ensure
+training data includes solvers using geometric primitives (transpose,
+rotate, mirror, scale), tile-based primitives (repeat, tile), and
+arithmetic primitives — not just BFS/DFS component finders.
+
+### 10.7 Inference settings (informational)
+
+Run 1 disconfirmed that lowering temperature helps. If anything, try
+`temperature 1.0` with `pass@5` and aggregate at eval time. Not a
+training change — relevant when launching the frozen-34 eval.
+
+---
+
+## 11. Open items (tracked here, not blocking)
 
 - **Phase 1.A → 1.B probe spec.** Threshold values (95% / 90%) are
   reasonable starting points but not validated. Tune after the first 1.A

@@ -41,23 +41,27 @@ DATA_SFT_DIR = ROOT / "data_sft"
 # to learn the substrate alphabet by gradient descent from scratch.
 SYSTEM_MESSAGE = """Transformation Rule
 
-A RULE encodes one (input, output) transformation pair.
+A RULE encodes one input/output grid transformation.
 
-When input.shape == output.shape, the RULE is a same-shape grid:
+If input.shape == output.shape, the RULE is a same-shape grid:
   .       cell unchanged
-  0-9     cell took this new color
+  0-9     cell changed to this output color
+Each cell is independent: RULE[r,c] depends only on input[r,c] and output[r,c],
+not on neighbors.
+Lossless: the output can be fully reconstructed from input + RULE.
 
-When input.shape != output.shape, the RULE is an aggregate text block
-with fixed sections in order: SIZE, BG, PALETTE, ROWS, COLS, BBOX.
-Sections are separated by blank lines.
+If input.shape != output.shape, the RULE is an aggregate text block with sections
+in this order: SIZE, BG, PALETTE, ROWS, COLS, BBOX. Sections are separated by
+blank lines.
+Whole-grid statistics — diagnostic only, not a per-cell reconstruction recipe.
 
-Tags between numeric pairs a -> b:
+Relation tags for numeric pairs a -> b:
   =        a == b
-  ×N       b = a*N  (integer N > 1)
-  ÷N       a = b*N  (integer N > 1)
-  Δ±N      additive offset
-  new      a == 0, b > 0
-  dropped  a > 0, b == 0"""
+  ×N       b = a * N, integer N > 1
+  ÷N       a = b * N, integer N > 1
+  Δ±N      additive offset (b - a)
+  new      a == 0 and b > 0
+  dropped  a > 0 and b == 0"""
 
 # Probe set carve-out from train_pool. Same probe puzzles across both
 # stages so we can measure (a) "is 1.A literacy locked in?" before
@@ -465,6 +469,7 @@ def generate_for_bucket(bucket_name, cluster_list, aug_cfg, stage_cfg,
     """
     # Phase 1: enumerate all variants with eligibility info.
     items = []
+    base_count = 0   # number of (cluster, variant) tuples; denominator for mix
     skip_counter = Counter()
 
     for cluster in cluster_list:
@@ -489,6 +494,7 @@ def generate_for_bucket(bucket_name, cluster_list, aug_cfg, stage_cfg,
             if not eligible:
                 skip_counter["no_eligible_format"] += 1
                 continue
+            base_count += 1  # count one (cluster, variant) tuple
             base_item = {
                 "cluster_rep_pid": rep_pid,
                 "cluster_sources": sources,
@@ -499,13 +505,15 @@ def generate_for_bucket(bucket_name, cluster_list, aug_cfg, stage_cfg,
             }
             # multi_pair_to_rule: expand into one candidate per
             # trailing position so all positions get systematic coverage.
+            # The expansion only grows multi_pair_to_rule's candidate pool;
+            # it does NOT inflate the budget for other formats (the format
+            # target is computed from base_count, not from len(items)).
             if "multi_pair_to_rule" in eligible:
                 n_train = len(variant_puzzle["train"])
                 for t_idx in range(n_train):
                     items.append({**base_item,
                                   "eligible": {"multi_pair_to_rule"},
                                   "trailing_idx": t_idx})
-                # Non-multi-pair formats still get one item from this variant.
                 non_multi = eligible - {"multi_pair_to_rule"}
                 if non_multi:
                     items.append({**base_item, "eligible": non_multi})
@@ -513,9 +521,14 @@ def generate_for_bucket(bucket_name, cluster_list, aug_cfg, stage_cfg,
                 items.append(base_item)
 
     # Phase 2: per-format target-driven sampling.
+    # Targets are proportional to base_count (number of (cluster, variant)
+    # tuples), not to len(items) which is inflated by the multi_pair
+    # rotation expansion. This keeps the mix ratios honest: 5% / 5% / 35%
+    # / 40% / 15% means 5/5/35/40/15 share of the OUTPUT records, not
+    # 5/5/35/40/15 of an inflated denominator.
     total_items = len(items)
     format_targets = {
-        fmt: int(round(ratio * total_items))
+        fmt: int(round(ratio * base_count))
         for fmt, ratio in stage_cfg["task_mix"].items()
     }
     pool_sizes = {fmt: 0 for fmt in stage_cfg["task_mix"]}
