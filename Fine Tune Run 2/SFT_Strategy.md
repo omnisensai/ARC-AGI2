@@ -12,6 +12,78 @@ updated to match.
 
 ---
 
+## 0. Orientation — core thesis and failure taxonomy
+
+### 0.1 Core thesis
+
+LLMs always face the **grounding problem**: they cannot certify their
+own truth. They can generate plausible patterns, code, substrates, and
+explanations, but they cannot determine whether those outputs are
+correct without an external check.
+
+The architecture is therefore:
+
+```
+model proposes
+  substrate constrains
+  validator checks
+  diff map localizes error
+  model repairs
+```
+
+The substrate's role is to **narrow the search space**. Instead of
+asking the model to learn
+
+```
+raw grid text  →  arbitrary code pattern
+```
+
+we ask it to learn
+
+```
+grid relation  →  transformation substrate  →  applied rule  →  output/code
+```
+
+This does not eliminate stochasticity — it makes stochastic navigation
+happen inside a smaller, structured space.
+
+- The substrate is **not** the reasoning engine.
+- The model is **not** the truth engine.
+- The validator remains the only authority.
+
+### 0.2 Failure taxonomy
+
+A raw code validator tells us only "the final code passed or failed."
+It does not say *where* the system failed. Possible failure modes:
+
+```
+wrong rule
+right rule but wrong substrate
+right substrate but bad output
+right output idea but bad code
+valid code but wrong edge case
+exec error
+no grid returned
+```
+
+Phase 1 makes the first four layers measurable — that is its purpose.
+Per-format probe accuracy maps directly onto the taxonomy:
+
+| Probe format | Tests for |
+|---|---|
+| `pair_to_substrate` | "right substrate?" |
+| `substrate_to_output` | "right decode?" |
+| `all_pairs_to_substrates` | "right substrate, multi-pair?" |
+| `cold_pair_to_substrate` | "right rule transfer?" |
+| `test_substrate_prediction` | "right rule + apply?" |
+| `direct_output_grid` | "right output?" |
+
+Only after Phase 1 should Phase 2 ask "can it write code?" — and only
+after Phase 2 should Phase 3 ask "can it repair from validator
+feedback?"
+
+---
+
 ## 1. Overview — Two-phase curriculum
 
 Run 2 trains in two phases with two distinct goals:
