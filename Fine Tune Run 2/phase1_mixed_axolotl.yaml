@@ -1,0 +1,77 @@
+# Phase 1 — MIXED stage — Axolotl trainer config
+#
+# Third stage. Continues from the DIFF LoRA. Trains on all records
+# (both same- and diff-dimensions). System prompt adds ARC-AGI puzzle
+# framing — "one rule generalizes across all input/output pairs of a
+# puzzle" — which sets up the rule-transfer formats
+# (multi_pair_to_rule, test_substrate_prediction).
+#
+# The final Phase 1 LoRA (outputs/phase1_mixed) is the input to Phase
+# 2's merge-and-continue.
+
+base_model: Qwen/Qwen2.5-7B-Instruct
+model_type: AutoModelForCausalLM
+tokenizer_type: AutoTokenizer
+trust_remote_code: true
+
+lora_model_dir: outputs/phase1_diff
+
+datasets:
+  - path: Fine Tune Run 2/data_sft/phase1_mixed_train.jsonl.gz
+    type: chat_template
+    chat_template: qwen2
+
+# In-flight eval: 2% train-carve, loss-monitor only.
+# Real MIXED gate: phase1_mixed_probe.jsonl (run_probe.py).
+# Forgetting check: re-run phase1_same and phase1_diff probes.
+val_set_size: 0.02
+
+dataset_prepared_path: Fine Tune Run 2/data_sft/prepared/phase1_mixed
+output_dir: outputs/phase1_mixed
+
+sequence_len: 8192
+sample_packing: true
+pad_to_sequence_len: true
+
+bf16: true
+fp16: false
+tf32: true
+load_in_8bit: false
+load_in_4bit: false
+
+adapter: lora
+lora_r: 32
+lora_alpha: 64
+lora_dropout: 0.05
+lora_target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
+
+num_epochs: 1
+micro_batch_size: 2
+gradient_accumulation_steps: 16
+
+learning_rate: 0.00012
+lr_scheduler: cosine
+warmup_ratio: 0.03
+weight_decay: 0.01
+optimizer: adamw_torch_fused
+
+gradient_checkpointing: true
+flash_attention: true
+
+train_on_inputs: false
+group_by_length: false
+
+logging_steps: 10
+eval_steps: 50
+save_steps: 50
+save_total_limit: 6
+
+seed: 42
+strict: false
