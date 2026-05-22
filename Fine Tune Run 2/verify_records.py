@@ -43,11 +43,31 @@ FILES = [
 KNOWN_FORMATS = {
     "pair_to_substrate",
     "substrate_to_output",
-    "all_pairs_to_substrates",
-    "cold_pair_to_substrate",
+    "multi_pair_to_rule",
     "test_substrate_prediction",
     "direct_output_grid",
 }
+
+# Mirror of build_phase1_dataset.py SYSTEM_MESSAGE. Must stay in sync.
+EXPECTED_SYSTEM_MESSAGE = """Transformation Rule
+
+A RULE encodes one (input, output) transformation pair.
+
+When input.shape == output.shape, the RULE is a same-shape grid:
+  .       cell unchanged
+  0-9     cell took this new color
+
+When input.shape != output.shape, the RULE is an aggregate text block
+with fixed sections in order: SIZE, BG, PALETTE, ROWS, COLS, BBOX.
+Sections are separated by blank lines.
+
+Tags between numeric pairs a -> b:
+  =        a == b
+  ×N       b = a*N  (integer N > 1)
+  ÷N       a = b*N  (integer N > 1)
+  Δ±N      additive offset
+  new      a == 0, b > 0
+  dropped  a > 0, b == 0"""
 
 REQUIRED_PROV_KEYS = {"format", "stage", "bucket", "puzzle_id",
                       "sources", "d4_op", "color_perm_seed",
@@ -84,10 +104,11 @@ def check_record(rec, file, line_no):
                   rec)
 
     sys_msg, user_msg, asst_msg = msgs
-    if sys_msg.get("role") != "system" or sys_msg.get("content") != "Transformation Rule":
+    if sys_msg.get("role") != "system" or sys_msg.get("content") != EXPECTED_SYSTEM_MESSAGE:
         violation(file, line_no, "S1",
-                  f"system content not literal 'Transformation Rule' "
-                  f"(got role={sys_msg.get('role')!r} content={sys_msg.get('content')!r})",
+                  f"system content does not match EXPECTED_SYSTEM_MESSAGE "
+                  f"(role={sys_msg.get('role')!r}, "
+                  f"first 60 chars: {sys_msg.get('content', '')[:60]!r})",
                   rec)
     if user_msg.get("role") != "user":
         violation(file, line_no, "S2", "messages[1].role != user", rec)

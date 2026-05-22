@@ -35,7 +35,29 @@ PUZZLES_DIR = ROOT / "puzzles"
 SPLITS_FILE = ROOT / "splits" / "phase1_splits.json"
 PROBE_IDS_FILE = ROOT / "splits" / "phase1_probe_ids.txt"
 DATA_SFT_DIR = ROOT / "data_sft"
-SYSTEM_MESSAGE = "Transformation Rule"
+
+# The system message that every Phase 1 record carries. The legend
+# leverages Qwen's English pretraining instead of forcing the model
+# to learn the substrate alphabet by gradient descent from scratch.
+SYSTEM_MESSAGE = """Transformation Rule
+
+A RULE encodes one (input, output) transformation pair.
+
+When input.shape == output.shape, the RULE is a same-shape grid:
+  .       cell unchanged
+  0-9     cell took this new color
+
+When input.shape != output.shape, the RULE is an aggregate text block
+with fixed sections in order: SIZE, BG, PALETTE, ROWS, COLS, BBOX.
+Sections are separated by blank lines.
+
+Tags between numeric pairs a -> b:
+  =        a == b
+  ×N       b = a*N  (integer N > 1)
+  ÷N       a = b*N  (integer N > 1)
+  Δ±N      additive offset
+  new      a == 0, b > 0
+  dropped  a > 0, b == 0"""
 
 # Probe set carve-out from train_pool. Same probe puzzles across both
 # stages so we can measure (a) "is 1.A literacy locked in?" before
@@ -50,9 +72,8 @@ STAGE_CONFIG = {
         "stage_name": "phase1a_substrate_literacy",
         "seed": 42,
         "task_mix": {
-            "pair_to_substrate":       0.40,
-            "substrate_to_output":     0.35,
-            "all_pairs_to_substrates": 0.25,
+            "pair_to_substrate":       0.50,
+            "substrate_to_output":     0.50,
         },
         "augment": {
             "train": {"d4": True, "color_perms": 3, "pair_subsetting": True,
@@ -72,8 +93,7 @@ STAGE_CONFIG = {
         "task_mix": {
             "pair_to_substrate":         0.05,
             "substrate_to_output":       0.05,
-            "all_pairs_to_substrates":   0.10,
-            "cold_pair_to_substrate":    0.25,
+            "multi_pair_to_rule":        0.35,
             "test_substrate_prediction": 0.40,
             "direct_output_grid":        0.15,
         },
@@ -96,10 +116,9 @@ SAME_SIZE_ONLY = {"substrate_to_output"}
 
 # Formats that need at least N train pairs *after* subsetting.
 MIN_TRAIN_PAIRS = {
-    "cold_pair_to_substrate":    3,  # >=2 worked + 1 cold
+    "multi_pair_to_rule":        3,  # >=2 worked + 1 trailing
     "test_substrate_prediction": 2,
     "direct_output_grid":        2,
-    "all_pairs_to_substrates":   2,
 }
 
 
@@ -280,53 +299,34 @@ def fmt_substrate_to_output(puzzle, rng):
     return user, target
 
 
-def fmt_all_pairs_to_substrates(puzzle, rng):
-    """all_pairs_to_substrates: show all train pairs as (input, output),
-    target the rules per pair.
+def fmt_multi_pair_to_rule(puzzle, rng, trailing_idx=None):
+    """N-1 worked pairs (INPUT + OUTPUT + RULE) plus 1 trailing pair
+    (INPUT + OUTPUT, no RULE) → produce the trailing pair's RULE.
 
-    Style C — no P-prefixes. Triples of (INPUT, OUTPUT, RULE) blocks
-    in the assistant target, separated by blank lines. Implicit positional
-    mapping (i-th rule = i-th pair).
-    """
-    if len(puzzle["train"]) < 2:
-        return None
-    user_lines = []
-    target_lines = []
-    for pair in puzzle["train"]:
-        user_lines.append(f"INPUT:\n{grid_to_str(pair['input'])}")
-        user_lines.append(f"OUTPUT:\n{grid_to_str(pair['output'])}")
-        target_lines.append(f"RULE:\n{render_substrate(pair['input'], pair['output'])}")
-    user = "\n\n".join(user_lines) + "\n\nRULES:\n"
-    target = "\n\n".join(target_lines)
-    return user, target
+    Style C: no COLD/P prefixes. Structure tells the model which pair
+    is to-produce: it's the only one missing its RULE content.
 
-
-def fmt_cold_pair_to_substrate(puzzle, rng):
-    """cold_pair_to_substrate (internal name kept for provenance/configs):
-    pick one pair as the cold pair, the rest are shown as worked
-    (INPUT + OUTPUT + RULE). The cold pair shows (INPUT + OUTPUT) and
-    has a trailing RULE: that the model must produce.
-
-    Style C — no COLD or P prefixes. Structure tells the model which
-    one is to-produce: the trailing pair is the only one missing its
-    RULE content.
+    If `trailing_idx` is provided, that position becomes the trailing
+    one (used by the generator to deterministically rotate through all
+    positions). If None, picks uniformly at random.
     """
     if len(puzzle["train"]) < 3:
         return None
     n = len(puzzle["train"])
-    cold_idx = rng.randrange(n)
+    if trailing_idx is None:
+        trailing_idx = rng.randrange(n)
     user_lines = []
     for i, pair in enumerate(puzzle["train"]):
-        if i == cold_idx:
+        if i == trailing_idx:
             continue
         user_lines.append(f"INPUT:\n{grid_to_str(pair['input'])}")
         user_lines.append(f"OUTPUT:\n{grid_to_str(pair['output'])}")
         user_lines.append(f"RULE:\n{render_substrate(pair['input'], pair['output'])}")
-    cold = puzzle["train"][cold_idx]
-    user_lines.append(f"INPUT:\n{grid_to_str(cold['input'])}")
-    user_lines.append(f"OUTPUT:\n{grid_to_str(cold['output'])}")
+    trailing = puzzle["train"][trailing_idx]
+    user_lines.append(f"INPUT:\n{grid_to_str(trailing['input'])}")
+    user_lines.append(f"OUTPUT:\n{grid_to_str(trailing['output'])}")
     user = "\n\n".join(user_lines) + "\n\nRULE:\n"
-    target = render_substrate(cold["input"], cold["output"])
+    target = render_substrate(trailing["input"], trailing["output"])
     return user, target
 
 
@@ -374,8 +374,7 @@ def fmt_direct_output_grid(puzzle, rng):
 FORMAT_FNS = {
     "pair_to_substrate":         fmt_pair_to_substrate,
     "substrate_to_output":       fmt_substrate_to_output,
-    "all_pairs_to_substrates":   fmt_all_pairs_to_substrates,
-    "cold_pair_to_substrate":    fmt_cold_pair_to_substrate,
+    "multi_pair_to_rule":        fmt_multi_pair_to_rule,
     "test_substrate_prediction": fmt_test_substrate_prediction,
     "direct_output_grid":        fmt_direct_output_grid,
 }
@@ -410,9 +409,12 @@ def sample_format(eligible, task_mix, rng):
 # Generation loop
 
 def make_record(format_name, variant_puzzle, prov_aug, rep_pid, sources,
-                bucket, stage_name, rng):
+                bucket, stage_name, rng, trailing_idx=None):
     fn = FORMAT_FNS[format_name]
-    out = fn(variant_puzzle, rng)
+    if format_name == "multi_pair_to_rule":
+        out = fn(variant_puzzle, rng, trailing_idx=trailing_idx)
+    else:
+        out = fn(variant_puzzle, rng)
     if out is None:
         return None
 
@@ -439,6 +441,8 @@ def make_record(format_name, variant_puzzle, prov_aug, rep_pid, sources,
     }
     if test_pair_index is not None:
         record["provenance"]["test_pair_index"] = test_pair_index
+    if format_name == "multi_pair_to_rule" and trailing_idx is not None:
+        record["provenance"]["trailing_pair_index"] = trailing_idx
     return record
 
 
@@ -485,13 +489,28 @@ def generate_for_bucket(bucket_name, cluster_list, aug_cfg, stage_cfg,
             if not eligible:
                 skip_counter["no_eligible_format"] += 1
                 continue
-            items.append({
+            base_item = {
                 "cluster_rep_pid": rep_pid,
                 "cluster_sources": sources,
                 "variant_puzzle":  variant_puzzle,
                 "prov_aug":        prov_aug,
                 "eligible":        eligible,
-            })
+                "trailing_idx":    None,
+            }
+            # multi_pair_to_rule: expand into one candidate per
+            # trailing position so all positions get systematic coverage.
+            if "multi_pair_to_rule" in eligible:
+                n_train = len(variant_puzzle["train"])
+                for t_idx in range(n_train):
+                    items.append({**base_item,
+                                  "eligible": {"multi_pair_to_rule"},
+                                  "trailing_idx": t_idx})
+                # Non-multi-pair formats still get one item from this variant.
+                non_multi = eligible - {"multi_pair_to_rule"}
+                if non_multi:
+                    items.append({**base_item, "eligible": non_multi})
+            else:
+                items.append(base_item)
 
     # Phase 2: per-format target-driven sampling.
     total_items = len(items)
@@ -526,6 +545,7 @@ def generate_for_bucket(bucket_name, cluster_list, aug_cfg, stage_cfg,
                 bucket=bucket_name,
                 stage_name=stage_cfg["stage_name"],
                 rng=rng_pick,
+                trailing_idx=it.get("trailing_idx"),
             )
             if rec is None:
                 skip_counter[f"{fmt}_returned_none"] += 1
@@ -560,9 +580,9 @@ def generate_probe_records(probe_clusters, stage_cfg, master_seed):
     """One record per (cluster, eligible format) using identity
     augmentation. No D4, no color perm, no pair subsetting.
 
-    The probe measures literacy on the original surface form of unseen
-    puzzles. Per-format exact-match accuracy is computed against these
-    records after the stage's LoRA is trained.
+    For multi_pair_to_rule the probe uses trailing_idx=0 deterministically
+    (one position is enough for the gate decision; full coverage is a
+    training concern, not an evaluation concern).
     """
     records = []
     fmt_counter = Counter()
@@ -579,6 +599,7 @@ def generate_probe_records(probe_clusters, stage_cfg, master_seed):
         puzzle = load_puzzle(path)
         eligible = eligible_formats(puzzle, stage_cfg["task_mix"])
         for fmt in eligible:
+            trailing_idx = 0 if fmt == "multi_pair_to_rule" else None
             rec = make_record(
                 format_name=fmt,
                 variant_puzzle=puzzle,
@@ -592,6 +613,7 @@ def generate_probe_records(probe_clusters, stage_cfg, master_seed):
                 bucket="probe",
                 stage_name=stage_cfg["stage_name"],
                 rng=rng,
+                trailing_idx=trailing_idx,
             )
             if rec is None:
                 skip_counter[f"{fmt}_returned_none"] += 1
