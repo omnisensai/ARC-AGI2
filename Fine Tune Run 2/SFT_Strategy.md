@@ -128,22 +128,48 @@ remaining **114 A2-only A2E puzzles** are split three ways:
 | Split | Count | Role |
 |---|---|---|
 | `a2e_train_hard` | 50 | Trained on with aggressive augmentation. |
-| `a2e_dev_hard` | 30 | Checkpoint selection during training. Light augmentation. |
+| `a2e_dev_hard` | 30 | **Reserved for Phase 2/3 code-pipeline checkpoint selection.** Not touched during Phase 1. |
 | `a2e_final_hard` | 34 | **Frozen.** Touched exactly once at the end of each run. No augmentation. |
-| `a2e_leakers` | 6 | Excluded from hard-dev and final. May enter train **only** if the corresponding A1 version is also seen in train (else mark as A2-train-only). |
+| `a2e_leakers` | 6 | Excluded from hard-dev and final. May enter train **only** if the corresponding A1 version is also seen in train. |
 
 `a2e_final_hard` is the headline number. If accidentally touched
 (generation bug, eval leakage into train), regenerate from a fresh
 random seed and re-roll all three A2E buckets. We are willing to lose
 training data to keep the frozen 34 clean.
 
-### 2.2 Train pool
+### 2.2 Train pool (~927 content-unique after holdouts)
 
-Every other content-unique puzzle (~1027 after dedup) lives in the
-training pool: A1T + A1E + A2T + the 6 A2E leakers, deduped by
-canonical content. This pool gets the full augmentation stack.
+Every other content-unique puzzle lives in the training pool: A1T +
+A1E + A2T + the 6 A2E leakers, deduped by canonical content (~1027
+total before holdout carves). The generator additionally holds out:
 
-### 2.3 Hold-out unit
+| Held-out | Count | Role |
+|---|---|---|
+| `phase1_probe` | 50 | Carved from train_pool. Between-Phase-1-sub-stage gate via `run_probe.py` exact-match scoring. Never gradient-updated. |
+| `api_eval` | 50 | Carved from train_pool, distinct from `phase1_probe`. **Used for API-based inference testing across all phases** (Phase 1 substrate/grid runs, Phase 2 code-solver behavior, etc.). Locked as id list only — Phase 2's harness will render these into prompts when needed. Never gradient-updated. |
+
+After both carves, the effective training pool is ~927 puzzles. Total
+held-out across all stages: 34 + 30 + 50 + 50 = 164 / 1147 ≈ 14%.
+
+### 2.3 Held-out usage discipline
+
+Each held-out set has exactly one role. Crossing those roles
+contaminates the metric.
+
+| Set | When touched | How |
+|---|---|---|
+| `a2e_final_hard` | END of run, once | Loss + scoring on the LoRA adapter at the very end. No re-runs without seed change. |
+| `a2e_dev_hard` | Phase 2/3 only | Code-pipeline checkpoint selection (in-flight or post-train). Not visible to Phase 1 at all. |
+| `phase1_probe` | Between Phase 1 sub-stages (SAME / DIFF / MIXED) | Exact-match scoring per format via `run_probe.py`. Used to gate sub-stage progression. |
+| `api_eval` | Anytime during development for API inference testing | Render puzzles fresh into whatever inference prompt format is being tested. |
+| **In-flight loss monitor (val_set_size 0.02)** | Every `eval_steps` of Phase 1 training | Loss-only signal. **NOT a checkpoint-selection authority, NOT a generalization metric.** |
+
+The in-flight loss carve is a 2% slice of the training set itself —
+Axolotl's `val_set_size` default. It tells the operator whether loss
+is converging; it does not gate stage progression. The only Phase 1
+gate is `phase1_probe` exact-match scoring.
+
+### 2.4 Hold-out unit
 
 **Hold-outs are by augmentation parent, not by example.** Every
 augmented variant of a held-out puzzle is held out. The split unit is
@@ -155,7 +181,7 @@ The augmentation seed is per-puzzle so the held-out check is trivially
 verifiable: "did this puzzle id appear in train under any
 augmentation?" → grep the manifest.
 
-### 2.4 Stratification
+### 2.5 Stratification
 
 The 50/30/34 cut is **stratified** across three axes so the three
 buckets remain comparable:
@@ -179,7 +205,7 @@ diversity and mix discipline are. We keep augmentation modest.
 | Bucket | D4 | Color perms | Pair subsetting |
 |---|---|---|---|
 | Train (pool + `a2e_train_hard`) | all 8 | 3 random | yes (1–3 of N train pairs) |
-| `a2e_dev_hard` | all 8 | 1 random | no |
+| `a2e_dev_hard` | n/a (not touched during Phase 1) | n/a | n/a |
 | `a2e_final_hard` | identity only | none | no |
 
 Rules:
@@ -1006,10 +1032,14 @@ The dataset generator writes (per stage in {`same`, `diff`, `mixed`}):
 
 ```
 Fine Tune Run 2/data_sft/phase1_<stage>_train.jsonl.gz
-Fine Tune Run 2/data_sft/phase1_<stage>_dev.jsonl
 Fine Tune Run 2/data_sft/phase1_<stage>_probe.jsonl
 Fine Tune Run 2/data_sft/phase1_<stage>_manifest.json
 ```
+
+There is **no `phase1_<stage>_dev.jsonl`** — Phase 1 uses Axolotl's
+`val_set_size: 0.02` for in-flight loss monitoring (a 2% carve from
+the train set). The 30 `a2e_dev_hard` puzzles are reserved for Phase
+2/3 and are not rendered in Phase 1.
 
 Plus the locked split files (shared across stages):
 
@@ -1017,6 +1047,7 @@ Plus the locked split files (shared across stages):
 Fine Tune Run 2/splits/phase1_splits.json
 Fine Tune Run 2/splits/frozen_final_eval_ids.txt   (34 puzzle ids)
 Fine Tune Run 2/splits/phase1_probe_ids.txt         (50 puzzle ids)
+Fine Tune Run 2/splits/api_eval_ids.txt             (50 puzzle ids)
 ```
 
 The frozen 34 puzzles live physically isolated in
@@ -1041,8 +1072,8 @@ The frozen 34 puzzles live physically isolated in
 | `Fine Tune Run 2/puzzles/` | input corpus (1886 files after frozen 34 isolated) |
 | `Fine Tune Run 2/puzzles_frozen/` | locked 34 final-eval puzzles, isolated from generator |
 | `Fine Tune Run 2/puzzles/README.md` | puzzle fact sheet |
-| `Fine Tune Run 2/data_sft/` | generated SFT training data (3 stages × train/dev/probe/manifest) |
-| `Fine Tune Run 2/splits/` | locked train/dev/probe/final puzzle id lists |
+| `Fine Tune Run 2/data_sft/` | generated SFT training data (3 stages × train/probe/manifest) |
+| `Fine Tune Run 2/splits/` | locked puzzle id lists: phase1_probe, api_eval, frozen_final_eval, full splits manifest |
 | `substrate.py` | substrate library (top of repo, shared) |
 | `scripts/test_diffsize_substrate.py` | substrate regression test |
 
@@ -1050,13 +1081,28 @@ The frozen 34 puzzles live physically isolated in
 
 ## 9. Execution — LoRA chaining across stages and phases
 
-The model goes through five distinct training regimes: three
-substrate sub-stages within Phase 1 (SAME → DIFF → MIXED), then
-Phase 2 (code generation), then Phase 3 (code repair). Default
-execution: **continue the same LoRA within Phase 1; merge between
-phases.**
+Run 2 default execution: **one LoRA adapter, continued across all
+stages and all phases.** No merge between Phase 1 and Phase 2.
 
-### 9.1 Within-Phase-1 chain (no merge between sub-stages)
+This is "Path α" — chosen for simplicity, easier attribution, single
+adapter at every checkpoint, and Run 1 evidence that one LoRA can
+absorb the substrate + code skill stack (Run 1 hit 18% pass@1 with
+exactly this approach, just without the curriculum staging).
+
+The trade is forgetting risk: each phase's training can overwrite
+prior weights. We mitigate with:
+
+- 5–10% carry of the prior phase's task formats in the next phase's
+  mix (already built into the Phase 1 stage mixes).
+- Lower learning rate at Phase 2 if forgetting shows up after the
+  first run.
+- Re-running prior-phase probes after each phase to detect drift.
+
+Path β (merge between phases) is documented in §9.3 as an option to
+revisit if Path α produces unacceptable forgetting on Phase 1 probes
+after Phase 2 training. Until then, Path α is the default.
+
+### 9.1 Phase 1 chain (one adapter, three sub-stages)
 
 ```
 Base Qwen2.5-7B-Instruct
@@ -1075,43 +1121,51 @@ target modules. Each stage's system prompt is a superset of the
 previous (DIFF adds the diff-dim section, MIXED adds the ARC puzzle
 framing). The model knowledge accumulates within one adapter.
 
-Probe between each sub-stage. If a stage misses its done-signal
-thresholds, extend it before moving on. Cross-stage forgetting is
-monitored by re-running the prior stage's probe after the next stage
-trains.
+Probe between each sub-stage via `phase1_<stage>_probe.jsonl`. If a
+stage misses its done-signal thresholds, extend it before moving on.
+Cross-stage forgetting is monitored by re-running the prior stage's
+probe after the next stage trains.
 
-### 9.2 Cross-phase chain (merge between phases)
+### 9.2 Phase 1 → Phase 2 → Phase 3 chain (Path α — chosen default)
 
-Between Phase 1 and Phase 2 we **merge** the Phase 1 LoRA into the
-base model and train a **fresh** Phase 2 LoRA on the merged
-checkpoint. Reasons:
+```
+outputs/phase1_mixed/    final Phase 1 LoRA
+  ↓ axolotl train phase2_axolotl.yaml
+  ↑ lora_model_dir: outputs/phase1_mixed
+outputs/phase2_code/     same adapter, now also trained on code
+  ↓ axolotl train phase3_axolotl.yaml
+  ↑ lora_model_dir: outputs/phase2_code
+outputs/phase3_repair/   same adapter, now also trained on repair
+```
 
-- Phase 1 and Phase 2 are different skill families with different
-  system messages and target vocabularies. Continuing the same LoRA
-  risks catastrophic forgetting of substrate literacy.
-- Merge bakes Phase 1 into base weights. Phase 2's LoRA only has to
-  learn code, not "code while re-learning substrate."
-- Cleaner ablations later: "raw base + Phase 2 LoRA" vs "Phase-1-merged
-  + Phase 2 LoRA" isolates Phase 1's contribution.
-- Avoids LoRA stacking at inference (adapter ordering, serving compat,
-  attribution complexity).
+One LoRA adapter end to end. Test at every checkpoint via
+`base + this_adapter`. Each phase's config carries 5–10% of the prior
+phase's task formats to prevent forgetting.
+
+### 9.3 Path β (merge between phases) — fallback, not default
+
+If Path α shows forgetting (Phase 1 probes degrade after Phase 2
+training beyond the 5pp tolerance), switch to Path β: merge the Phase
+1 LoRA into the base, train a fresh Phase 2 LoRA on the merged
+checkpoint. Same pattern between Phase 2 and Phase 3.
 
 ```
 Base Qwen
-  ↓ Phase 1 SAME + DIFF + MIXED (LoRA continues across, no merge)
+  ↓ Phase 1 SAME + DIFF + MIXED (LoRA continues, no merge)
 outputs/phase1_mixed/                 LoRA adapter (final Phase 1)
   ↓ merge into base weights
 outputs/phase1_merged/                full 7B model, ~15GB bf16
-  ↓ Phase 2 trains fresh LoRA on phase1_merged
-outputs/phase2_code_solver/           Phase 2 LoRA adapter
-  ↓ merge into phase1_merged base
+  ↓ Phase 2 trains FRESH LoRA on phase1_merged
+outputs/phase2_code_solver/           new Phase 2 adapter
+  ↓ merge
 outputs/phase2_merged/                full 7B model
-  ↓ Phase 3 trains fresh LoRA on phase2_merged
-outputs/phase3_code_repair/           Phase 3 LoRA adapter
+  ↓ Phase 3 trains FRESH LoRA on phase2_merged
+outputs/phase3_code_repair/           new Phase 3 adapter
 ```
 
-Disk note: each merged checkpoint is the full model (~15GB bf16).
-Accepted.
+Disk cost: each merged checkpoint is the full model (~15GB bf16). Path
+β decision happens at the Phase 1 → Phase 2 boundary; not blocking
+Phase 1.
 
 ### 9.3 Naming convention
 
@@ -1120,23 +1174,23 @@ Accepted.
 | `outputs/phase1_same/` | LoRA adapter after the SAME stage |
 | `outputs/phase1_diff/` | same adapter, after DIFF stage (continues `phase1_same`) |
 | `outputs/phase1_mixed/` | same adapter, fully trained Phase 1 (continues `phase1_diff`) |
-| `outputs/phase1_merged/` | base + Phase 1 LoRA merged into one full model |
-| `outputs/phase2_code_solver/` | Phase 2 LoRA, trained on `phase1_merged` |
-| `outputs/phase2_merged/` | `phase1_merged` + Phase 2 LoRA merged |
-| `outputs/phase3_code_repair/` | Phase 3 LoRA, trained on `phase2_merged` |
-| `outputs/phase3_merged/` | final deployable model |
+| `outputs/phase2_code/` | **Path α default**: same adapter, now also trained on Phase 2 code data (continues `phase1_mixed`) |
+| `outputs/phase3_repair/` | **Path α default**: same adapter, now also trained on Phase 3 repair data (continues `phase2_code`) |
+| `outputs/phase1_merged/` | Path β fallback: base + Phase 1 LoRA merged into one full model |
+| `outputs/phase2_merged/` | Path β fallback |
+| `outputs/phase3_merged/` | Path β fallback |
 
-### 9.4 What "merge" means operationally
+### 9.4 What "merge" means operationally (Path β only)
 
-For each merge step:
+If we ever invoke Path β:
 
 1. Load base (or previous merged) model.
 2. Attach the most recent LoRA adapter via `peft.PeftModel.from_pretrained`.
 3. Call `model = model.merge_and_unload()`.
 4. Save: `model.save_pretrained(out_dir)` + tokenizer.
 
-A short script will live at `Fine Tune Run 2/merge_lora.py` when Phase
-1 is done. Not needed until then.
+A short script will live at `Fine Tune Run 2/merge_lora.py` when first
+needed. Not built yet (Path α is the default).
 
 ### 9.5 Decision points
 
@@ -1146,12 +1200,16 @@ A short script will live at `Fine Tune Run 2/merge_lora.py` when Phase
   check via `phase1_same_probe.jsonl`. If diff thresholds pass AND
   same-dim metrics stay within 5pp of post-SAME baseline, proceed to
   1-MIXED.
-- **After 1-MIXED:** Run probes on all three (same, diff, mixed). If
-  no degradation and mixed metrics exceed single-stage baselines,
-  Phase 1 is done. Then **merge** → `phase1_merged`.
-- **Phase 2 onwards:** out of scope for Phase 1 documents. Separate
-  config + axolotl yaml + data generator will land when Phase 1 is
-  validated end-to-end.
+- **After 1-MIXED:** Run probes on all three (same, diff, mixed).
+  Optionally run API-eval inference on `api_eval` puzzles to sanity-
+  check end-to-end behavior. If no degradation and mixed metrics
+  exceed single-stage baselines, Phase 1 is done. **Continue same
+  LoRA into Phase 2** (Path α).
+- **After Phase 2:** Re-run Phase 1 probes against the Phase 2 adapter.
+  If forgetting > 5pp on any Phase 1 metric, switch to Path β for
+  Phase 3 (or for a re-do of Phase 2).
+- **Phase 2/3 details** are out of scope for this document; see §10
+  for the Run 1 lessons that drive Phase 2 design.
 
 ---
 

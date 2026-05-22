@@ -31,13 +31,10 @@ DATA = ROOT / "data_sft"
 
 FILES = [
     DATA / "phase1_same_train.jsonl.gz",
-    DATA / "phase1_same_dev.jsonl",
     DATA / "phase1_same_probe.jsonl",
     DATA / "phase1_diff_train.jsonl.gz",
-    DATA / "phase1_diff_dev.jsonl",
     DATA / "phase1_diff_probe.jsonl",
     DATA / "phase1_mixed_train.jsonl.gz",
-    DATA / "phase1_mixed_dev.jsonl",
     DATA / "phase1_mixed_probe.jsonl",
 ]
 

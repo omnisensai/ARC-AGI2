@@ -45,6 +45,7 @@ from substrate import encode_auto, encode, decode, format_grid  # noqa: E402
 PUZZLES_DIR = ROOT / "puzzles"
 SPLITS_FILE = ROOT / "splits" / "phase1_splits.json"
 PROBE_IDS_FILE = ROOT / "splits" / "phase1_probe_ids.txt"
+API_EVAL_IDS_FILE = ROOT / "splits" / "api_eval_ids.txt"
 DATA_SFT_DIR = ROOT / "data_sft"
 
 
@@ -159,6 +160,15 @@ SYSTEM_MESSAGE_BY_STAGE = {
 PROBE_SIZE = 50
 PROBE_SEED_MULT = 7919  # arbitrary prime, separate from aug seed streams
 
+# api_eval: held-out set carved from train_pool, distinct from probe.
+# Used for API-based inference testing across all phases (Phase 1
+# substrate/grid runs, Phase 2 code-pipeline checkpoint selection, etc.).
+# Held from training AND from the probe. No JSONL is generated in
+# Phase 1 — only the puzzle id list is locked. Phase 2's harness will
+# render these puzzles in whatever format Phase 2 needs.
+API_EVAL_SIZE = 50
+API_EVAL_SEED_MULT = 7841  # different prime from PROBE_SEED_MULT
+
 
 # ---------------------------------------------------------------------------
 # Per-stage config: substrate filter, system prompt key, task mix, augment
@@ -184,11 +194,9 @@ STAGE_CONFIG = {
         "augment": {
             "train": {"d4": True, "color_perms": 3, "pair_subsetting": True,
                       "pair_subset_min": 1, "pair_subset_max": 3},
-            "dev":   {"d4": True, "color_perms": 1, "pair_subsetting": False},
         },
         "out_files": {
             "train":    DATA_SFT_DIR / "phase1_same_train.jsonl",
-            "dev":      DATA_SFT_DIR / "phase1_same_dev.jsonl",
             "probe":    DATA_SFT_DIR / "phase1_same_probe.jsonl",
             "manifest": DATA_SFT_DIR / "phase1_same_manifest.json",
         },
@@ -210,11 +218,9 @@ STAGE_CONFIG = {
         "augment": {
             "train": {"d4": True, "color_perms": 3, "pair_subsetting": True,
                       "pair_subset_min": 1, "pair_subset_max": 3},
-            "dev":   {"d4": True, "color_perms": 1, "pair_subsetting": False},
         },
         "out_files": {
             "train":    DATA_SFT_DIR / "phase1_diff_train.jsonl",
-            "dev":      DATA_SFT_DIR / "phase1_diff_dev.jsonl",
             "probe":    DATA_SFT_DIR / "phase1_diff_probe.jsonl",
             "manifest": DATA_SFT_DIR / "phase1_diff_manifest.json",
         },
@@ -236,11 +242,9 @@ STAGE_CONFIG = {
         "augment": {
             "train": {"d4": True, "color_perms": 3, "pair_subsetting": True,
                       "pair_subset_min": 1, "pair_subset_max": 3},
-            "dev":   {"d4": True, "color_perms": 1, "pair_subsetting": False},
         },
         "out_files": {
             "train":    DATA_SFT_DIR / "phase1_mixed_train.jsonl",
-            "dev":      DATA_SFT_DIR / "phase1_mixed_dev.jsonl",
             "probe":    DATA_SFT_DIR / "phase1_mixed_probe.jsonl",
             "manifest": DATA_SFT_DIR / "phase1_mixed_manifest.json",
         },
@@ -662,12 +666,26 @@ def generate_for_bucket(bucket_name, cluster_list, aug_cfg, stage_cfg,
 # Probe set: identity augmentation, one record per (cluster, format,
 # target-pair). Same seed across stages so probe puzzle ids are shared.
 
-def select_probe_clusters(train_pool, seed):
-    rng = random.Random(seed * PROBE_SEED_MULT)
+def select_held_out_clusters(train_pool, seed):
+    """Select probe and api_eval clusters from train_pool, guaranteed
+    non-overlapping. Returns (probe_clusters, api_eval_clusters).
+
+    The probe is sampled first, then api_eval is sampled from the
+    remaining pool (probe-excluded). This way probe ids are stable
+    even if API_EVAL_SIZE / seed change later.
+    """
     sorted_pool = sorted(train_pool, key=lambda c: c["rep_pid"])
-    if PROBE_SIZE > len(sorted_pool):
-        raise ValueError(f"train_pool too small ({len(sorted_pool)} < {PROBE_SIZE})")
-    return rng.sample(sorted_pool, PROBE_SIZE)
+    if PROBE_SIZE + API_EVAL_SIZE > len(sorted_pool):
+        raise ValueError(f"train_pool too small ({len(sorted_pool)} < "
+                         f"{PROBE_SIZE + API_EVAL_SIZE})")
+    rng_probe = random.Random(seed * PROBE_SEED_MULT)
+    probe_clusters = rng_probe.sample(sorted_pool, PROBE_SIZE)
+    probe_ids = {c["rep_pid"] for c in probe_clusters}
+
+    remaining = [c for c in sorted_pool if c["rep_pid"] not in probe_ids]
+    rng_api = random.Random(seed * API_EVAL_SEED_MULT)
+    api_eval_clusters = rng_api.sample(remaining, API_EVAL_SIZE)
+    return probe_clusters, api_eval_clusters
 
 
 def generate_probe_records(probe_clusters, stage_cfg, master_seed):
@@ -742,42 +760,56 @@ def main():
     DATA_SFT_DIR.mkdir(exist_ok=True)
     PROBE_IDS_FILE.parent.mkdir(exist_ok=True)
 
-    probe_clusters = select_probe_clusters(splits["buckets"]["train_pool"], seed)
+    probe_clusters, api_eval_clusters = select_held_out_clusters(
+        splits["buckets"]["train_pool"], seed
+    )
     probe_pids = {c["rep_pid"] for c in probe_clusters}
+    api_eval_pids = {c["rep_pid"] for c in api_eval_clusters}
 
-    expected_ids = sorted(probe_pids)
-    if PROBE_IDS_FILE.exists():
-        existing_ids = sorted(PROBE_IDS_FILE.read_text().strip().split("\n"))
-        if existing_ids != expected_ids:
-            print(f"ERROR: probe ids drifted from {PROBE_IDS_FILE}.",
-                  file=sys.stderr)
-            sys.exit(4)
-    else:
-        PROBE_IDS_FILE.write_text("\n".join(expected_ids) + "\n")
-        print(f"Wrote {PROBE_IDS_FILE.relative_to(REPO)}")
+    # Stable id files. Mismatch on re-run = seed drift; refuse to
+    # silently overwrite.
+    def _write_or_verify_ids(path, pids):
+        expected = sorted(pids)
+        if path.exists():
+            existing = sorted(path.read_text().strip().split("\n"))
+            if existing != expected:
+                print(f"ERROR: ids drifted from {path}", file=sys.stderr)
+                sys.exit(4)
+        else:
+            path.write_text("\n".join(expected) + "\n")
+            print(f"Wrote {path.relative_to(REPO)} ({len(expected)} ids)")
 
-    train_pool_minus_probe = [
+    _write_or_verify_ids(PROBE_IDS_FILE, probe_pids)
+    _write_or_verify_ids(API_EVAL_IDS_FILE, api_eval_pids)
+
+    # Held-out from Phase 1 training:
+    #   probe-50 (between-stage gate, also rendered as probe.jsonl)
+    #   api_eval-50 (locked ids only; rendered later by Phase 2)
+    #   a2e_dev_hard-30 (sacred for Phase 2/3 checkpoint selection)
+    #   a2e_final_hard-34 (sacred end-of-run; physically isolated)
+    train_pool_minus_holdouts = [
         c for c in splits["buckets"]["train_pool"]
         if c["rep_pid"] not in probe_pids
+        and c["rep_pid"] not in api_eval_pids
     ]
     train_clusters = (
-        train_pool_minus_probe
+        train_pool_minus_holdouts
         + splits["buckets"]["a2e_train_hard"]
         + splits["buckets"]["a2e_leakers"]
     )
-    dev_clusters = splits["buckets"]["a2e_dev_hard"]
 
     if args.sample_only:
         rng = random.Random(seed)
         train_clusters = rng.sample(train_clusters, min(20, len(train_clusters)))
-        dev_clusters = rng.sample(dev_clusters, min(5, len(dev_clusters)))
         args.max_per_puzzle = 3
 
     print(f"Stage: {cfg['stage_name']}  filter={cfg['substrate_filter']}  "
           f"seed={seed}  max_per_puzzle={args.max_per_puzzle}")
-    print(f"Train clusters: {len(train_clusters)}")
-    print(f"Dev clusters:   {len(dev_clusters)}")
-    print(f"Probe clusters: {len(probe_clusters)}")
+    print(f"Train clusters: {len(train_clusters)} "
+          f"(train_pool {len(train_pool_minus_holdouts)} - holdouts already removed)")
+    print(f"Probe clusters: {len(probe_clusters)} (between-stage gate)")
+    print(f"API-eval clusters: {len(api_eval_clusters)} "
+          f"(locked, not generated as JSONL in Phase 1)")
 
     print("\nGenerating train…")
     train_records, train_fmt, train_skip = generate_for_bucket(
@@ -790,18 +822,6 @@ def main():
         print(f"    {fmt}: {n} ({pct:.1f}%)")
     if train_skip:
         print(f"  skips: {dict(train_skip)}")
-
-    print("\nGenerating dev…")
-    dev_records, dev_fmt, dev_skip = generate_for_bucket(
-        "dev", dev_clusters, cfg["augment"]["dev"], cfg,
-        master_seed=seed + 1, max_per_puzzle=args.max_per_puzzle,
-    )
-    print(f"  {len(dev_records)} records")
-    for fmt, n in sorted(dev_fmt.items()):
-        pct = 100 * n / len(dev_records) if dev_records else 0
-        print(f"    {fmt}: {n} ({pct:.1f}%)")
-    if dev_skip:
-        print(f"  skips: {dict(dev_skip)}")
 
     print("\nGenerating probe…")
     probe_records, probe_fmt, probe_skip = generate_probe_records(
@@ -829,20 +849,15 @@ def main():
         rank_counts = None
 
     out_train = cfg["out_files"]["train"]
-    out_dev = cfg["out_files"]["dev"]
     out_probe = cfg["out_files"]["probe"]
     out_manifest = cfg["out_files"]["manifest"]
     if args.sample_only:
         out_train = out_train.with_name(out_train.stem + "_sample.jsonl")
-        out_dev = out_dev.with_name(out_dev.stem + "_sample.jsonl")
         out_probe = out_probe.with_name(out_probe.stem + "_sample.jsonl")
         out_manifest = out_manifest.with_name(out_manifest.stem + "_sample.json")
 
     with out_train.open("w") as f:
         for r in train_records:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
-    with out_dev.open("w") as f:
-        for r in dev_records:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
     with out_probe.open("w") as f:
         for r in probe_records:
@@ -864,13 +879,6 @@ def main():
             "augmentation_rank_counts": rank_counts,
             "skipped": dict(train_skip),
         },
-        "dev": {
-            "file": str(out_dev.relative_to(REPO)),
-            "n_records": len(dev_records),
-            "n_clusters": len(dev_clusters),
-            "format_counts": dict(dev_fmt),
-            "skipped": dict(dev_skip),
-        },
         "probe": {
             "file": str(out_probe.relative_to(REPO)),
             "n_records": len(probe_records),
@@ -879,12 +887,24 @@ def main():
             "skipped": dict(probe_skip),
             "ids_file": str(PROBE_IDS_FILE.relative_to(REPO)),
         },
+        "held_out_locked": {
+            "phase1_probe_size": len(probe_clusters),
+            "phase1_probe_ids_file": str(PROBE_IDS_FILE.relative_to(REPO)),
+            "api_eval_size": len(api_eval_clusters),
+            "api_eval_ids_file": str(API_EVAL_IDS_FILE.relative_to(REPO)),
+            "a2e_dev_hard_size": len(splits["buckets"]["a2e_dev_hard"]),
+            "a2e_dev_hard_use": "reserved for Phase 2/3 code-pipeline checkpoint selection; not touched in Phase 1",
+            "a2e_final_hard_size": len(splits["buckets"]["a2e_final_hard"]),
+            "a2e_final_hard_use": "sacred end-of-run headline; physically isolated in puzzles_frozen/",
+        },
+        "in_flight_eval": {
+            "policy": "Axolotl val_set_size carve from train (loss-only monitor, not a checkpoint-selection authority, not a generalization metric). The only real Phase 1 gate is phase1_probe exact-match scoring.",
+        },
     }
     out_manifest.write_text(json.dumps(manifest, indent=2))
 
     print(f"\nWrote:")
     print(f"  {out_train.relative_to(REPO)}")
-    print(f"  {out_dev.relative_to(REPO)}")
     print(f"  {out_probe.relative_to(REPO)}")
     print(f"  {out_manifest.relative_to(REPO)}")
 
