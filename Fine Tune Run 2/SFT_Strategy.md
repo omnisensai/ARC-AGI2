@@ -790,7 +790,122 @@ OUTPUT:
 
 **Sub-phase:** 1.B.
 
-### 7.5 Per-stage filenames
+### 7.5 The full tokenized record — what the model actually sees
+
+Axolotl's `type: chat_template, chat_template: qwen2` applies Qwen2's
+chat template to each `{messages: [...]}` record. The result is what
+the model sees during training and what it must continue at inference.
+
+**Template (Qwen2 ChatML-style):**
+
+```
+<|im_start|>system
+{system_content}<|im_end|>
+<|im_start|>user
+{user_content}<|im_end|>
+<|im_start|>assistant
+{assistant_content}<|im_end|>
+```
+
+Special tokens: `<|im_start|>` and `<|im_end|>` are tokenizer-level
+special tokens (single token each in Qwen2's tokenizer). They MUST NOT
+appear inside any field content.
+
+**Concrete example — `pair_to_substrate` record fully rendered:**
+
+```
+<|im_start|>system
+Transformation Rule<|im_end|>
+<|im_start|>user
+INPUT:
+022
+022
+200
+
+OUTPUT:
+022
+022
+100
+
+SUBSTRATE:
+<|im_end|>
+<|im_start|>assistant
+...
+...
+1..<|im_end|>
+```
+
+Note carefully:
+
+- A literal newline follows `<|im_start|>system`, then the system
+  content (no trailing newline before `<|im_end|>`).
+- The user content ends with `SUBSTRATE:\n` (newline after the colon),
+  then `<|im_end|>`. The trailing-label-plus-newline is the prompt's
+  contract with the model.
+- The assistant content starts immediately after
+  `<|im_start|>assistant\n` and ends right before `<|im_end|>` — no
+  extra leading or trailing whitespace.
+
+**Loss masking:** `train_on_inputs: false` in the Axolotl config means
+loss is computed **only on the assistant tokens** (everything between
+`<|im_start|>assistant\n` and `<|im_end|>`, exclusive of the special
+tokens themselves). The system and user blocks contribute no gradient.
+Verified at inference time: the model is prompted with everything up
+to and including `<|im_start|>assistant\n`, and must produce the rest.
+
+**Inference prompt (greedy decode):**
+
+```
+<|im_start|>system
+Transformation Rule<|im_end|>
+<|im_start|>user
+INPUT:
+022
+022
+200
+
+OUTPUT:
+022
+022
+100
+
+SUBSTRATE:
+<|im_end|>
+<|im_start|>assistant
+```
+
+Note no closing `<|im_end|>` — the model fills in the assistant
+content and emits `<|im_end|>` when done. The probe harness
+(`run_probe.py`) compares the model's stripped output against the
+expected assistant content for exact-match scoring.
+
+**Anti-patterns to NOT do** (lessons applied from Run 1):
+
+| Anti-pattern | Why it breaks |
+|---|---|
+| Putting task identifier (`T1`, `T5`, etc.) in the system message | Forces the model to learn artificial task identities; we want one unified skill. |
+| Trailing whitespace on the user prompt's final label line (e.g. `SUBSTRATE: \n`) | Tokenization may differ between train and inference; the model conditions on whitespace it doesn't see at inference. |
+| Putting prose instructions in the system message ("You are a helpful…") | Wastes context, biases the model away from the field contract. |
+| Forgetting to set `train_on_inputs: false` | Loss gets computed on the prompt too, which is a much bigger signal than the target — drowns out the actual learning. |
+| Different chat templates between train and inference | Qwen2 is finicky about exact token strings; only use `chat_template: qwen2` everywhere. |
+| Inconsistent field labels across formats (e.g. `INPUT:` vs `Input:`) | Loss of structure; model has to handle case variation that conveys nothing. |
+| Special tokens or `<|im_*|>` appearing in user-provided content | Confuses the chat template parser; can split records mid-content. |
+
+**What the generator guarantees** (matches the above):
+
+- System content is always literally `Transformation Rule` (the byte string).
+- User content uses `\n\n` between blocks (one blank line). Block label and its data are separated by a single `\n`.
+- Trailing field label has the form `LABEL:` followed by exactly one `\n`, no spaces.
+- Grids are rendered with `substrate.format_grid` — one cell per character, one row per line, no spaces, no commas.
+- Assistant content has no leading or trailing whitespace beyond what the substrate/grid renderer produces.
+- No occurrences of `<|im_start|>`, `<|im_end|>`, or any other Qwen2 special token inside content.
+
+These guarantees are enforced at generation time. The verification path
+is to load any committed `.jsonl.gz` and `assert` the constraints — a
+small `verify_records.py` script is a worthwhile addition if any of
+the above ever drifts.
+
+### 7.6 Per-stage filenames
 
 The dataset generator writes:
 
