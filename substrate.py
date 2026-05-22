@@ -1,7 +1,7 @@
 """Substrate encode/decode — lossless transformation grid for same-size ARC pairs.
 
 Substrate alphabet (per cell):
-  '='     = cell preserved (input[r,c] == output[r,c])
+  '.'     = cell preserved (input[r,c] == output[r,c])
   '0'-'9' = output is this color (input[r,c] != output[r,c])
 
 Roundtrip property: encode(input, output) then decode(input, substrate)
@@ -120,7 +120,7 @@ def encode(inp: Grid, out: Grid) -> Substrate:
         raise ValueError("encode requires input and output of the same shape")
     return [
         [
-            '=' if i == o else str(o)
+            '.' if i == o else str(o)
             for i, o in zip(ir, oR)
         ]
         for ir, oR in zip(inp, out)
@@ -133,7 +133,7 @@ def decode(inp: Grid, substrate: Substrate) -> Grid:
         raise ValueError("decode requires input and substrate of the same shape")
     return [
         [
-            i if s == '=' else int(s)
+            i if s == '.' else int(s)
             for i, s in zip(ir, sr)
         ]
         for ir, sr in zip(inp, substrate)

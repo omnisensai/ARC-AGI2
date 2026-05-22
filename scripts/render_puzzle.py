@@ -10,7 +10,7 @@ data/arc2_eval. If --out is omitted, writes /tmp/<pid>.png.
 
 Substrate visualization uses a non-ARC color so unchanged cells can never be
 confused with any output digit:
-  '='     (unchanged) -> white (#FFFFFF)
+  '.'     (unchanged) -> white (#FFFFFF)
   '0'-'9' (changed)   -> that ARC color
 Any colored cell in the substrate panel is therefore a rule-driven change.
 """
@@ -39,9 +39,9 @@ ARC_COLORS = [
     "#7FDBFF",  # 8 sky
     "#870C25",  # 9 maroon
 ]
-# Index 10 = sentinel for substrate '='. Non-ARC color.
+# Index 10 = sentinel for substrate '.'. Non-ARC color.
 SUBSTRATE_COLORS = ARC_COLORS + [
-    "#FFFFFF",  # 10 — '=' (unchanged)
+    "#FFFFFF",  # 10 — '.' (unchanged)
 ]
 PUZZLE_DIRS = [
     "data/arc1_train", "data/arc1_eval",
@@ -68,7 +68,7 @@ def substrate_to_display(sub):
     out = []
     for row in sub:
         out.append([
-            10 if c == '=' else int(c)
+            10 if c == '.' else int(c)
             for c in row
         ])
     return out
