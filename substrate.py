@@ -1,14 +1,24 @@
-"""Substrate encode/decode — lossless transformation grid for same-size ARC pairs.
+"""Substrate encode/decode — transformation grid for ARC pairs.
 
-Substrate alphabet (per cell):
-  '.'     = cell preserved (input[r,c] == output[r,c])
-  '0'-'9' = output is this color (input[r,c] != output[r,c])
+Two-family representation:
 
-Roundtrip property: encode(input, output) then decode(input, substrate)
-returns the original output, for any same-size pair.
+(1) SAME-SIZE WRITE FIELD — `encode` / `decode`
+    Use when input.shape == output.shape. Per-cell, lossless:
+      '.'     = cell preserved (input[r,c] == output[r,c])
+      '0'-'9' = output is this color (input[r,c] != output[r,c])
+    Roundtrip: decode(input, encode(input, output)) == output.
 
-This file is the shared library imported by gen_phase1_data.py and any future
-eval script. Keep it dependency-free (stdlib only).
+(2) VARIABLE-SIZE STRUCTURE FIELD — `encode_structure`
+    Use when input.shape != output.shape. Coordinates do not align, so
+    per-cell encoding is impossible. Instead, returns deterministic
+    metadata (shape, dim relation, color sets, color counts, uniform
+    rows/cols, integer dim ratios). Lossy by design — there is no
+    `decode_structure`. The structure field is training-signal evidence,
+    not a reconstruction recipe.
+
+`encode_any(inp, out)` dispatches to (1) or (2) based on shape match.
+
+Keep this file dependency-free (stdlib only).
 """
 from collections import Counter
 from typing import List
@@ -138,6 +148,109 @@ def decode(inp: Grid, substrate: Substrate) -> Grid:
         ]
         for ir, sr in zip(inp, substrate)
     ]
+
+
+def _shape(g: Grid):
+    return len(g), len(g[0]) if g else 0
+
+
+def _uniform_rows(g: Grid):
+    """Indices of rows whose cells are all the same color, with that color."""
+    return [(r, row[0]) for r, row in enumerate(g) if len(set(row)) == 1]
+
+
+def _uniform_cols(g: Grid):
+    """Indices of cols whose cells are all the same color, with that color."""
+    if not g:
+        return []
+    out = []
+    for c in range(len(g[0])):
+        col = [row[c] for row in g]
+        if len(set(col)) == 1:
+            out.append((c, col[0]))
+    return out
+
+
+def _dim_relation(a: int, b: int) -> str:
+    """Compact relation between two positive ints.
+
+    '=' if equal, 'aXb' if b is an integer multiple (b = a*k), 'a/k'
+    if a is an integer multiple (a = b*k), 'a>b' otherwise.
+    """
+    if a == b:
+        return '='
+    if a and b and b % a == 0:
+        return f'*{b // a}'
+    if a and b and a % b == 0:
+        return f'/{a // b}'
+    return f'{a}>{b}'
+
+
+def encode_structure(inp: Grid, out: Grid) -> str:
+    """Variable-size structure field. Lossy by design.
+
+    Returns a multi-line string of deterministic facts about the
+    input/output pair. Intended for puzzles where input.shape !=
+    output.shape (per-cell coordinates don't align). Safe to call on
+    same-size pairs too, but `encode` carries strictly more information
+    in that case.
+    """
+    ih, iw = _shape(inp)
+    oh, ow = _shape(out)
+    in_colors = sorted({c for row in inp for c in row})
+    out_colors = sorted({c for row in out for c in row})
+    common = sorted(set(in_colors) & set(out_colors))
+    dropped = sorted(set(in_colors) - set(out_colors))
+    new = sorted(set(out_colors) - set(in_colors))
+    in_counts = Counter(c for row in inp for c in row)
+    out_counts = Counter(c for row in out for c in row)
+
+    def _set(xs):
+        return ''.join(str(x) for x in xs) if xs else '-'
+
+    def _counts(cs, counts):
+        return ' '.join(f'{c}:{counts[c]}' for c in cs) if cs else '-'
+
+    lines = [
+        f"SHAPE {ih}x{iw}>{oh}x{ow}",
+        f"HEIGHT {_dim_relation(ih, oh)}",
+        f"WIDTH {_dim_relation(iw, ow)}",
+        f"IN_COLORS {_set(in_colors)}",
+        f"OUT_COLORS {_set(out_colors)}",
+        f"COMMON {_set(common)}",
+        f"DROPPED {_set(dropped)}",
+        f"NEW {_set(new)}",
+        f"IN_COUNTS {_counts(in_colors, in_counts)}",
+        f"OUT_COUNTS {_counts(out_colors, out_counts)}",
+    ]
+
+    # Region hints — emitted only when present (no empty-line noise)
+    urows_in = _uniform_rows(inp)
+    ucols_in = _uniform_cols(inp)
+    urows_out = _uniform_rows(out)
+    ucols_out = _uniform_cols(out)
+    if urows_in:
+        lines.append("IN_UROWS " + ' '.join(f'{r}:{c}' for r, c in urows_in))
+    if ucols_in:
+        lines.append("IN_UCOLS " + ' '.join(f'{c}:{v}' for c, v in ucols_in))
+    if urows_out:
+        lines.append("OUT_UROWS " + ' '.join(f'{r}:{c}' for r, c in urows_out))
+    if ucols_out:
+        lines.append("OUT_UCOLS " + ' '.join(f'{c}:{v}' for c, v in ucols_out))
+
+    return "\n".join(lines)
+
+
+def encode_any(inp: Grid, out: Grid):
+    """Dispatch to write-field (same-size) or structure-field (variable-size).
+
+    Returns ('write', Substrate) or ('struct', str).
+    """
+    ih, iw = _shape(inp)
+    oh, ow = _shape(out)
+    if ih == oh and iw == ow:
+        return ('write', encode(inp, out))
+    return ('struct', encode_structure(inp, out))
 
 
 def is_same_size(puzzle: dict) -> bool:
