@@ -1,0 +1,161 @@
+# Phase 1.B — Rule Application
+#
+# Locked dataset-generation + training parameters for Run 2 Phase 1.B.
+# This is the executable shape of SFT_Strategy.md §4.5.
+#
+# 1.B continues from the 1.A LoRA. It teaches multi-pair rule
+# induction (analogy + test-substrate prediction + direct output) on
+# top of the substrate literacy 1.A established. ~20% of the mix
+# carries 1.A's tasks forward to prevent catastrophic forgetting.
+
+stage: "phase1b_rule_application"
+
+# 1.B starts from the 1.A LoRA, not the base model. The training
+# script must merge or attach the 1.A adapter before training begins.
+continue_from_lora: "outputs/phase1a_substrate_literacy"
+base_model: "Qwen/Qwen2.5-7B-Instruct"
+
+# Same system message as 1.A. The unified Transformation Rule language
+# is the whole point — 1.B teaches new field contracts (COLD
+# SUBSTRATE, TEST SUBSTRATE), not a new conversation mode.
+system_message: "Transformation Rule"
+
+# --- Random seed ---------------------------------------------------------
+# Same seed as 1.A is intentional: it gives identical split assignments
+# so the held-out 34 frozen puzzles are byte-identical across stages.
+seed: 42
+
+# --- Splits --------------------------------------------------------------
+# IDENTICAL to phase1a_config.yaml. Both stages share the same hold-out
+# discipline: a puzzle held out from 1.A is held out from 1.B.
+#
+# The splits file is generated once and read by both stages.
+splits:
+  a2e_train_hard: 50
+  a2e_dev_hard:   30
+  a2e_final_hard: 34
+  a2e_leakers:    6
+  a2e_leaker_policy: "exclude_from_hard_dev_and_final; allow_train_only_if_parent_seen_in_A1"
+  train_pool: "all_non_dev_non_final_content_unique_puzzles_after_dedup"
+
+stratify_by:
+  - "size_bucket"
+  - "pair_shape_mix"
+  - "n_test_pairs"
+
+splits_output: "Fine Tune Run 2/splits/phase1_splits.json"
+
+# --- Augmentation --------------------------------------------------------
+# Same policy as 1.A. Augmentation seed is per-puzzle (derived from
+# puzzle id + run seed) so 1.A and 1.B see the same augmented variants
+# of each puzzle for the formats they share — no fresh entropy that
+# the model could overfit to.
+augment:
+  train:
+    d4: true
+    color_perms: 3
+    pair_subsetting: true
+    pair_subset_min: 1
+    pair_subset_max: 3
+  dev_hard:
+    d4: true
+    color_perms: 1
+    pair_subsetting: false
+  final_hard:
+    d4: false
+    color_perms: 0
+    pair_subsetting: false
+
+# --- Task format mix -----------------------------------------------------
+# The three multi-pair / inference formats are the load-bearers
+# (combined 80% of the mix). The three 1.A formats carry at 20% to
+# prevent forgetting.
+#
+# test_substrate_prediction gets the largest single share — it is the
+# bridge task. It puts the loss signal where the rule lives (the
+# substrate target) instead of diluting it across the whole output
+# grid where most cells are trivial copies of the input.
+task_mix:
+  pair_to_substrate:           0.05    # carry
+  substrate_to_output:         0.05    # carry
+  all_pairs_to_substrates:     0.10    # carry
+  cold_pair_to_substrate:      0.25
+  test_substrate_prediction:   0.40    # bridge task — load-bearing
+  direct_output_grid:          0.15
+
+# --- Per-format pair-kind applicability ---------------------------------
+task_pair_kinds:
+  pair_to_substrate:           ["write", "struct"]
+  substrate_to_output:         ["write"]
+  all_pairs_to_substrates:     ["write", "struct"]
+  cold_pair_to_substrate:      ["write", "struct"]
+  test_substrate_prediction:   ["write", "struct"]
+  direct_output_grid:          ["write", "struct"]   # output is the target; substrate kind irrelevant
+
+# --- Per-format minimum-pair-count rules --------------------------------
+# Some formats need a minimum number of train pairs after subsetting.
+# Puzzles that can't meet the minimum are skipped for that format.
+min_train_pairs:
+  cold_pair_to_substrate: 3   # >= 2 worked + 1 cold
+  test_substrate_prediction: 2
+  direct_output_grid: 2
+
+# --- Eval protocol (Phase 1) --------------------------------------------
+# Protocol C with per-test-pair dispatch. See SFT_Strategy.md §4.6 for
+# the full description.
+eval:
+  protocol: "C"
+  pass_at_k: 2
+  per_pair_same_size:
+    attempt_1: "test_substrate_prediction -> decode -> output"
+    attempt_2: "direct_output_grid"
+    score: "either output exact-correct"
+  per_pair_diff_size:
+    attempt_1: "test_substrate_prediction as CoT prefix, then generate output"
+    attempt_2: "direct_output_grid with no substrate prefix"
+    score: "either output exact-correct"
+  puzzle_score: "all test pairs correct, under either attempt path"
+  decode:
+    temperature: 0.0
+    max_new_tokens: 4096
+
+# --- Output filenames ----------------------------------------------------
+filenames:
+  train:    "Fine Tune Run 2/data_sft/phase1b_train.jsonl"
+  dev:      "Fine Tune Run 2/data_sft/phase1b_dev.jsonl"
+  manifest: "Fine Tune Run 2/data_sft/phase1b_manifest.json"
+  final_eval: "Fine Tune Run 2/data_sft/phase1_final_eval.jsonl"
+
+# --- Training hyperparameters --------------------------------------------
+# Mostly identical to 1.A. The two notable differences from a vanilla
+# second-stage SFT:
+#   - LR is the same (not lowered). Continuing from a LoRA, not from a
+#     fully-trained model, so the standard lower-LR-on-continuation rule
+#     doesn't apply as strongly. Tune downward if 1.B starts forgetting.
+#   - eval_steps is tighter because the load-bearing tasks are new — we
+#     want to catch overfit signals early.
+training:
+  lora:
+    r: 32
+    alpha: 64
+    dropout: 0.05
+    target_modules: "auto"
+  optimizer: "adamw_torch_fused"
+  learning_rate: 1.0e-4
+  lr_scheduler: "cosine"
+  warmup_steps: 12
+  per_device_train_batch_size: 2
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 16
+  num_train_epochs: 1
+  bf16: true
+  eval_strategy: "steps"
+  eval_steps: 50
+  save_strategy: "steps"
+  save_steps: 50
+  save_total_limit: 3
+  loss_mask: "target_only"
+  seed: 42
+
+# --- LoRA output ---------------------------------------------------------
+output_dir: "outputs/phase1b_rule_application"

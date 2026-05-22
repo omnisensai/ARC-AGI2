@@ -1,0 +1,157 @@
+# Phase 1.A — Substrate Literacy
+#
+# Locked dataset-generation + training parameters for Run 2 Phase 1.A.
+# This is the executable shape of SFT_Strategy.md §4.4.
+#
+# Reproducibility = (this file + the puzzle corpus snapshot in
+# Fine Tune Run 2/puzzles/ + the generator code version).
+#
+# When this file and SFT_Strategy.md disagree, this file wins for
+# execution and the strategy doc gets updated to match.
+
+stage: "phase1a_substrate_literacy"
+
+# 1.A trains from the base instruction-tuned checkpoint. No prior LoRA.
+continue_from_lora: null
+base_model: "Qwen/Qwen2.5-7B-Instruct"
+
+# Every record in this stage uses this exact system message. No prose
+# instructions, no examples in the system slot, no task IDs. The
+# field contract in the user prompt determines the target.
+system_message: "Transformation Rule"
+
+# --- Random seed ---------------------------------------------------------
+# Seeds the split, the augmentation, and the example shuffling. Changing
+# this means the splits and the entire dataset are different.
+seed: 42
+
+# --- Splits --------------------------------------------------------------
+# Content-unique counts from classify_origin.py:
+#   A1-only      27
+#   A2-only     348
+#   A1-and-A2   772
+#   TOTAL      1147
+#
+# A2E content-unique = 114 after removing the 6 A1-shared "leaker"
+# puzzles. Hold-out is by augmentation parent: no D4 rotation, color
+# permutation, or pair subset of a held-out puzzle may appear in train.
+splits:
+  a2e_train_hard: 50    # trained on, aggressive augmentation
+  a2e_dev_hard:   30    # checkpoint selection during training
+  a2e_final_hard: 34    # FROZEN. Touched once at the end of the run.
+  a2e_leakers:    6     # see leaker_policy
+
+  # The 6 A2E puzzles that also exist in A1. They must not appear in
+  # dev_hard or final_hard (that would dirty the eval since their A1
+  # twins are in the train pool). They MAY appear in train, but only
+  # if the corresponding A1 version is also in train — never solo.
+  a2e_leaker_policy: "exclude_from_hard_dev_and_final; allow_train_only_if_parent_seen_in_A1"
+
+  # All other content-unique puzzles (~1027) go in the training pool.
+  train_pool: "all_non_dev_non_final_content_unique_puzzles_after_dedup"
+
+# Stratification ensures the three A2E buckets have comparable
+# distributions. Random tie-breaking inside each stratum.
+stratify_by:
+  - "size_bucket"      # small (<=6x6), medium (<=15x15), large (>15x15)
+  - "pair_shape_mix"   # all_S / all_D / mixed
+  - "n_test_pairs"     # 1 vs >=2
+
+# Output: splits file with puzzle ids per bucket.
+splits_output: "Fine Tune Run 2/splits/phase1_splits.json"
+
+# --- Augmentation --------------------------------------------------------
+# Rule-preserving augmentations only. D4 = 8 dihedral symmetries.
+# Color perms are random non-identity palette permutations (preserve
+# background slot if you choose to; aggressive variant relabels all).
+# Pair-subsetting picks a subset of the puzzle's train pairs to use as
+# the worked examples; the test pair is never subsetted.
+augment:
+  train:
+    d4: true
+    color_perms: 3
+    pair_subsetting: true
+    pair_subset_min: 1
+    pair_subset_max: 3
+  dev_hard:
+    d4: true
+    color_perms: 1
+    pair_subsetting: false
+  final_hard:
+    d4: false      # identity only
+    color_perms: 0
+    pair_subsetting: false
+
+# --- Task format mix -----------------------------------------------------
+# Phase 1.A uses only the three single-pair literacy formats. The
+# multi-pair / rule-application formats wait for Phase 1.B.
+#
+# substrate_to_output is heavily weighted because it forces the harder
+# decode direction. all_pairs_to_substrates is multi-pair input but
+# with mechanical per-pair targets — still literacy, just batched.
+task_mix:
+  pair_to_substrate:        0.40
+  substrate_to_output:      0.35
+  all_pairs_to_substrates:  0.25
+
+# --- Per-format pair-kind applicability ---------------------------------
+# Diff-size aggregate substrate is lossy and has no decoder. So
+# substrate_to_output is filtered to same-size pairs only.
+task_pair_kinds:
+  pair_to_substrate:        ["write", "struct"]
+  substrate_to_output:      ["write"]
+  all_pairs_to_substrates:  ["write", "struct"]
+
+# --- 1.A "done" probe ---------------------------------------------------
+# Before launching 1.B, hold out ~50 puzzles never seen during 1.A
+# training (drawn from the same train pool, but excluded from 1.A's
+# train.jsonl by seed) and measure exact-match accuracy per format.
+# Above all four thresholds: 1.A is done; do not overtrain.
+# Below any: extend 1.A or investigate before continuing.
+probe:
+  holdout_size: 50
+  thresholds:
+    pair_to_substrate_same_size_exact:   0.95
+    pair_to_substrate_diff_size_exact:   0.90
+    substrate_to_output_same_size_exact: 0.95
+    all_pairs_to_substrates_exact:       0.90
+
+# --- Output filenames ----------------------------------------------------
+filenames:
+  train:    "Fine Tune Run 2/data_sft/phase1a_train.jsonl"
+  dev:      "Fine Tune Run 2/data_sft/phase1a_dev.jsonl"
+  manifest: "Fine Tune Run 2/data_sft/phase1a_manifest.json"
+  # Phase 1's frozen eval is shared with 1.B. Generated once; touched
+  # by the eval harness, not the trainer.
+  final_eval: "Fine Tune Run 2/data_sft/phase1_final_eval.jsonl"
+
+# --- Training hyperparameters (suggested defaults) ----------------------
+# Starting points calibrated against the Run 1 baseline (Qwen2.5-7B-
+# Instruct LoRA r=32 a=64 hit val loss 0.0078 in 422 steps). Tune
+# against the probe, not against val loss alone — val loss is
+# misleading once the alphabet is learned. The probe is the real gate.
+training:
+  lora:
+    r: 32
+    alpha: 64
+    dropout: 0.05
+    target_modules: "auto"   # standard set for Qwen2.5
+  optimizer: "adamw_torch_fused"
+  learning_rate: 1.0e-4
+  lr_scheduler: "cosine"
+  warmup_steps: 12
+  per_device_train_batch_size: 2
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 16
+  num_train_epochs: 1
+  bf16: true
+  eval_strategy: "steps"
+  eval_steps: 100
+  save_strategy: "steps"
+  save_steps: 100
+  save_total_limit: 3
+  loss_mask: "target_only"   # no loss on prompt tokens
+  seed: 42
+
+# --- LoRA output ---------------------------------------------------------
+output_dir: "outputs/phase1a_substrate_literacy"
