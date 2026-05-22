@@ -865,17 +865,31 @@ def main():
     if probe_skip:
         print(f"  skips: {dict(probe_skip)}")
 
-    # Curriculum sort the train file by augmentation rank.
+    # Curriculum sort the train file. Two-level order:
+    #   1. substrate_type: same first, then diff
+    #   2. within each substrate_type: augmentation rank 0 → 3
+    # For SAME / DIFF stages (single substrate type) this collapses to
+    # rank-only order. For LIT and MIXED, this imposes the same-before-
+    # diff sub-curriculum — model sees the simpler pixel grid alphabet
+    # locked down before the diff-size aggregate text block alphabet.
     rng_shuf = random.Random(seed + 2)
     if args.curriculum == "sort":
-        by_rank = defaultdict(list)
+        by_key = defaultdict(list)
         for r in train_records:
-            by_rank[augmentation_rank(r["provenance"])].append(r)
+            sub_type = r["provenance"]["substrate_type"]
+            rank = augmentation_rank(r["provenance"])
+            by_key[(sub_type, rank)].append(r)
         train_records = []
-        for rank in (0, 1, 2, 3):
-            rng_shuf.shuffle(by_rank[rank])
-            train_records.extend(by_rank[rank])
-        rank_counts = {r: len(by_rank[r]) for r in (0, 1, 2, 3)}
+        for sub_type in ("same", "diff"):
+            for rank in (0, 1, 2, 3):
+                bucket = by_key.get((sub_type, rank), [])
+                rng_shuf.shuffle(bucket)
+                train_records.extend(bucket)
+        rank_counts = {
+            f"{sub_type}_{rank}": len(by_key.get((sub_type, rank), []))
+            for sub_type in ("same", "diff")
+            for rank in (0, 1, 2, 3)
+        }
     else:
         rng_shuf.shuffle(train_records)
         rank_counts = None
