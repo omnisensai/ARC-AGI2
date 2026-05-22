@@ -145,7 +145,15 @@ Relation tags for numeric pairs a -> b:
   new      a == 0 and b > 0
   dropped  a > 0 and b == 0"""
 
+# LIT shares the same prompt content as DIFF (both alphabets, no
+# puzzle framing) — LIT trains on both alphabets in single-pair
+# literacy form, so the prompt must define both. SAME comes after LIT
+# and narrows focus to same-dim only; DIFF re-expands to both alphabets
+# to preserve same-dim retention while training diff-dim records.
+SYSTEM_MESSAGE_LIT = SYSTEM_MESSAGE_DIFF
+
 SYSTEM_MESSAGE_BY_STAGE = {
+    "lit":   SYSTEM_MESSAGE_LIT,
     "same":  SYSTEM_MESSAGE_SAME,
     "diff":  SYSTEM_MESSAGE_DIFF,
     "mixed": SYSTEM_MESSAGE_MIXED,
@@ -176,6 +184,30 @@ API_EVAL_SEED_MULT = 7841  # different prime from PROBE_SEED_MULT
 # configs.
 
 STAGE_CONFIG = {
+    "lit": {
+        "stage_name": "phase1_lit",
+        "stage_key":  "lit",
+        "substrate_filter": "both",  # both alphabets, single-pair only
+        "seed": 42,
+        # Pure literacy: only the single-pair atomic formats. No multi-
+        # pair, no test prediction, no direct output. This stage's job
+        # is to lock in the substrate alphabet (both same-dim grid and
+        # diff-dim aggregate text). Probes after this gate sub-stage
+        # progression into SAME.
+        "task_mix": {
+            "pair_to_substrate":   0.65,
+            "substrate_to_output": 0.35,  # intrinsically same-dim only
+        },
+        "augment": {
+            "train": {"d4": True, "color_perms": 3, "pair_subsetting": True,
+                      "pair_subset_min": 1, "pair_subset_max": 3},
+        },
+        "out_files": {
+            "train":    DATA_SFT_DIR / "phase1_lit_train.jsonl",
+            "probe":    DATA_SFT_DIR / "phase1_lit_probe.jsonl",
+            "manifest": DATA_SFT_DIR / "phase1_lit_manifest.json",
+        },
+    },
     "same": {
         "stage_name": "phase1_same",
         "stage_key":  "same",        # selects SYSTEM_MESSAGE
@@ -743,7 +775,7 @@ def generate_probe_records(probe_clusters, stage_cfg, master_seed):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["same", "diff", "mixed"], required=True)
+    ap.add_argument("--stage", choices=["lit", "same", "diff", "mixed"], required=True)
     ap.add_argument("--sample-only", action="store_true",
                     help="Generate ~50 examples per bucket for review.")
     ap.add_argument("--max-per-puzzle", type=int, default=24,

@@ -30,6 +30,8 @@ ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data_sft"
 
 FILES = [
+    DATA / "phase1_lit_train.jsonl.gz",
+    DATA / "phase1_lit_probe.jsonl",
     DATA / "phase1_same_train.jsonl.gz",
     DATA / "phase1_same_probe.jsonl",
     DATA / "phase1_diff_train.jsonl.gz",
@@ -140,7 +142,11 @@ Relation tags for numeric pairs a -> b:
   new      a == 0 and b > 0
   dropped  a > 0 and b == 0"""
 
+# LIT stage shares the DIFF prompt (both alphabets, no puzzle framing).
+EXPECTED_LIT = EXPECTED_DIFF
+
 EXPECTED_BY_STAGE = {
+    "lit":   EXPECTED_LIT,
     "same":  EXPECTED_SAME,
     "diff":  EXPECTED_DIFF,
     "mixed": EXPECTED_MIXED,
@@ -231,10 +237,10 @@ def check_record(rec, file, line_no):
     if stage_key == "diff" and sub_type != "diff":
         violation(file, line_no, "P3",
                   f"diff-stage record has substrate_type {sub_type!r}", rec)
-    if stage_key == "mixed" and sub_type not in ("same", "diff"):
+    if stage_key in ("lit", "mixed") and sub_type not in ("same", "diff"):
         violation(file, line_no, "P3",
-                  f"mixed-stage record has bad substrate_type {sub_type!r}",
-                  rec)
+                  f"{stage_key}-stage record has bad substrate_type "
+                  f"{sub_type!r}", rec)
 
 
 def main():

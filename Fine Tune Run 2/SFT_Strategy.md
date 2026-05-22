@@ -93,8 +93,9 @@ Run 2 trains in three phases with three distinct goals:
 | **Phase 2: Coding** | Teach the model to emit `def solve(input_grid)` Python that produces the correct output. | Python functions. |
 | **Phase 3: Repair** | Teach the model to repair its own wrong code given validator feedback. | Corrected Python functions. |
 
-Phase 1 itself is a three-stage curriculum (SAME → DIFF → MIXED) split
-by substrate representation. See §4.
+Phase 1 itself is a four-stage curriculum (LIT → SAME → DIFF → MIXED).
+LIT is pure substrate literacy across both alphabets; SAME/DIFF/MIXED
+are substrate-type-split rule application. See §4.
 
 The previous run (Run 1) hit 18% pass@1 / 24% pass@2 on a clean
 held-out — with only **1 correct code per puzzle and 10 wrong** in the
@@ -227,19 +228,36 @@ discipline.
 
 ## 4. Phase 1 — Transformation grid literacy
 
-### 4.1 Three-stage substrate-split curriculum
+### 4.1 Four-stage curriculum (literacy first, then substrate-split application)
 
-Phase 1 trains three sequential LoRA checkpoints. The decomposition is
-by **substrate representation**, not by skill level:
+Phase 1 trains four sequential LoRA checkpoints. The first stage is
+pure literacy across both substrate alphabets; the next three split
+rule application by substrate representation.
 
 | Stage | LoRA name | Trains on | Continues from |
 |---|---|---|---|
-| **1-SAME** | `outputs/phase1_same` | Records whose T target is a same-dimensions grid | Base Qwen-2.5-7B-Instruct |
-| **1-DIFF** | `outputs/phase1_diff` | Records whose T target is a diff-dimensions aggregate text block | `phase1_same` LoRA |
-| **1-MIXED** | `outputs/phase1_mixed` | Both, plus ARC puzzle framing | `phase1_diff` LoRA |
+| **0-LIT** | `outputs/phase1_lit` | Single-pair literacy formats only (`pair_to_substrate`, `substrate_to_output`), both same and diff substrate types | Base Qwen-2.5-7B-Instruct |
+| **1-SAME** | `outputs/phase1_same` | All formats; records filtered to same-dim T targets only | `phase1_lit` LoRA |
+| **2-DIFF** | `outputs/phase1_diff` | All applicable formats; records filtered to diff-dim T targets only | `phase1_same` LoRA |
+| **3-MIXED** | `outputs/phase1_mixed` | All formats; both same and diff records; full ARC puzzle framing in the system prompt | `phase1_diff` LoRA |
 
-The motivation is that same-dimensions and diff-dimensions encodings
-are different alphabets:
+**Why LIT first.** Without a dedicated literacy stage, the model has
+to learn the substrate alphabet *and* multi-pair rule application
+simultaneously from step zero. When training fails we can't tell
+whether it was alphabet confusion, format dispatch confusion, rule-
+induction failure, or output-grid failure. The LIT stage isolates the
+alphabet question:
+
+> *Can the model speak the substrate alphabet before we ask it to
+> reason with it?*
+
+LIT trains only `pair_to_substrate` (encode-one-pair) and
+`substrate_to_output` (decode-pixel-back). No multi-pair context, no
+test prediction, no direct output. Short, focused, gated by the LIT
+probe before we proceed to rule-application stages.
+
+**Why split SAME / DIFF / MIXED by substrate type.** The same-dim and
+diff-dim encodings are different alphabets:
 
 - **Same-dim T grid:** per-cell, lossless. Cell-sovereign (`T[r,c]`
   depends only on `INPUT[r,c]` and `OUTPUT[r,c]`).
@@ -247,10 +265,9 @@ are different alphabets:
   organized into fixed sections (`SIZE / BG / PALETTE / ROWS / COLS /
   BBOX`).
 
-Forcing one checkpoint to learn both from step zero would conflate two
-unrelated representations. Splitting them gives the model a clean
-ladder: master the simpler representation first, then layer in the
-second, then learn to dispatch between them.
+LIT teaches both alphabets in isolation; SAME / DIFF then layer
+rule-application onto each alphabet separately; MIXED handles cross-
+substrate dispatch.
 
 ### 4.2 Per-stage system prompts
 
@@ -258,25 +275,31 @@ Each stage uses its own system prompt. The model sees one prompt
 during the training of that stage, and the prompt is what the eval
 harness must use at inference for that adapter.
 
-- **1-SAME prompt** describes only the same-dimensions alphabet. No
-  diff-dimensions section. No puzzle-level multi-pair framing. The
-  records are all single-pair or multi-pair same-dim; that's all the
-  prompt mentions.
+- **0-LIT prompt** covers both alphabets (same-dim grid + diff-dim
+  aggregate). No ARC-puzzle multi-pair framing — LIT records are all
+  single-pair. Same byte content as the DIFF prompt; the model is
+  introduced to the full alphabet legend up front.
 
-- **1-DIFF prompt** describes both alphabets (same + diff). The
-  records all target diff-dim, but the model has already learned
-  same-dim from the prior LoRA, and we want to preserve it. The
-  prompt acknowledges both so the same-dim skill is not forgotten.
+- **1-SAME prompt** narrows to only the same-dimensions alphabet. The
+  model has already learned diff-dim from LIT (in its weights), but
+  this stage's records are all same-dim and the prompt focuses
+  attention there.
 
-- **1-MIXED prompt** adds the ARC-AGI puzzle framing: "exactly one
+- **2-DIFF prompt** re-expands to both alphabets (same + diff). The
+  records all target diff-dim, but acknowledging same-dim keeps the
+  prior skill in active context.
+
+- **3-MIXED prompt** adds the ARC-AGI puzzle framing: "exactly one
   transformation rule generalizes across all input/output pairs of a
   puzzle. The rule is encoded in T grids — one T per pair." This is
   the explicit invitation to perform rule transfer across pairs.
 
-Exact byte content of all three prompts is the source of truth in
-`build_phase1_dataset.py` (constants `SYSTEM_MESSAGE_SAME`,
-`SYSTEM_MESSAGE_DIFF`, `SYSTEM_MESSAGE_MIXED`); the verifier
-(`verify_records.py`) enforces them byte-for-byte.
+Exact byte content of all four prompts is the source of truth in
+`build_phase1_dataset.py` (constants `SYSTEM_MESSAGE_LIT`,
+`SYSTEM_MESSAGE_SAME`, `SYSTEM_MESSAGE_DIFF`, `SYSTEM_MESSAGE_MIXED`);
+`SYSTEM_MESSAGE_LIT` is an alias for `SYSTEM_MESSAGE_DIFF` (identical
+content). The verifier (`verify_records.py`) enforces them byte-for-
+byte via `provenance.stage_key`.
 
 Phase 2 and Phase 3 will use their own system messages (`Code Solver`,
 `Code Repair`).
@@ -317,6 +340,17 @@ Format disambiguation by structure (no special labels needed):
   trailing `OUTPUT:`.
 
 ### 4.4 Per-stage mix ratios
+
+**0-LIT** (filter: both alphabets; single-pair literacy only):
+
+| Format | Mix share |
+|---|---|
+| `pair_to_substrate` | 65% |
+| `substrate_to_output` | 35% |
+
+No multi-pair formats. No test prediction. No direct output. The
+substrate_to_output records are intrinsically same-dim (only alphabet
+with a decoder); pair_to_substrate covers both same and diff.
 
 **1-SAME** (filter: only candidates whose target T is a same-dim grid):
 
@@ -359,6 +393,20 @@ Each stage's probe (`phase1_<stage>_probe.jsonl`) is identity-augmented
 records from the 50 held-out probe puzzles, filtered to the stage's
 substrate type. Probes are evaluated with greedy decode and exact-match
 scoring.
+
+**0-LIT done signal:**
+
+| Probe | Threshold |
+|---|---|
+| `pair_to_substrate` exact (same-dim) | ≥ 95% |
+| `pair_to_substrate` exact (diff-dim) | ≥ 90% (section accuracy) |
+| `substrate_to_output` exact (same-dim only) | ≥ 95% |
+
+If LIT clears these thresholds, the model can read/write the
+substrate alphabets cleanly and we have a solid foundation for rule-
+application stages. If it doesn't, extend LIT before moving on —
+catching alphabet confusion here is much cheaper than fighting it
+inside SAME/DIFF/MIXED.
 
 **1-SAME done signal:**
 
@@ -1028,7 +1076,7 @@ the above ever drifts.
 
 ### 7.6 Per-stage filenames
 
-The dataset generator writes (per stage in {`same`, `diff`, `mixed`}):
+The dataset generator writes (per stage in {`lit`, `same`, `diff`, `mixed`}):
 
 ```
 Fine Tune Run 2/data_sft/phase1_<stage>_train.jsonl.gz
@@ -1060,7 +1108,8 @@ The frozen 34 puzzles live physically isolated in
 | Path | Purpose |
 |---|---|
 | `Fine Tune Run 2/SFT_Strategy.md` | this document |
-| `Fine Tune Run 2/phase1_same_axolotl.yaml` | trainer config for SAME stage |
+| `Fine Tune Run 2/phase1_lit_axolotl.yaml` | trainer config for LIT stage (from base Qwen) |
+| `Fine Tune Run 2/phase1_same_axolotl.yaml` | trainer config for SAME stage (continues LIT LoRA) |
 | `Fine Tune Run 2/phase1_diff_axolotl.yaml` | trainer config for DIFF stage (continues SAME LoRA) |
 | `Fine Tune Run 2/phase1_mixed_axolotl.yaml` | trainer config for MIXED stage (continues DIFF LoRA) |
 | `Fine Tune Run 2/build_phase1_dataset.py` | dataset generator (per-stage substrate filter) |
@@ -1102,24 +1151,32 @@ Path β (merge between phases) is documented in §9.3 as an option to
 revisit if Path α produces unacceptable forgetting on Phase 1 probes
 after Phase 2 training. Until then, Path α is the default.
 
-### 9.1 Phase 1 chain (one adapter, three sub-stages)
+### 9.1 Phase 1 chain (one adapter, four sub-stages)
 
 ```
 Base Qwen2.5-7B-Instruct
+  ↓ axolotl train phase1_lit_axolotl.yaml
+outputs/phase1_lit/          LoRA after LIT stage (literacy)
   ↓ axolotl train phase1_same_axolotl.yaml
-outputs/phase1_same/         LoRA after SAME stage
+  ↑ lora_model_dir: outputs/phase1_lit
+outputs/phase1_same/         same adapter, after SAME stage
   ↓ axolotl train phase1_diff_axolotl.yaml
   ↑ lora_model_dir: outputs/phase1_same
-outputs/phase1_diff/         same adapter, more training
+outputs/phase1_diff/         same adapter, after DIFF stage
   ↓ axolotl train phase1_mixed_axolotl.yaml
   ↑ lora_model_dir: outputs/phase1_diff
 outputs/phase1_mixed/        same adapter, fully trained Phase 1
 ```
 
-Sub-stages 1-SAME, 1-DIFF, 1-MIXED all share the same LoRA shape and
-target modules. Each stage's system prompt is a superset of the
-previous (DIFF adds the diff-dim section, MIXED adds the ARC puzzle
-framing). The model knowledge accumulates within one adapter.
+All four sub-stages (LIT, SAME, DIFF, MIXED) share the same LoRA
+shape and target modules. The model knowledge accumulates within one
+adapter; the LoRA never gets reset across sub-stages.
+
+System prompt progression:
+- LIT: legend covering both alphabets, no puzzle framing
+- SAME: legend narrowed to same-dim only
+- DIFF: legend re-expanded to both alphabets (preserves same-dim)
+- MIXED: full legend + ARC puzzle framing (sets up rule transfer)
 
 Probe between each sub-stage via `phase1_<stage>_probe.jsonl`. If a
 stage misses its done-signal thresholds, extend it before moving on.
@@ -1171,7 +1228,8 @@ Phase 1.
 
 | Output dir | What it is |
 |---|---|
-| `outputs/phase1_same/` | LoRA adapter after the SAME stage |
+| `outputs/phase1_lit/` | LoRA adapter after LIT stage (from base Qwen) |
+| `outputs/phase1_same/` | same adapter, after SAME stage (continues `phase1_lit`) |
 | `outputs/phase1_diff/` | same adapter, after DIFF stage (continues `phase1_same`) |
 | `outputs/phase1_mixed/` | same adapter, fully trained Phase 1 (continues `phase1_diff`) |
 | `outputs/phase2_code/` | **Path α default**: same adapter, now also trained on Phase 2 code data (continues `phase1_mixed`) |
@@ -1194,6 +1252,11 @@ needed. Not built yet (Path α is the default).
 
 ### 9.5 Decision points
 
+- **After 0-LIT:** Run probe on `phase1_lit_probe.jsonl`. If literacy
+  thresholds pass (≥95% same-dim pair, ≥90% diff-dim section, ≥95%
+  substrate_to_output), proceed to 1-SAME. If not, extend LIT —
+  catching alphabet confusion here is much cheaper than fighting it
+  in later stages.
 - **After 1-SAME:** Run probe on `phase1_same_probe.jsonl`. If
   thresholds pass, proceed to 1-DIFF. If not, extend 1-SAME.
 - **After 1-DIFF:** Run probe on `phase1_diff_probe.jsonl` + forgetting
