@@ -33,8 +33,15 @@ from substrate import encode_auto, encode, decode, format_grid  # noqa: E402
 
 PUZZLES_DIR = ROOT / "puzzles"
 SPLITS_FILE = ROOT / "splits" / "phase1_splits.json"
+PROBE_IDS_FILE = ROOT / "splits" / "phase1_probe_ids.txt"
 DATA_SFT_DIR = ROOT / "data_sft"
 SYSTEM_MESSAGE = "Transformation Rule"
+
+# Probe set carve-out from train_pool. Same probe puzzles across both
+# stages so we can measure (a) "is 1.A literacy locked in?" before
+# starting 1.B, and (b) "did 1.B forget the literacy?" after 1.B.
+PROBE_SIZE = 50
+PROBE_SEED_MULT = 7919  # arbitrary prime, separate from aug seed streams
 
 # Hard-coded from the configs (kept here to avoid a YAML parser dep).
 # If you change phase1a/b_config.yaml, mirror here.
@@ -55,6 +62,7 @@ STAGE_CONFIG = {
         "out_files": {
             "train":    DATA_SFT_DIR / "phase1a_train.jsonl",
             "dev":      DATA_SFT_DIR / "phase1a_dev.jsonl",
+            "probe":    DATA_SFT_DIR / "phase1a_probe.jsonl",
             "manifest": DATA_SFT_DIR / "phase1a_manifest.json",
         },
     },
@@ -77,6 +85,7 @@ STAGE_CONFIG = {
         "out_files": {
             "train":    DATA_SFT_DIR / "phase1b_train.jsonl",
             "dev":      DATA_SFT_DIR / "phase1b_dev.jsonl",
+            "probe":    DATA_SFT_DIR / "phase1b_probe.jsonl",
             "manifest": DATA_SFT_DIR / "phase1b_manifest.json",
         },
     },
@@ -513,6 +522,69 @@ def generate_for_bucket(bucket_name, cluster_list, aug_cfg, stage_cfg,
     return records, fmt_counter, skip_counter
 
 
+def select_probe_clusters(train_pool: list, seed: int) -> list:
+    """Deterministically sample PROBE_SIZE clusters from train_pool.
+
+    Uses a seed stream independent of the augmentation seeds so the
+    probe selection is stable even if we change augmentation parameters
+    later. Sorted by rep_pid first for stability across Python random
+    implementations.
+    """
+    rng = random.Random(seed * PROBE_SEED_MULT)
+    sorted_pool = sorted(train_pool, key=lambda c: c["rep_pid"])
+    if PROBE_SIZE > len(sorted_pool):
+        raise ValueError(
+            f"train_pool has only {len(sorted_pool)} clusters, "
+            f"can't carve probe of {PROBE_SIZE}"
+        )
+    return rng.sample(sorted_pool, PROBE_SIZE)
+
+
+def generate_probe_records(probe_clusters, stage_cfg, master_seed):
+    """One record per (cluster, eligible format) using identity
+    augmentation. No D4, no color perm, no pair subsetting.
+
+    The probe measures literacy on the original surface form of unseen
+    puzzles. Per-format exact-match accuracy is computed against these
+    records after the stage's LoRA is trained.
+    """
+    records = []
+    fmt_counter = Counter()
+    skip_counter = Counter()
+    rng = random.Random(master_seed * 31 + 7)
+
+    for cluster in probe_clusters:
+        rep_pid = cluster["rep_pid"]
+        sources = cluster["sources"]
+        path = PUZZLES_DIR / cluster["files"][0]
+        if not path.exists():
+            skip_counter["file_missing"] += 1
+            continue
+        puzzle = load_puzzle(path)
+        eligible = eligible_formats(puzzle, stage_cfg["task_mix"])
+        for fmt in eligible:
+            rec = make_record(
+                format_name=fmt,
+                variant_puzzle=puzzle,
+                prov_aug={
+                    "d4_op": "identity",
+                    "color_perm_seed": None,
+                    "pair_subset": list(range(len(puzzle["train"]))),
+                },
+                rep_pid=rep_pid,
+                sources=sources,
+                bucket="probe",
+                stage_name=stage_cfg["stage_name"],
+                rng=rng,
+            )
+            if rec is None:
+                skip_counter[f"{fmt}_returned_none"] += 1
+                continue
+            records.append(rec)
+            fmt_counter[fmt] += 1
+    return records, fmt_counter, skip_counter
+
+
 def augmentation_rank(prov: dict) -> int:
     """Difficulty rank of an augmented variant.
 
@@ -549,12 +621,42 @@ def main():
     seed = cfg["seed"]
 
     DATA_SFT_DIR.mkdir(exist_ok=True)
+    PROBE_IDS_FILE.parent.mkdir(exist_ok=True)
 
-    # Train bucket = train_pool + a2e_train_hard (+ leakers per policy)
-    # Leakers are included in train: the policy says "allow train only if
-    # parent seen in A1" which IS the case (A1 stays fully in train).
+    # Probe carve-out: PROBE_SIZE clusters from train_pool, held out
+    # from BOTH stages' training. Used to measure stage-end literacy
+    # (gate between 1.A and 1.B; forgetting check after 1.B).
+    probe_clusters = select_probe_clusters(splits["buckets"]["train_pool"], seed)
+    probe_pids = {c["rep_pid"] for c in probe_clusters}
+
+    # If the probe id list doesn't exist yet, write it. If it does,
+    # verify it matches what we just computed (catches accidental seed
+    # changes).
+    expected_ids = sorted(probe_pids)
+    if PROBE_IDS_FILE.exists():
+        existing_ids = sorted(PROBE_IDS_FILE.read_text().strip().split("\n"))
+        if existing_ids != expected_ids:
+            print(f"ERROR: probe ids drifted from {PROBE_IDS_FILE}. "
+                  f"Existing {len(existing_ids)} vs computed "
+                  f"{len(expected_ids)}. Refusing to regenerate — "
+                  "remove the file manually if you really mean to "
+                  "re-roll the probe.", file=sys.stderr)
+            sys.exit(4)
+    else:
+        PROBE_IDS_FILE.write_text("\n".join(expected_ids) + "\n")
+        print(f"Wrote {PROBE_IDS_FILE.relative_to(REPO)} "
+              f"({len(expected_ids)} ids)")
+
+    train_pool_minus_probe = [
+        c for c in splits["buckets"]["train_pool"]
+        if c["rep_pid"] not in probe_pids
+    ]
+
+    # Train bucket = (train_pool minus probe) + a2e_train_hard + leakers.
+    # Leakers are allowed in train because A1 is fully in train anyway
+    # (their parent puzzles are seen).
     train_clusters = (
-        splits["buckets"]["train_pool"]
+        train_pool_minus_probe
         + splits["buckets"]["a2e_train_hard"]
         + splits["buckets"]["a2e_leakers"]
     )
@@ -568,8 +670,13 @@ def main():
 
     print(f"Stage: {cfg['stage_name']}  seed={seed}  "
           f"max_per_puzzle={args.max_per_puzzle}")
-    print(f"Train clusters: {len(train_clusters)}")
+    print(f"Train clusters: {len(train_clusters)} "
+          f"(train_pool {len(train_pool_minus_probe)} + "
+          f"a2e_train_hard {len(splits['buckets']['a2e_train_hard'])} + "
+          f"leakers {len(splits['buckets']['a2e_leakers'])})")
     print(f"Dev clusters:   {len(dev_clusters)}")
+    print(f"Probe clusters: {len(probe_clusters)} "
+          f"(carved from train_pool, held out from both stages' train)")
 
     print(f"\nGenerating train…")
     train_records, train_fmt, train_skip = generate_for_bucket(
@@ -601,6 +708,16 @@ def main():
     if dev_skip:
         print(f"  skips: {dict(dev_skip)}")
 
+    print(f"\nGenerating probe (identity aug, every (puzzle, format))…")
+    probe_records, probe_fmt, probe_skip = generate_probe_records(
+        probe_clusters, cfg, master_seed=seed,
+    )
+    print(f"  {len(probe_records)} records")
+    for fmt, n in sorted(probe_fmt.items()):
+        print(f"    {fmt}: {n}")
+    if probe_skip:
+        print(f"  skips: {dict(probe_skip)}")
+
     # Order the train file. Two modes:
     #
     #   sort     curriculum-by-augmentation-difficulty (default). Group
@@ -628,11 +745,13 @@ def main():
 
     out_train = cfg["out_files"]["train"]
     out_dev = cfg["out_files"]["dev"]
+    out_probe = cfg["out_files"]["probe"]
     out_manifest = cfg["out_files"]["manifest"]
 
     if args.sample_only:
         out_train = out_train.with_name(out_train.stem + "_sample.jsonl")
         out_dev = out_dev.with_name(out_dev.stem + "_sample.jsonl")
+        out_probe = out_probe.with_name(out_probe.stem + "_sample.jsonl")
         out_manifest = out_manifest.with_name(out_manifest.stem + "_sample.json")
 
     with out_train.open("w") as f:
@@ -640,6 +759,9 @@ def main():
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
     with out_dev.open("w") as f:
         for r in dev_records:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    with out_probe.open("w") as f:
+        for r in probe_records:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
     manifest = {
@@ -663,12 +785,21 @@ def main():
             "format_counts": dict(dev_fmt),
             "skipped": dict(dev_skip),
         },
+        "probe": {
+            "file": str(out_probe.relative_to(REPO)),
+            "n_records": len(probe_records),
+            "n_clusters": len(probe_clusters),
+            "format_counts": dict(probe_fmt),
+            "skipped": dict(probe_skip),
+            "ids_file": str(PROBE_IDS_FILE.relative_to(REPO)),
+        },
     }
     out_manifest.write_text(json.dumps(manifest, indent=2))
 
     print(f"\nWrote:")
     print(f"  {out_train.relative_to(REPO)}")
     print(f"  {out_dev.relative_to(REPO)}")
+    print(f"  {out_probe.relative_to(REPO)}")
     print(f"  {out_manifest.relative_to(REPO)}")
 
 
