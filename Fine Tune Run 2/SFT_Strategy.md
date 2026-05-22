@@ -827,7 +827,104 @@ not an automatic operation).
 
 ---
 
-## 9. Open items (tracked here, not blocking)
+## 9. Execution — LoRA chaining across stages and phases
+
+The model goes through three distinct skill regimes (substrate
+literacy, code generation, code repair). Default execution: **continue
+the same LoRA within a phase; merge into the base model between
+phases.**
+
+### 9.1 Within-phase chain (no merge)
+
+Phase 1.A → 1.B both train the **same LoRA adapter** with the same
+system message (`Transformation Rule`):
+
+```
+Base Qwen2.5-7B-Instruct
+  ↓ axolotl train phase1a_axolotl.yaml
+outputs/phase1a_substrate_literacy/   (LoRA after 1.A)
+  ↓ axolotl train phase1b_axolotl.yaml
+  ↑ lora_model_dir: outputs/phase1a_substrate_literacy
+outputs/phase1b_rule_application/     (same LoRA, more training)
+```
+
+Defensible because 1.A and 1.B are the same skill family and 1.B's mix
+carries 20% of 1.A's formats to prevent forgetting (`pair_to_substrate`
+5% + `substrate_to_output` 5% + `all_pairs_to_substrates` 10%).
+
+### 9.2 Cross-phase chain (merge between)
+
+Between Phase 1 and Phase 2 we **merge** the Phase 1 LoRA into the
+base model and train a **fresh** Phase 2 LoRA on the merged
+checkpoint. Reasons:
+
+- Phase 1 (`Transformation Rule`) and Phase 2 (`Code Solver`) are
+  different skill families with different system messages and target
+  vocabularies. Continuing the same LoRA risks catastrophic forgetting
+  of substrate literacy when the code-generation loss takes over.
+- Merge bakes the Phase 1 skill into base weights. Phase 2's LoRA only
+  has to learn code, not "code while re-learning substrate."
+- Cleaner ablations later: you can compare "raw base + Phase 2 LoRA"
+  vs "Phase-1-merged + Phase 2 LoRA" to measure exactly what Phase 1
+  contributed.
+- Avoids LoRA stacking at inference (adapter ordering, serving
+  compatibility, attribution complexity).
+
+```
+Base Qwen
+  ↓ Phase 1.A + 1.B (LoRA continues across, no merge)
+outputs/phase1b_rule_application/     LoRA adapter
+  ↓ merge into base weights
+outputs/phase1_merged/                full 7B model, ~15GB bf16
+  ↓ Phase 2 trains fresh LoRA on phase1_merged
+outputs/phase2_code_solver/           Phase 2 LoRA adapter
+  ↓ merge into phase1_merged base
+outputs/phase2_merged/                full 7B model
+  ↓ Phase 3 trains fresh LoRA on phase2_merged
+outputs/phase3_code_repair/           Phase 3 LoRA adapter
+```
+
+Disk note: each merged checkpoint is the full model (~15GB bf16).
+We accept that cost.
+
+### 9.3 Naming convention
+
+| Output dir | What it is |
+|---|---|
+| `outputs/phase1a_substrate_literacy/` | LoRA adapter after 1.A |
+| `outputs/phase1b_rule_application/` | LoRA adapter after 1.B (continues 1.A) |
+| `outputs/phase1_merged/` | base + Phase 1 LoRA merged into one model |
+| `outputs/phase2_code_solver/` | Phase 2 LoRA, trained on `phase1_merged` |
+| `outputs/phase2_merged/` | `phase1_merged` + Phase 2 LoRA merged |
+| `outputs/phase3_code_repair/` | Phase 3 LoRA, trained on `phase2_merged` |
+| `outputs/phase3_merged/` | final deployable model |
+
+### 9.4 What "merge" means operationally
+
+For each merge step:
+
+1. Load base (or previous merged) model.
+2. Attach the most recent LoRA adapter via `peft.PeftModel.from_pretrained`.
+3. Call `model = model.merge_and_unload()` — peft's standard merge.
+4. Save: `model.save_pretrained(out_dir)` + tokenizer.
+
+A short script will live at `Fine Tune Run 2/merge_lora.py` when Phase
+1 is done. Not needed until then.
+
+### 9.5 Decision points
+
+- **After Phase 1.A:** Run probe. If thresholds pass, proceed to 1.B.
+  If not, extend 1.A.
+- **After Phase 1.B:** Run probe on `phase1b_probe.jsonl` to check
+  literacy was preserved and rule-application accuracy is non-trivial.
+  Then **merge** Phase 1 → `phase1_merged`.
+- **Phase 2 onwards:** out of scope for Phase 1 documents — separate
+  config + axolotl yaml + data generator will land when Phase 1 is
+  validated end-to-end.
+
+---
+
+## 10. Open items (tracked here, not blocking)
 
 - **Phase 1.A → 1.B probe spec.** Threshold values (95% / 90%) are
   reasonable starting points but not validated. Tune after the first 1.A
