@@ -194,6 +194,26 @@ or `flash_attn`. Symptom from the block-3 sanity check: `axolotl MISSING`,
   axolotl --help >/dev/null 2>&1 && echo OK || echo FAILED
   ```
 
+### P-AXVER. axolotl version gotchas (telemetry file + chat_template name)
+
+axolotl 0.16.1 (what `pip install axolotl` currently gives) has two
+startup traps the configs/data are otherwise clean against:
+
+- **Missing telemetry whitelist** → `FileNotFoundError: .../telemetry/whitelist.yaml`.
+  Fix: opt out of telemetry and drop the file in:
+  ```bash
+  export AXOLOTL_DO_NOT_TRACK=1 DO_NOT_TRACK=1
+  AXO=$(python -c "import axolotl,os;print(os.path.dirname(axolotl.__file__))")
+  curl -fsSL https://raw.githubusercontent.com/axolotl-ai-cloud/axolotl/v0.16.1/src/axolotl/telemetry/whitelist.yaml \
+    -o "$AXO/telemetry/whitelist.yaml" || printf '{}\n' > "$AXO/telemetry/whitelist.yaml"
+  ```
+- **`ValueError: Template 'qwen2' not found`.** Newer axolotl dropped the
+  named `qwen2` template. The configs now use `chat_template:
+  tokenizer_default`, which applies the model's OWN chat template — i.e.
+  the pinned Qwen2.5 template in `tokenizer_config.json` that probe/eval
+  also use, so train and eval are guaranteed identical. (If you ever see
+  `qwen2` in a config, change it to `tokenizer_default`.)
+
 ### P7. Setup in a Jupyter Terminal, not notebook cells
 
 `File → New → Terminal`. Heredocs and multi-line blocks mangle in
@@ -207,6 +227,8 @@ or `flash_attn`. Symptom from the block-3 sanity check: `axolotl MISSING`,
 | `OSError: Disk quota exceeded` during download | cache on overlay disk / Xet — do P0 before anything |
 | Trained, but results look like an old config | stale `dataset_prepared_path` — P1, delete the prepared dir |
 | `axolotl --help` fails: `torchvision::nms does not exist` / `Could not import PreTrainedModel` | torch got bumped, torchvision orphaned — `pip uninstall -y torchvision torchaudio` (P-INSTALL) |
+| `FileNotFoundError: .../telemetry/whitelist.yaml` | axolotl packaging bug — opt out + drop the file in (P-AXVER) |
+| `ValueError: Template 'qwen2' not found` | newer axolotl has no `qwen2` template — use `chat_template: tokenizer_default` (P-AXVER) |
 | Error at model load mentioning flash-attn | P4 — install flash-attn or set `flash_attention: false` |
 | CUDA OOM | §5.3 — micro_batch 1 + grad_accum 32, or seq_len 4096, or 4bit |
 | `FileNotFoundError` on the `.jsonl.gz` | wrong cwd or unquoted space — run from repo root, quote the path (P5) |
