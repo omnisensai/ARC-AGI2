@@ -1216,3 +1216,76 @@ split/compress anything above 16k.
 
 That gives us both speed and full-context capability.
 
+Yes — but **not mid-run safely**.
+
+## If training has not started
+
+Yes. Change the Axolotl config before launching:
+
+```yaml
+sequence_len: 16384
+micro_batch_size: 1
+gradient_accumulation_steps: 32
+sample_packing: true
+gradient_checkpointing: true
+flash_attention: true
+bf16: true
+```
+
+Then run a tiny smoke test first:
+
+```bash
+axolotl train "Fine Tune Run 2/phase2_16k_axolotl.yaml" --max-steps 5
+```
+
+## If training is already running
+
+Do **not** edit `sequence_len` inside the same running job.
+
+Stop it cleanly, then restart from checkpoint with the new config only if needed.
+
+Changing context length mid-run can break prepared dataset/cache assumptions and make results hard to interpret.
+
+## Best Phase 2 design
+
+Use two separate configs:
+
+```text
+phase2_8k_axolotl.yaml
+phase2_16k_axolotl.yaml
+```
+
+And two routed datasets:
+
+```text
+phase2_train_8k.jsonl.gz
+phase2_train_16k.jsonl.gz
+```
+
+Routing rule:
+
+```text
+<= 8192 tokens     → 8k dataset
+8193–16384 tokens  → 16k dataset
+> 16384 tokens     → compress/split/skip
+```
+
+Then train:
+
+```bash
+axolotl train "Fine Tune Run 2/phase2_8k_axolotl.yaml"
+```
+
+Probe.
+
+Then continue with the long-context specialist:
+
+```bash
+axolotl train "Fine Tune Run 2/phase2_16k_axolotl.yaml"
+```
+
+using the 8k LoRA as the starting adapter.
+
+So yes, we can change it in training strategy — but treat 16k as a **separate continuation run**, not a live mid-run change.
+
+
