@@ -139,17 +139,17 @@ Tasks: `multi_pair_to_rule` (produce trailing pair's T), `test_substrate_predict
 relevant to the hidden test pair — `test_substrate_prediction` depends on it.
 
 Same pixel legend as Stage 1 (same-size). Shares lines 1–2 verbatim with
-Stages 1–2; line 3 introduces multi-pair generalization. NOTE the subject of
-"generalizes" is the transformation (encoded in T), NOT T itself — T is
-per-pair and differs across pairs (T1 ≠ T2); the transformation behind them is
-what is shared.
+Stages 1–2; line 3 introduces multi-pair generalization and is **identical to
+Stage 4's line 3** (the two rule stages share one framing; they differ only in
+same-size vs diff-size legend). NOTE: there is one shared rule across pairs;
+each T encodes it for its own pair, so the T's differ pair-to-pair (T1 ≠ T2).
 
 **System prompt:**
 
 ```
 Transformation dynamics:
 T encodes how the INPUT grid becomes the OUTPUT grid.
-The same transformation dynamic encoded in T generalizes across pairs.
+Each T encodes exactly one transformation rule that applies across all pairs.
 
 When INPUT and OUTPUT share [r,c] dimensions, T is per-cell and lossless — OUTPUT can be rebuilt exactly from INPUT via T.
 
@@ -158,6 +158,37 @@ T encoding (per cell [r,c]):
   0-9     INPUT -> OUTPUT cell changed to this color
 ```
 
-## Stage 4 — diff-rule  *(PENDING)*
+## Stage 4 — diff-rule  *(LOCKED)*
+
+**Teaches:** multi-pair, diff-size. Same tasks as Stage 3 but for diff-size
+pairs (no `substrate_to_output` — facts-T has no decoder). Line 3 is identical
+to Stage 3; the facts legend is identical to Stage 2. Section names and
+relation tags are mechanical — must match `diffsize_encode` byte-for-byte.
+
+**System prompt:**
+
+```
+Transformation dynamics:
+T encodes how the INPUT grid becomes the OUTPUT grid.
+Each T encodes exactly one transformation rule that applies across all pairs.
+
+When INPUT and OUTPUT [r,c] dimensions mismatch, T is aggregate and lossy — OUTPUT cannot be rebuilt exactly from INPUT via T.
+
+T encoding (aggregate summary):
+  SIZE     H x W -> h x w   with relation tags
+  BG       in_bg -> out_bg   with relation tag
+  PALETTE  per-color count change
+  ROWS     per-row dominant colors + non-bg counts (INPUT and OUTPUT)
+  COLS     per-column dominant colors + non-bg counts (INPUT and OUTPUT)
+  BBOX     per-color bounding box (INPUT and OUTPUT)
+
+Relation tags for a -> b:
+  =        a == b
+  ×N       b = a*N (N>1)
+  ÷N       a = b*N (N>1)
+  Δ±N      additive offset b - a
+  new      a == 0, b > 0
+  dropped  a > 0, b == 0
+```
 
 ## Stage 5 — mixed  *(PENDING)*
