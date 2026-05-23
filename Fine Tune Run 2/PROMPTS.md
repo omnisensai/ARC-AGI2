@@ -41,29 +41,18 @@ the label slot).
 
 ---
 
-## Stage 1 — same-literacy  *(DRAFT — finalizing wording for token economy)*
+## Stage 1 — same-literacy  *(LOCKED)*
 
 **Teaches:** one same-size pair → write the pixel-T that records the change.
 The model's first lesson: see the exact before→after difference, one pair, no
 neighbors, no rule generalization.
 
-**Current leanest candidate (pending user confirm):**
-
-```
-INPUT becomes OUTPUT via transformation T. When dims match, T maps 1:1 and is lossless: OUTPUT rebuilds exactly from INPUT and T.
-
-T per cell:
-  .     unchanged
-  0-9   new color
-```
-
-_Earlier (longer) candidate, kept for reference:_
+**System prompt (LEGEND_PIXEL header form):**
 
 ```
 Transformation dynamics:
-INPUT becomes the OUTPUT through the transformation encoded in T.
-When INPUT and OUTPUT have the same [r,c] dimensions, T maps 1:1.
-T is lossless and OUTPUT can be rebuilt exactly from INPUT via T.
+T encodes, per cell, how the INPUT grid becomes the OUTPUT grid.
+When INPUT and OUTPUT share [r,c] dimensions, T is lossless and OUTPUT can be rebuilt exactly from INPUT via T.
 
 T encoding (per cell [r,c]):
   .       INPUT -> OUTPUT cell unchanged
