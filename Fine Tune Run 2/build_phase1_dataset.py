@@ -1,30 +1,30 @@
 #!/usr/bin/env python3
-"""Phase 1 SFT dataset generator — three-stage substrate-split curriculum.
+"""Phase 1 SFT dataset generator — 5-stage substrate-split curriculum.
 
-Stages:
-  same   — same-dimensions T grids only. Trained from base Qwen.
-           Records only contain transformations where input.shape == output.shape.
-           System prompt describes the same-dimensions alphabet only.
-  diff   — diff-dimensions T text blocks only. Trained from the `same` LoRA.
-           System prompt now describes both alphabets so the model retains
-           same-dimensions while learning diff-dimensions.
-  mixed  — both alphabets, full ARC puzzle framing. Trained from the `diff`
-           LoRA. System prompt adds "puzzles have multiple pairs sharing one
-           rule" — sets up rule-transfer reasoning explicitly.
+Stages (training order):
+  same_lit   — same-size pairs, single-pair literacy (pixel T). From base Qwen.
+  diff_lit   — diff-size pairs, single-pair literacy (facts T). From same_lit.
+  same_rule  — same-size pairs, multi-pair rule application. From diff_lit.
+  diff_rule  — diff-size pairs, multi-pair rule application. From same_rule.
+  mixed      — both alphabets, all formats (reconsolidation). From diff_rule.
+
+System prompts are imported from phase1_prompts.PROMPT_BY_STAGE (single
+source of truth, self-checked against PROMPTS.md).
 
 Reads:
   Fine Tune Run 2/splits/phase1_splits.json
   Fine Tune Run 2/puzzles/*.json
 
-Writes (per stage in {same, diff, mixed}):
+Writes (per stage in {same_lit, diff_lit, same_rule, diff_rule, mixed}):
   Fine Tune Run 2/data_sft/phase1_<stage>_train.jsonl
-  Fine Tune Run 2/data_sft/phase1_<stage>_dev.jsonl
   Fine Tune Run 2/data_sft/phase1_<stage>_probe.jsonl
   Fine Tune Run 2/data_sft/phase1_<stage>_manifest.json
 
 Usage:
-  python3 "Fine Tune Run 2/build_phase1_dataset.py" --stage same
-  python3 "Fine Tune Run 2/build_phase1_dataset.py" --stage diff
+  python3 "Fine Tune Run 2/build_phase1_dataset.py" --stage same_lit
+  python3 "Fine Tune Run 2/build_phase1_dataset.py" --stage diff_lit
+  python3 "Fine Tune Run 2/build_phase1_dataset.py" --stage same_rule
+  python3 "Fine Tune Run 2/build_phase1_dataset.py" --stage diff_rule
   python3 "Fine Tune Run 2/build_phase1_dataset.py" --stage mixed
 """
 import argparse
@@ -38,8 +38,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 REPO = ROOT.parent
 sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(ROOT))
 
 from substrate import encode_auto, encode, decode, format_grid  # noqa: E402
+from phase1_prompts import PROMPT_BY_STAGE  # noqa: E402
 
 
 PUZZLES_DIR = ROOT / "puzzles"
@@ -50,114 +52,12 @@ DATA_SFT_DIR = ROOT / "data_sft"
 
 
 # ---------------------------------------------------------------------------
-# Per-stage system messages.
+# Per-stage system messages live in phase1_prompts.py — the single source of
+# truth, self-checked against PROMPTS.md byte-for-byte. PROMPT_BY_STAGE maps
+# each stage_key -> exact system-prompt bytes. Do not inline prompt text here.
 #
-# SAME prompt: only describes the same-dimensions T-grid alphabet. No puzzle-
-# level framing yet, no diff-dimensions section. The model in this stage
-# only sees same-dimensions records — telling it more would be irrelevant
-# context.
-#
-# DIFF prompt: covers both alphabets (same + diff). The records in this
-# stage all target diff-dimensions T blocks, but the prior 'same' LoRA
-# already knows same-dimensions and we want to preserve that — so the
-# prompt acknowledges both forms.
-#
-# MIXED prompt: full prompt with ARC-AGI puzzle framing — the rule
-# generalizes across all input/output pairs of a puzzle, encoded one T
-# per pair. This is the context the rule-transfer formats
-# (multi_pair_to_rule, test_substrate_prediction) need.
-
-SYSTEM_MESSAGE_SAME = """T represents the transformation between INPUT and OUTPUT. Each cell
-is an atomic unit colored 0-9.
-
-T grid legend when INPUT and OUTPUT have the same dimensions
-(e.g. 3x3 -> 3x3):
-  .       cell unchanged
-  0-9     cell changed to this output color
-Each cell is independent: T[r,c] depends only on INPUT[r,c] and
-OUTPUT[r,c], not on neighbors. Lossless — OUTPUT is fully
-reconstructible from INPUT + T."""
-
-SYSTEM_MESSAGE_DIFF = """T represents the transformation between INPUT and OUTPUT. Each cell
-is an atomic unit colored 0-9.
-
-T grid legend when INPUT and OUTPUT have the same dimensions
-(e.g. 3x3 -> 3x3):
-  .       cell unchanged
-  0-9     cell changed to this output color
-Each cell is independent: T[r,c] depends only on INPUT[r,c] and
-OUTPUT[r,c], not on neighbors. Lossless — OUTPUT is fully
-reconstructible from INPUT + T.
-
-T grid legend when INPUT and OUTPUT have different dimensions
-(e.g. 3x3 -> 2x4):
-T is an aggregate text block with these sections in fixed order,
-separated by blank lines:
-  SIZE     overall dimensions:  H x W -> h x w  with relation tags
-  BG       background color:  in_bg -> out_bg  with relation tag
-  PALETTE  per-color count change
-  ROWS     per-row dominant colors + non-bg counts (INPUT and OUTPUT)
-  COLS     per-column dominant colors + non-bg counts (INPUT and OUTPUT)
-  BBOX     per-color bounding box (INPUT and OUTPUT)
-Whole-grid statistics — diagnostic only, not lossless. No per-cell
-decoder.
-
-Relation tags for numeric pairs a -> b:
-  =        a == b
-  ×N       b = a * N, integer N > 1
-  ÷N       a = b * N, integer N > 1
-  Δ±N      additive offset (b - a)
-  new      a == 0 and b > 0
-  dropped  a > 0 and b == 0"""
-
-SYSTEM_MESSAGE_MIXED = """ARC-AGI puzzle contains INPUT/OUTPUT grid pairs where each cell is an
-atomic unit colored 0-9. There is exactly one transformation rule that
-generalizes across all input/output pairs of a puzzle. The rule is
-encoded in T grids — one T per pair, and the underlying rule is the
-same across all of them.
-
-T grid legend when INPUT and OUTPUT have the same dimensions
-(e.g. 3x3 -> 3x3):
-  .       cell unchanged
-  0-9     cell changed to this output color
-Each cell is independent: T[r,c] depends only on INPUT[r,c] and
-OUTPUT[r,c], not on neighbors. Lossless — OUTPUT is fully
-reconstructible from INPUT + T.
-
-T grid legend when INPUT and OUTPUT have different dimensions
-(e.g. 3x3 -> 2x4):
-T is an aggregate text block with these sections in fixed order,
-separated by blank lines:
-  SIZE     overall dimensions:  H x W -> h x w  with relation tags
-  BG       background color:  in_bg -> out_bg  with relation tag
-  PALETTE  per-color count change
-  ROWS     per-row dominant colors + non-bg counts (INPUT and OUTPUT)
-  COLS     per-column dominant colors + non-bg counts (INPUT and OUTPUT)
-  BBOX     per-color bounding box (INPUT and OUTPUT)
-Whole-grid statistics — diagnostic only, not lossless. No per-cell
-decoder.
-
-Relation tags for numeric pairs a -> b:
-  =        a == b
-  ×N       b = a * N, integer N > 1
-  ÷N       a = b * N, integer N > 1
-  Δ±N      additive offset (b - a)
-  new      a == 0 and b > 0
-  dropped  a > 0 and b == 0"""
-
-# LIT shares the same prompt content as DIFF (both alphabets, no
-# puzzle framing) — LIT trains on both alphabets in single-pair
-# literacy form, so the prompt must define both. SAME comes after LIT
-# and narrows focus to same-dim only; DIFF re-expands to both alphabets
-# to preserve same-dim retention while training diff-dim records.
-SYSTEM_MESSAGE_LIT = SYSTEM_MESSAGE_DIFF
-
-SYSTEM_MESSAGE_BY_STAGE = {
-    "lit":   SYSTEM_MESSAGE_LIT,
-    "same":  SYSTEM_MESSAGE_SAME,
-    "diff":  SYSTEM_MESSAGE_DIFF,
-    "mixed": SYSTEM_MESSAGE_MIXED,
-}
+# Stage keys (5-stage curriculum): same_lit, diff_lit, same_rule, diff_rule,
+# mixed. See phase1_prompts.STAGE_ORDER.
 
 
 # ---------------------------------------------------------------------------
@@ -183,87 +83,94 @@ API_EVAL_SEED_MULT = 7841  # different prime from PROBE_SEED_MULT
 # policy, output filenames. Mirrored from the per-stage Axolotl YAML
 # configs.
 
+def _aug_train():
+    return {"train": {"d4": True, "color_perms": 3, "pair_subsetting": True,
+                      "pair_subset_min": 1, "pair_subset_max": 3}}
+
+
+def _out_files(key):
+    return {
+        "train":    DATA_SFT_DIR / f"phase1_{key}_train.jsonl",
+        "probe":    DATA_SFT_DIR / f"phase1_{key}_probe.jsonl",
+        "manifest": DATA_SFT_DIR / f"phase1_{key}_manifest.json",
+    }
+
+
+# 5-stage curriculum (see PROMPTS.md / phase1_prompts.STAGE_ORDER):
+#   same_lit  -> diff_lit -> same_rule -> diff_rule -> mixed
+# The two T-alphabets (pixel for same-size, facts for diff-size) are taught
+# in isolation and reunite only in `mixed`. substrate_filter enforces the
+# alphabet split per stage; task_mix selects literacy (single-pair) vs rule
+# (multi-pair) formats.
 STAGE_CONFIG = {
-    "lit": {
-        "stage_name": "phase1_lit",
-        "stage_key":  "lit",
-        "substrate_filter": "both",  # both alphabets, single-pair only
+    "same_lit": {
+        "stage_name": "phase1_same_lit",
+        "stage_key":  "same_lit",
+        "substrate_filter": "same",  # same-size pairs only
         "seed": 42,
-        # Pure literacy: only the single-pair atomic formats. No multi-
-        # pair, no test prediction, no direct output. This stage's job
-        # is to lock in the substrate alphabet (both same-dim grid and
-        # diff-dim aggregate text). Probes after this gate sub-stage
-        # progression into SAME.
+        # Single-pair literacy for the pixel alphabet only.
         "task_mix": {
             "pair_to_substrate":   0.65,
-            "substrate_to_output": 0.35,  # intrinsically same-dim only
+            "substrate_to_output": 0.35,
         },
-        "augment": {
-            "train": {"d4": True, "color_perms": 3, "pair_subsetting": True,
-                      "pair_subset_min": 1, "pair_subset_max": 3},
-        },
-        "out_files": {
-            "train":    DATA_SFT_DIR / "phase1_lit_train.jsonl",
-            "probe":    DATA_SFT_DIR / "phase1_lit_probe.jsonl",
-            "manifest": DATA_SFT_DIR / "phase1_lit_manifest.json",
-        },
+        "augment": _aug_train(),
+        "out_files": _out_files("same_lit"),
     },
-    "same": {
-        "stage_name": "phase1_same",
-        "stage_key":  "same",        # selects SYSTEM_MESSAGE
-        "substrate_filter": "same",  # only emit records whose T target is same-dim
+    "diff_lit": {
+        "stage_name": "phase1_diff_lit",
+        "stage_key":  "diff_lit",
+        "substrate_filter": "diff",  # diff-size pairs only
         "seed": 42,
-        # All 5 formats trainable. substrate_to_output is intrinsically
-        # same-dim. The other 4 are filtered to same-dim pairs at the
-        # item-enumeration step.
+        # Single-pair literacy for the facts alphabet only. No
+        # substrate_to_output — diff-size T has no decoder.
         "task_mix": {
-            "pair_to_substrate":         0.15,
-            "substrate_to_output":       0.15,
-            "multi_pair_to_rule":        0.25,
-            "test_substrate_prediction": 0.35,
-            "direct_output_grid":        0.10,
+            "pair_to_substrate": 1.0,
         },
-        "augment": {
-            "train": {"d4": True, "color_perms": 3, "pair_subsetting": True,
-                      "pair_subset_min": 1, "pair_subset_max": 3},
-        },
-        "out_files": {
-            "train":    DATA_SFT_DIR / "phase1_same_train.jsonl",
-            "probe":    DATA_SFT_DIR / "phase1_same_probe.jsonl",
-            "manifest": DATA_SFT_DIR / "phase1_same_manifest.json",
-        },
+        "augment": _aug_train(),
+        "out_files": _out_files("diff_lit"),
     },
-    "diff": {
-        "stage_name": "phase1_diff",
-        "stage_key":  "diff",
+    "same_rule": {
+        "stage_name": "phase1_same_rule",
+        "stage_key":  "same_rule",
+        "substrate_filter": "same",
+        "seed": 42,
+        # Multi-pair rule application on same-size pairs. Small literacy
+        # carry (same alphabet, ~20%) hedges against forgetting the pixel
+        # alphabet while learning rules.
+        "task_mix": {
+            "pair_to_substrate":         0.10,
+            "substrate_to_output":       0.10,
+            "multi_pair_to_rule":        0.25,
+            "test_substrate_prediction": 0.40,
+            "direct_output_grid":        0.15,
+        },
+        "augment": _aug_train(),
+        "out_files": _out_files("same_rule"),
+    },
+    "diff_rule": {
+        "stage_name": "phase1_diff_rule",
+        "stage_key":  "diff_rule",
         "substrate_filter": "diff",
         "seed": 42,
-        # substrate_to_output has no decoder for diff-dim, so it is
-        # absent from this stage's mix (the eligibility filter drops it
-        # automatically; this config is the explicit statement).
+        # Multi-pair rule application on diff-size pairs. No
+        # substrate_to_output (no decoder). Small pair_to_substrate carry.
         "task_mix": {
-            "pair_to_substrate":         0.20,
+            "pair_to_substrate":         0.15,
             "multi_pair_to_rule":        0.30,
             "test_substrate_prediction": 0.40,
-            "direct_output_grid":        0.10,
+            "direct_output_grid":        0.15,
         },
-        "augment": {
-            "train": {"d4": True, "color_perms": 3, "pair_subsetting": True,
-                      "pair_subset_min": 1, "pair_subset_max": 3},
-        },
-        "out_files": {
-            "train":    DATA_SFT_DIR / "phase1_diff_train.jsonl",
-            "probe":    DATA_SFT_DIR / "phase1_diff_probe.jsonl",
-            "manifest": DATA_SFT_DIR / "phase1_diff_manifest.json",
-        },
+        "augment": _aug_train(),
+        "out_files": _out_files("diff_rule"),
     },
     "mixed": {
         "stage_name": "phase1_mixed",
         "stage_key":  "mixed",
-        "substrate_filter": "both",  # no filter
+        "substrate_filter": "both",  # no filter — both alphabets, all formats
         "seed": 42,
-        # Compensating direct_output_grid up because diff-dim pairs no
-        # longer have substrate_to_output to ride on.
+        # Reconsolidation: both alphabets together with full task mix.
+        # direct_output_grid weighted up since diff-size pairs have no
+        # substrate_to_output to ride on.
         "task_mix": {
             "pair_to_substrate":         0.05,
             "substrate_to_output":       0.05,
@@ -271,15 +178,8 @@ STAGE_CONFIG = {
             "test_substrate_prediction": 0.40,
             "direct_output_grid":        0.25,
         },
-        "augment": {
-            "train": {"d4": True, "color_perms": 3, "pair_subsetting": True,
-                      "pair_subset_min": 1, "pair_subset_max": 3},
-        },
-        "out_files": {
-            "train":    DATA_SFT_DIR / "phase1_mixed_train.jsonl",
-            "probe":    DATA_SFT_DIR / "phase1_mixed_probe.jsonl",
-            "manifest": DATA_SFT_DIR / "phase1_mixed_manifest.json",
-        },
+        "augment": _aug_train(),
+        "out_files": _out_files("mixed"),
     },
 }
 
@@ -600,7 +500,7 @@ def make_record(item, stage_cfg, bucket):
     return {
         "messages": [
             {"role": "system",
-             "content": SYSTEM_MESSAGE_BY_STAGE[stage_cfg["stage_key"]]},
+             "content": PROMPT_BY_STAGE[stage_cfg["stage_key"]]},
             {"role": "user",      "content": user},
             {"role": "assistant", "content": target},
         ],
@@ -775,7 +675,9 @@ def generate_probe_records(probe_clusters, stage_cfg, master_seed):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["lit", "same", "diff", "mixed"], required=True)
+    ap.add_argument("--stage",
+                    choices=["same_lit", "diff_lit", "same_rule", "diff_rule", "mixed"],
+                    required=True)
     ap.add_argument("--sample-only", action="store_true",
                     help="Generate ~50 examples per bucket for review.")
     ap.add_argument("--max-per-puzzle", type=int, default=24,

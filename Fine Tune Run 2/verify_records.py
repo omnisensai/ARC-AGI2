@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """Verify the byte-level invariants of Phase 1 SFT records.
 
-Runs against the committed .jsonl / .jsonl.gz files for all three
-stages (same / diff / mixed). Exits non-zero on the first violation.
+Runs against the committed .jsonl / .jsonl.gz files for all five
+stages (same_lit / diff_lit / same_rule / diff_rule / mixed). Exits
+non-zero on the first violation.
+
+Expected system prompts are imported from phase1_prompts (the single
+source of truth), and that module is itself checked against PROMPTS.md
+before record verification begins — so doc, code, and data must all agree.
 
 Invariants enforced:
 
   S1  system content matches the expected system message FOR THIS
-      RECORD'S STAGE (provenance.stage_key in {same, diff, mixed})
+      RECORD'S STAGE (provenance.stage_key in
+      {same_lit, diff_lit, same_rule, diff_rule, mixed})
   S2  messages array is exactly [system, user, assistant]
   S3  no Qwen2 special tokens in any content
   U1  user content ends with `LABEL:\\n` (a trailing label + newline)
@@ -28,16 +34,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data_sft"
+sys.path.insert(0, str(ROOT))
+from phase1_prompts import PROMPT_BY_STAGE, STAGE_ORDER, check_against_doc  # noqa: E402
 
 FILES = [
-    DATA / "phase1_lit_train.jsonl.gz",
-    DATA / "phase1_lit_probe.jsonl",
-    DATA / "phase1_same_train.jsonl.gz",
-    DATA / "phase1_same_probe.jsonl",
-    DATA / "phase1_diff_train.jsonl.gz",
-    DATA / "phase1_diff_probe.jsonl",
-    DATA / "phase1_mixed_train.jsonl.gz",
-    DATA / "phase1_mixed_probe.jsonl",
+    f for stage in STAGE_ORDER for f in (
+        DATA / f"phase1_{stage}_train.jsonl.gz",
+        DATA / f"phase1_{stage}_probe.jsonl",
+    )
 ]
 
 KNOWN_FORMATS = {
@@ -61,95 +65,16 @@ QWEN_SPECIAL_RE = re.compile(
 TRAILING_LABEL_RE = re.compile(r"\n?[A-Z][A-Z0-9 _]*:\n$")
 
 
-# Mirror of build_phase1_dataset.py SYSTEM_MESSAGE_BY_STAGE. Must stay
-# in sync.
+# Expected system prompts come from the single source of truth.
+EXPECTED_BY_STAGE = PROMPT_BY_STAGE
 
-EXPECTED_SAME = """T represents the transformation between INPUT and OUTPUT. Each cell
-is an atomic unit colored 0-9.
-
-T grid legend when INPUT and OUTPUT have the same dimensions
-(e.g. 3x3 -> 3x3):
-  .       cell unchanged
-  0-9     cell changed to this output color
-Each cell is independent: T[r,c] depends only on INPUT[r,c] and
-OUTPUT[r,c], not on neighbors. Lossless — OUTPUT is fully
-reconstructible from INPUT + T."""
-
-EXPECTED_DIFF = """T represents the transformation between INPUT and OUTPUT. Each cell
-is an atomic unit colored 0-9.
-
-T grid legend when INPUT and OUTPUT have the same dimensions
-(e.g. 3x3 -> 3x3):
-  .       cell unchanged
-  0-9     cell changed to this output color
-Each cell is independent: T[r,c] depends only on INPUT[r,c] and
-OUTPUT[r,c], not on neighbors. Lossless — OUTPUT is fully
-reconstructible from INPUT + T.
-
-T grid legend when INPUT and OUTPUT have different dimensions
-(e.g. 3x3 -> 2x4):
-T is an aggregate text block with these sections in fixed order,
-separated by blank lines:
-  SIZE     overall dimensions:  H x W -> h x w  with relation tags
-  BG       background color:  in_bg -> out_bg  with relation tag
-  PALETTE  per-color count change
-  ROWS     per-row dominant colors + non-bg counts (INPUT and OUTPUT)
-  COLS     per-column dominant colors + non-bg counts (INPUT and OUTPUT)
-  BBOX     per-color bounding box (INPUT and OUTPUT)
-Whole-grid statistics — diagnostic only, not lossless. No per-cell
-decoder.
-
-Relation tags for numeric pairs a -> b:
-  =        a == b
-  ×N       b = a * N, integer N > 1
-  ÷N       a = b * N, integer N > 1
-  Δ±N      additive offset (b - a)
-  new      a == 0 and b > 0
-  dropped  a > 0 and b == 0"""
-
-EXPECTED_MIXED = """ARC-AGI puzzle contains INPUT/OUTPUT grid pairs where each cell is an
-atomic unit colored 0-9. There is exactly one transformation rule that
-generalizes across all input/output pairs of a puzzle. The rule is
-encoded in T grids — one T per pair, and the underlying rule is the
-same across all of them.
-
-T grid legend when INPUT and OUTPUT have the same dimensions
-(e.g. 3x3 -> 3x3):
-  .       cell unchanged
-  0-9     cell changed to this output color
-Each cell is independent: T[r,c] depends only on INPUT[r,c] and
-OUTPUT[r,c], not on neighbors. Lossless — OUTPUT is fully
-reconstructible from INPUT + T.
-
-T grid legend when INPUT and OUTPUT have different dimensions
-(e.g. 3x3 -> 2x4):
-T is an aggregate text block with these sections in fixed order,
-separated by blank lines:
-  SIZE     overall dimensions:  H x W -> h x w  with relation tags
-  BG       background color:  in_bg -> out_bg  with relation tag
-  PALETTE  per-color count change
-  ROWS     per-row dominant colors + non-bg counts (INPUT and OUTPUT)
-  COLS     per-column dominant colors + non-bg counts (INPUT and OUTPUT)
-  BBOX     per-color bounding box (INPUT and OUTPUT)
-Whole-grid statistics — diagnostic only, not lossless. No per-cell
-decoder.
-
-Relation tags for numeric pairs a -> b:
-  =        a == b
-  ×N       b = a * N, integer N > 1
-  ÷N       a = b * N, integer N > 1
-  Δ±N      additive offset (b - a)
-  new      a == 0 and b > 0
-  dropped  a > 0 and b == 0"""
-
-# LIT stage shares the DIFF prompt (both alphabets, no puzzle framing).
-EXPECTED_LIT = EXPECTED_DIFF
-
-EXPECTED_BY_STAGE = {
-    "lit":   EXPECTED_LIT,
-    "same":  EXPECTED_SAME,
-    "diff":  EXPECTED_DIFF,
-    "mixed": EXPECTED_MIXED,
+# Which substrate types each stage's records may contain.
+ALLOWED_SUBSTRATE = {
+    "same_lit":  {"same"},
+    "diff_lit":  {"diff"},
+    "same_rule": {"same"},
+    "diff_rule": {"diff"},
+    "mixed":     {"same", "diff"},
 }
 
 
@@ -229,21 +154,21 @@ def check_record(rec, file, line_no):
         violation(file, line_no, "A2",
                   f"assistant has leading/trailing whitespace", rec)
 
-    # P3: substrate_type must match stage filter
+    # P3: substrate_type must match the stage's allowed set
     sub_type = prov.get("substrate_type")
-    if stage_key == "same" and sub_type != "same":
+    allowed = ALLOWED_SUBSTRATE.get(stage_key, set())
+    if sub_type not in allowed:
         violation(file, line_no, "P3",
-                  f"same-stage record has substrate_type {sub_type!r}", rec)
-    if stage_key == "diff" and sub_type != "diff":
-        violation(file, line_no, "P3",
-                  f"diff-stage record has substrate_type {sub_type!r}", rec)
-    if stage_key in ("lit", "mixed") and sub_type not in ("same", "diff"):
-        violation(file, line_no, "P3",
-                  f"{stage_key}-stage record has bad substrate_type "
-                  f"{sub_type!r}", rec)
+                  f"{stage_key}-stage record has substrate_type {sub_type!r} "
+                  f"(allowed: {sorted(allowed)})", rec)
 
 
 def main():
+    # Doc/code sync first: the prompts module must match PROMPTS.md before
+    # we trust EXPECTED_BY_STAGE against the data.
+    check_against_doc()
+    print("OK   phase1_prompts.py matches PROMPTS.md")
+
     total = 0
     for file in FILES:
         if not file.exists():
