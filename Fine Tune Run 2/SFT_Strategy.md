@@ -10,6 +10,21 @@ seeds) are locked in the YAML configs alongside this file
 a config disagree, the config wins for execution and this doc gets
 updated to match.
 
+> **⚠ CURRENT STRUCTURE (supersedes the 4-stage prose below).** Phase 1
+> is now a **5-stage** curriculum:
+> `same_lit → diff_lit → same_rule → diff_rule → mixed`. The two T
+> alphabets (pixel for same-size, facts for diff-size) are taught in
+> isolation and reunite only in `mixed`. The **authoritative** stage
+> list, system prompts, task mixes, and commands live in:
+> - `phase1_prompts.py` + `PROMPTS.md` — the locked system prompts
+>   (single source of truth; the verifier self-checks them)
+> - `build_phase1_dataset.py` `STAGE_CONFIG` — filters + task mixes
+> - `RUNBOOK.md` §1, §3 — the per-stage train/probe commands
+>
+> Sections §4, §7, §9 below still describe the earlier 4-stage framing
+> (LIT/SAME/DIFF/MIXED) and are pending a prose reconciliation. Where
+> they conflict with the files above, the files win.
+
 ---
 
 ## 0. Orientation — core thesis and failure taxonomy
