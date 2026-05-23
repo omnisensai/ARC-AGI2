@@ -135,9 +135,28 @@ unquoted shells).
 
 ### P6. Auth — both bite on a fresh pod
 
-- **GitHub clone (private repo):** fine-grained PAT for
-  `omnisensai/ARC-AGI2`, Contents: Read. Username `omnisensai`,
-  password = the `github_pat_...` token.
+- **GitHub clone (private repo) — the `403` that wastes everyone's
+  morning.** A plain `git clone https://github.com/...` of the PRIVATE
+  repo with no credentials returns `error: 403` and does NOT prompt —
+  so the clone fails, then every `cd ARC-AGI2` / `git ...` after it
+  errors with "not a git repository". The fix is to **seed the
+  credential BEFORE cloning** (do not toggle the repo public/private):
+
+  ```bash
+  # one-time per fresh pod (PAT = fine-grained, omnisensai/ARC-AGI2,
+  # Contents: Read and write)
+  git config --global credential.helper 'store --file=/workspace/.git-credentials'
+  read -rsp 'paste GitHub PAT: ' TOKEN; echo
+  echo "https://omnisensai:${TOKEN}@github.com" > /workspace/.git-credentials
+  chmod 600 /workspace/.git-credentials
+  unset TOKEN
+  # now the clone uses the stored credential — no prompt, no 403
+  cd /workspace && git clone https://github.com/omnisensai/ARC-AGI2.git
+  ```
+
+  The credential file lives on `/workspace`, so it survives Stop/restart
+  — you only redo this after a full Terminate.
+
 - **Hugging Face:** `hf auth login`. Base Qwen is public; the adapter
   backup repo is private (needs Contents: Read+Write). The CLI is now
   `hf`, not `huggingface-cli`.
@@ -157,6 +176,7 @@ unquoted shells).
 | Error at model load mentioning flash-attn | P4 — install flash-attn or set `flash_attention: false` |
 | CUDA OOM | §5.3 — micro_batch 1 + grad_accum 32, or seq_len 4096, or 4bit |
 | `FileNotFoundError` on the `.jsonl.gz` | wrong cwd or unquoted space — run from repo root, quote the path (P5) |
+| `git clone` → `error: 403` then a cascade of "not a git repository" | private repo, no credential — seed `/workspace/.git-credentials` BEFORE cloning (P6). Do NOT toggle repo visibility. |
 | `404` on a private HF/GitHub repo | token lacks scope for that exact repo (P6) |
 | empty/garbled multi-line paste | notebook cell instead of terminal (P7) |
 
