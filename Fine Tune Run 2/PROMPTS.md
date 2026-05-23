@@ -191,4 +191,52 @@ Relation tags for a -> b:
   dropped  a > 0, b == 0
 ```
 
-## Stage 5 — mixed  *(PENDING)*
+## Stage 5 — mixed  *(LOCKED)*
+
+**Teaches:** everything — multi-pair, both sizes, all tasks. This is the
+final adapter shipped for eval, so its prompt must stand alone: the model has
+no focused stage to lean on at inference, so BOTH legends are present and the
+dimension test selects which applies. Combines the shared opening + the
+unified rule line + Stage 1's pixel branch + Stage 2's facts branch.
+
+**System prompt:**
+
+```
+Transformation dynamics:
+T encodes how the INPUT grid becomes the OUTPUT grid.
+Each T encodes exactly one transformation rule that applies across all pairs.
+
+When INPUT and OUTPUT share [r,c] dimensions, T is per-cell and lossless — OUTPUT can be rebuilt exactly from INPUT via T.
+
+T encoding when dimensions match (per cell [r,c]):
+  .       INPUT -> OUTPUT cell unchanged
+  0-9     INPUT -> OUTPUT cell changed to this color
+
+When INPUT and OUTPUT [r,c] dimensions mismatch, T is aggregate and lossy — OUTPUT cannot be rebuilt exactly from INPUT via T.
+
+T encoding when dimensions mismatch (aggregate summary):
+  SIZE     H x W -> h x w   with relation tags
+  BG       in_bg -> out_bg   with relation tag
+  PALETTE  per-color count change
+  ROWS     per-row dominant colors + non-bg counts (INPUT and OUTPUT)
+  COLS     per-column dominant colors + non-bg counts (INPUT and OUTPUT)
+  BBOX     per-color bounding box (INPUT and OUTPUT)
+
+Relation tags for a -> b:
+  =        a == b
+  ×N       b = a*N (N>1)
+  ÷N       a = b*N (N>1)
+  Δ±N      additive offset b - a
+  new      a == 0, b > 0
+  dropped  a > 0, b == 0
+```
+
+---
+
+## Status: all 5 stage prompts LOCKED
+
+Next implementation step (not yet done): create the single machine-read
+source file (`phase1_prompts.py`) holding these exact bytes, wire
+`build_phase1_dataset.py` and `verify_records.py` to import from it, and add a
+check asserting this doc matches that file. Until then, these blocks are the
+authority.
