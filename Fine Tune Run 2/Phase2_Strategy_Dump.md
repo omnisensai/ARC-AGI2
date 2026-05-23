@@ -1287,5 +1287,263 @@ axolotl train "Fine Tune Run 2/phase2_16k_axolotl.yaml"
 using the 8k LoRA as the starting adapter.
 
 So yes, we can change it in training strategy — but treat 16k as a **separate continuation run**, not a live mid-run change.
+Yes. This is exactly right.
+
+Before the model “searches” for ARC solutions, it must have a reliable **code substrate**.
+
+Not solve whole puzzles yet. Just know the atoms:
+
+```text
+draw a horizontal line
+draw a vertical line
+draw a diagonal line
+crop a bbox
+find 4-connected components
+find 8-connected components
+fill rectangle
+mirror
+rotate
+tile
+compress rows
+return valid grid
+```
+
+If it cannot reliably emit a diagonal, it has no business improvising a 100-line solver.
+
+## This is Phase 2.0: Code Substrate
+
+It is the code equivalent of the T-grid alphabet.
+
+Phase 1:
+
+```text
+grid transformation substrate
+```
+
+Phase 2.0:
+
+```text
+Python transformation substrate
+```
+
+Meaning: teach the model the primitive operations that ARC code is built from.
+
+## This can be no-puzzle / no-grid
+
+Prompt:
+
+```text
+System: Code Solver
+
+TASK:
+Write a helper that draws a diagonal line on a grid.
+
+CODE:
+```
+
+Assistant:
+
+```python
+def sign(x):
+    return (x > 0) - (x < 0)
+
+def draw_line(out, r1, c1, r2, c2, color):
+    dr = sign(r2 - r1)
+    dc = sign(c2 - c1)
+    r, c = r1, c1
+    while True:
+        out[r][c] = color
+        if r == r2 and c == c2:
+            break
+        r += dr
+        c += dc
+```
+
+Another:
+
+```text
+TASK:
+Write a safe 4-connected component finder for a grid.
+```
+
+Target:
+
+```python
+def components4(grid, bg):
+    H = len(grid)
+    W = len(grid[0])
+    seen = [[False for _ in range(W)] for _ in range(H)]
+    comps = []
+
+    for r in range(H):
+        for c in range(W):
+            if seen[r][c] or grid[r][c] == bg:
+                continue
+
+            color = grid[r][c]
+            stack = [(r, c)]
+            seen[r][c] = True
+            comp = []
+
+            while stack:
+                y, x = stack.pop()
+                comp.append((y, x))
+
+                for ny, nx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
+                    if 0 <= ny < H and 0 <= nx < W:
+                        if not seen[ny][nx] and grid[ny][nx] == color:
+                            seen[ny][nx] = True
+                            stack.append((ny, nx))
+
+            comps.append(comp)
+
+    return comps
+```
+
+This is absolutely worth hard-training.
+
+## Why this matters
+
+ARC code failures often come from primitive instability:
+
+```text
+off-by-one
+wrong diagonal direction
+4-connected vs 8-connected confusion
+bbox min/max bug
+IndexError at boundary
+non-rectangular output
+copying input when output shape changes
+wrong line endpoint
+```
+
+These are not “reasoning” failures. They are code-substrate failures.
+
+So yes: train the atoms until they are boring.
+
+## I would make a Code Substrate Library
+
+Categories:
+
+```text
+GRID CONTRACT
+- valid solve skeleton
+- same-size output copy
+- diff-size output allocation
+- rectangular grid validation
+
+GEOMETRY
+- sign
+- draw horizontal line
+- draw vertical line
+- draw diagonal line
+- draw arbitrary 8-direction line
+- fill rectangle
+- bbox crop
+- translate cells
+
+COMPONENTS
+- neighbors4
+- neighbors8
+- components4
+- components8
+- largest component
+- bbox of component
+
+TRANSFORMS
+- recolor
+- replace color
+- mirror horizontal
+- mirror vertical
+- rotate 90
+- tile k×k
+- compress rows
+- remove empty rows/cols
+
+SELECTION
+- background color
+- most frequent non-bg color
+- unique color
+- object touching border
+- object by size
+```
+
+## Training style
+
+For each primitive:
+
+```text
+TASK:
+Write Python helper for <primitive>.
+
+CODE:
+```
+
+Then later:
+
+```text
+TASK:
+Use <primitive> inside def solve(input_grid).
+
+CODE:
+```
+
+Then later with tiny grids:
+
+```text
+INPUT:
+...
+OUTPUT:
+...
+T:
+...
+CODE:
+```
+
+So the ladder is:
+
+```text
+helper only
+solve skeleton using helper
+tiny grid primitive
+multi-pair puzzle
+```
+
+## Yes, hard memory is okay here
+
+This is not where we need creativity.
+
+We want the model to memorize correct idioms:
+
+```python
+0 <= nr < H and 0 <= nc < W
+```
+
+```python
+out = [row[:] for row in input_grid]
+```
+
+```python
+out = [[0 for _ in range(out_w)] for _ in range(out_h)]
+```
+
+```python
+return out
+```
+
+```python
+dr = sign(r2 - r1)
+dc = sign(c2 - c1)
+```
+
+This is the right place to “burn in” code reflexes.
+
+Clean sentence:
+
+```text
+Before the model can search over transformations, it must have stable transformation operators.
+```
+
+That is Phase 2.0.
 
 
