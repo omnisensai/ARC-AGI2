@@ -47,12 +47,12 @@ the label slot).
 The model's first lesson: see the exact before→after difference, one pair, no
 neighbors, no rule generalization.
 
-**System prompt (LEGEND_PIXEL header form):**
+**System prompt:**
 
 ```
 Transformation dynamics:
-T encodes, per cell, how the INPUT grid becomes the OUTPUT grid.
-When INPUT and OUTPUT share [r,c] dimensions, T is lossless and OUTPUT can be rebuilt exactly from INPUT via T.
+T encodes how the INPUT grid becomes the OUTPUT grid.
+When INPUT and OUTPUT share [r,c] dimensions, T is per-cell and lossless — OUTPUT can be rebuilt exactly from INPUT via T.
 
 T encoding (per cell [r,c]):
   .       INPUT -> OUTPUT cell unchanged
@@ -82,9 +82,52 @@ OUTPUT:
 
 ---
 
-## Stage 2 — diff-literacy  *(PENDING)*
+## Stage 2 — diff-literacy  *(LOCKED)*
 
-_To be defined next._
+**Teaches:** one diff-size pair → write the aggregate facts-T. The contrast
+with Stage 1 is the lesson: mismatched dims have no cell correspondence, so T
+is a whole-grid summary, lossy, NOT reversible. Only `pair_to_substrate` here
+— diff-size T has no decoder, so `substrate_to_output` cannot exist for it.
+
+Shares lines 1–2 verbatim with Stage 1 (one frame); diverges at the dimension
+test. Section names (SIZE/BG/PALETTE/ROWS/COLS/BBOX) and relation tags
+(= ×N ÷N Δ±N new dropped) are mechanical — must match `diffsize_encode`
+output byte-for-byte; do not reword them.
+
+**System prompt:**
+
+```
+Transformation dynamics:
+T encodes how the INPUT grid becomes the OUTPUT grid.
+When INPUT and OUTPUT [r,c] dimensions mismatch, T is aggregate and lossy — OUTPUT cannot be rebuilt exactly from INPUT via T.
+
+T encoding (aggregate summary):
+  SIZE     H x W -> h x w   with relation tags
+  BG       in_bg -> out_bg   with relation tag
+  PALETTE  per-color count change
+  ROWS     per-row dominant colors + non-bg counts (INPUT and OUTPUT)
+  COLS     per-column dominant colors + non-bg counts (INPUT and OUTPUT)
+  BBOX     per-color bounding box (INPUT and OUTPUT)
+
+Relation tags for a -> b:
+  =        a == b
+  ×N       b = a*N (N>1)
+  ÷N       a = b*N (N>1)
+  Δ±N      additive offset b - a
+  new      a == 0, b > 0
+  dropped  a > 0, b == 0
+```
+
+**User prompt shape** (`pair_to_substrate`):
+```
+INPUT:
+<grid>
+
+OUTPUT:
+<grid>
+
+T:
+```
 
 ## Stage 3 — same-rule  *(PENDING)*
 
