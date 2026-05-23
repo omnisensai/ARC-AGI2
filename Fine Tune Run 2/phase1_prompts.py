@@ -62,37 +62,29 @@ _FACTS_LEGEND_BODY = (
 )
 
 
-def _pixel_block(encoding_header: str) -> str:
-    return f"{_SAME_CONDITION}\n\n{encoding_header}\n{_PIXEL_LEGEND_BODY}"
-
-
-def _facts_block(encoding_header: str) -> str:
-    return f"{_DIFF_CONDITION}\n\n{encoding_header}\n{_FACTS_LEGEND_BODY}"
+# Each block is byte-identical wherever it appears (literacy, rule, or mixed).
+# Within a block: condition line, blank, encoding header, legend body.
+_PIXEL_BLOCK = f"{_SAME_CONDITION}\n\nT encoding (per cell [r,c]):\n{_PIXEL_LEGEND_BODY}"
+_FACTS_BLOCK = f"{_DIFF_CONDITION}\n\nT encoding (aggregate summary):\n{_FACTS_LEGEND_BODY}"
 
 
 # --- the five stage prompts --------------------------------------------------
+#
+# Unified structure. Everything invariant stays identical; prompts diverge
+# ONLY at the two forks:
+#   fork 1 (literacy vs rule):  the rule line is present iff it is a rule stage
+#   fork 2 (same / diff / both): which legend block(s) appear
+#
+#   <HEADER>                      (invariant, all 5)
+#   [<RULE_LINE>]                 (rule stages + mixed only)
+#                                 (blank line — always)
+#   <block(s)>                    (PIXEL and/or FACTS, byte-identical reuse)
 
-# Literacy stages: condition line directly follows the header (no blank line,
-# no rule line). Rule stages insert the rule line + a blank line before it.
-SAME_LIT = f"{_HEADER}\n{_pixel_block('T encoding (per cell [r,c]):')}"
-
-DIFF_LIT = f"{_HEADER}\n{_facts_block('T encoding (aggregate summary):')}"
-
-SAME_RULE = (
-    f"{_HEADER}\n{_RULE_LINE}\n\n"
-    f"{_pixel_block('T encoding (per cell [r,c]):')}"
-)
-
-DIFF_RULE = (
-    f"{_HEADER}\n{_RULE_LINE}\n\n"
-    f"{_facts_block('T encoding (aggregate summary):')}"
-)
-
-MIXED = (
-    f"{_HEADER}\n{_RULE_LINE}\n\n"
-    f"{_pixel_block('T encoding when dimensions match (per cell [r,c]):')}\n\n"
-    f"{_facts_block('T encoding when dimensions mismatch (aggregate summary):')}"
-)
+SAME_LIT  = f"{_HEADER}\n\n{_PIXEL_BLOCK}"
+DIFF_LIT  = f"{_HEADER}\n\n{_FACTS_BLOCK}"
+SAME_RULE = f"{_HEADER}\n{_RULE_LINE}\n\n{_PIXEL_BLOCK}"
+DIFF_RULE = f"{_HEADER}\n{_RULE_LINE}\n\n{_FACTS_BLOCK}"
+MIXED     = f"{_HEADER}\n{_RULE_LINE}\n\n{_PIXEL_BLOCK}\n\n{_FACTS_BLOCK}"
 
 
 # Stage order is the training order: same-literacy -> diff-literacy ->

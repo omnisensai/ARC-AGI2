@@ -52,6 +52,7 @@ neighbors, no rule generalization.
 ```
 Transformation dynamics:
 T encodes how the INPUT grid becomes the OUTPUT grid.
+
 When INPUT and OUTPUT share [r,c] dimensions, T is per-cell and lossless — OUTPUT can be rebuilt exactly from INPUT via T.
 
 T encoding (per cell [r,c]):
@@ -99,6 +100,7 @@ output byte-for-byte; do not reword them.
 ```
 Transformation dynamics:
 T encodes how the INPUT grid becomes the OUTPUT grid.
+
 When INPUT and OUTPUT [r,c] dimensions mismatch, T is aggregate and lossy — OUTPUT cannot be rebuilt exactly from INPUT via T.
 
 T encoding (aggregate summary):
@@ -208,13 +210,13 @@ Each T encodes exactly one transformation rule that applies across all pairs.
 
 When INPUT and OUTPUT share [r,c] dimensions, T is per-cell and lossless — OUTPUT can be rebuilt exactly from INPUT via T.
 
-T encoding when dimensions match (per cell [r,c]):
+T encoding (per cell [r,c]):
   .       INPUT -> OUTPUT cell unchanged
   0-9     INPUT -> OUTPUT cell changed to this color
 
 When INPUT and OUTPUT [r,c] dimensions mismatch, T is aggregate and lossy — OUTPUT cannot be rebuilt exactly from INPUT via T.
 
-T encoding when dimensions mismatch (aggregate summary):
+T encoding (aggregate summary):
   SIZE     H x W -> h x w   with relation tags
   BG       in_bg -> out_bg   with relation tag
   PALETTE  per-color count change
