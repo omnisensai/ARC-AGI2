@@ -184,6 +184,16 @@ or `flash_attn`. Symptom from the block-3 sanity check: `axolotl MISSING`,
   `sed -i 's/flash_attention: true/flash_attention: false/'`). On an
   80 GB A100 with these batch/seq settings, training fits without it.
 
+  **Known cascade: `pip install axolotl` bumps torch (2.4→2.8) and
+  orphans torchvision/torchaudio**, which then crash on import with
+  `RuntimeError: operator torchvision::nms does not exist`, cascading
+  into `Could not import module 'PreTrainedModel'` and `axolotl --help`
+  failing. LLM LoRA training needs neither, so just remove them:
+  ```bash
+  pip uninstall -y torchvision torchaudio
+  axolotl --help >/dev/null 2>&1 && echo OK || echo FAILED
+  ```
+
 ### P7. Setup in a Jupyter Terminal, not notebook cells
 
 `File → New → Terminal`. Heredocs and multi-line blocks mangle in
@@ -196,6 +206,7 @@ or `flash_attn`. Symptom from the block-3 sanity check: `axolotl MISSING`,
 |---|---|
 | `OSError: Disk quota exceeded` during download | cache on overlay disk / Xet — do P0 before anything |
 | Trained, but results look like an old config | stale `dataset_prepared_path` — P1, delete the prepared dir |
+| `axolotl --help` fails: `torchvision::nms does not exist` / `Could not import PreTrainedModel` | torch got bumped, torchvision orphaned — `pip uninstall -y torchvision torchaudio` (P-INSTALL) |
 | Error at model load mentioning flash-attn | P4 — install flash-attn or set `flash_attention: false` |
 | CUDA OOM | §5.3 — micro_batch 1 + grad_accum 32, or seq_len 4096, or 4bit |
 | `FileNotFoundError` on the `.jsonl.gz` | wrong cwd or unquoted space — run from repo root, quote the path (P5) |
