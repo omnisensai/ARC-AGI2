@@ -171,11 +171,12 @@ or `flash_attn`. Symptom from the block-3 sanity check: `axolotl MISSING`,
 
 - **Best: launch the pod from an axolotl template image** (axolotl +
   flash-attn + matched torch preinstalled) — skips all of the below.
-- **On a bare pod, install:**
+- **On a bare pod, install (order matters — `hf` ships INSIDE
+  huggingface_hub, which axolotl pulls in, so install axolotl FIRST):**
   ```bash
-  hf auth login                              # paste HF token
   pip install --no-cache-dir axolotl 2>&1 | tail -15
   axolotl --help >/dev/null 2>&1 && echo OK || echo FAILED
+  hf auth login                              # paste HF token (hf exists now)
   pip install flash-attn --no-build-isolation 2>&1 | tail -5   # optional
   ```
   If flash-attn is slow to compile or fails, **don't fight it** — set
