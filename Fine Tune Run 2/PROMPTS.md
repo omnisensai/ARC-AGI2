@@ -129,7 +129,34 @@ OUTPUT:
 T:
 ```
 
-## Stage 3 — same-rule  *(PENDING)*
+## Stage 3 — same-rule  *(LOCKED)*
+
+**Teaches:** multi-pair, same-size. First stage where multiple pairs appear.
+Tasks: `multi_pair_to_rule` (produce trailing pair's T), `test_substrate_prediction`
+(infer the transformation from worked pairs, apply to a hidden test pair),
+`direct_output_grid` (predict the test output directly). The
+"transformation generalizes across pairs" line is what makes the worked pairs
+relevant to the hidden test pair — `test_substrate_prediction` depends on it.
+
+Same pixel legend as Stage 1 (same-size). Shares lines 1–2 verbatim with
+Stages 1–2; line 3 introduces multi-pair generalization. NOTE the subject of
+"generalizes" is the transformation (encoded in T), NOT T itself — T is
+per-pair and differs across pairs (T1 ≠ T2); the transformation behind them is
+what is shared.
+
+**System prompt:**
+
+```
+Transformation dynamics:
+T encodes how the INPUT grid becomes the OUTPUT grid.
+The same transformation dynamic encoded in T generalizes across pairs.
+
+When INPUT and OUTPUT share [r,c] dimensions, T is per-cell and lossless — OUTPUT can be rebuilt exactly from INPUT via T.
+
+T encoding (per cell [r,c]):
+  .       INPUT -> OUTPUT cell unchanged
+  0-9     INPUT -> OUTPUT cell changed to this color
+```
 
 ## Stage 4 — diff-rule  *(PENDING)*
 
