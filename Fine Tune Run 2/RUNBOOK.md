@@ -59,6 +59,109 @@ this runbook.
 
 ---
 
+## 2.5 Startup pitfalls — the first-100-iterations tax (READ FIRST)
+
+Every fresh pod loses an hour to the same handful of cache / memory /
+auth errors. Do these *before* your first `axolotl train` and most of
+them never happen. (Harvested from `scripts/preflight.sh` and
+`docs/runbook_vllm_eval.md`.)
+
+### P0. Redirect ALL caches off the tiny overlay disk, BEFORE any download
+
+RunPod `/` is a ~20 GB overlay; `/workspace` is the big network volume.
+Qwen-7B is ~15 GB and HF caches to `~/.cache` (= overlay) by default →
+`OSError: Disk quota exceeded` mid-download. Set, persist, and source:
+
+```bash
+export HF_HOME=/workspace/hf_cache/huggingface
+export HUGGINGFACE_HUB_CACHE=/workspace/hf_cache/huggingface/hub
+export TRANSFORMERS_CACHE=/workspace/hf_cache/huggingface/hub
+export TMPDIR=/workspace/tmp
+export HF_HUB_DISABLE_XET=1      # Xet keeps a SECOND copy of weights — disable
+export PYTHONUNBUFFERED=1        # so logs aren't silently buffered
+mkdir -p /workspace/hf_cache/huggingface/hub /workspace/tmp
+echo 'source /root/.env_train' >> ~/.bashrc   # after writing the above into it
+```
+
+### P1. axolotl's tokenized cache is stale-prone (the silent footgun)
+
+axolotl tokenizes once and caches to `dataset_prepared_path`. If you
+regenerate data or edit a config, it **reuses the old cache and trains
+on stale data without warning.** Whenever you change a stage's data or
+yaml, nuke that stage's prepared dir first:
+
+```bash
+rm -rf "Fine Tune Run 2/data_sft/prepared/phase1_<stage>"
+```
+
+Also make sure `outputs/` lives on `/workspace`, not the overlay disk.
+
+### P2. Dry-run the config before burning GPU hours
+
+```bash
+axolotl preprocess "Fine Tune Run 2/phase1_same_lit_axolotl.yaml"
+```
+
+This tokenizes without training — surfaces config / schema / chat-template
+errors in ~1 min instead of after a 2-minute model load. Run it once per
+stage config the first time.
+
+### P3. Confirm the chat template matches training (one-time)
+
+Training uses axolotl's built-in `chat_template: qwen2`. The eval/probe
+path uses the tokenizer's template (pinned in
+`Fine Tune Run 2/tokenizer_config.json`). They should be identical
+ChatML, but verify once on the box:
+
+```bash
+python3 -c "
+from transformers import AutoTokenizer
+t = AutoTokenizer.from_pretrained('Qwen/Qwen2.5-7B-Instruct')
+print(t.chat_template[:120])"
+```
+
+### P4. flash-attention must actually be installed
+
+Configs set `flash_attention: true`. If flash-attn isn't built for your
+torch/CUDA, training dies at model load. Either
+`pip install flash-attn --no-build-isolation`, or set
+`flash_attention: false` in the yaml.
+
+### P5. Run from the repo root; the folder name has a space
+
+All dataset paths are `Fine Tune Run 2/...` relative to the repo root.
+Run axolotl from the repo root and quote the path (the space breaks
+unquoted shells).
+
+### P6. Auth — both bite on a fresh pod
+
+- **GitHub clone (private repo):** fine-grained PAT for
+  `omnisensai/ARC-AGI2`, Contents: Read. Username `omnisensai`,
+  password = the `github_pat_...` token.
+- **Hugging Face:** `hf auth login`. Base Qwen is public; the adapter
+  backup repo is private (needs Contents: Read+Write). The CLI is now
+  `hf`, not `huggingface-cli`.
+
+### P7. Setup in a Jupyter Terminal, not notebook cells
+
+`File → New → Terminal`. Heredocs and multi-line blocks mangle in
+`%%bash`/`!` cells. And never paste a Python script into a bash prompt
+(symptom: a wall of `command not found` for `import`, `Counter`, etc.).
+
+### Symptom → cause (training)
+
+| Symptom | Cause / fix |
+|---|---|
+| `OSError: Disk quota exceeded` during download | cache on overlay disk / Xet — do P0 before anything |
+| Trained, but results look like an old config | stale `dataset_prepared_path` — P1, delete the prepared dir |
+| Error at model load mentioning flash-attn | P4 — install flash-attn or set `flash_attention: false` |
+| CUDA OOM | §5.3 — micro_batch 1 + grad_accum 32, or seq_len 4096, or 4bit |
+| `FileNotFoundError` on the `.jsonl.gz` | wrong cwd or unquoted space — run from repo root, quote the path (P5) |
+| `404` on a private HF/GitHub repo | token lacks scope for that exact repo (P6) |
+| empty/garbled multi-line paste | notebook cell instead of terminal (P7) |
+
+---
+
 ## 3. Order of operations
 
 Run each stage in sequence. Between stages, **probe → decide → proceed**.
