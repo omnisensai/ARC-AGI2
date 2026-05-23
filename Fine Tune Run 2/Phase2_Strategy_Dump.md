@@ -979,3 +979,240 @@ Only validator-approved code becomes truth.
 
 This is the clean Phase 2 bridge: **T-language → robust code → repair loop**.
 ```
+
+Yes — for **Phase 2**, assume **8k will not fit the full “all pairs + all T + code + repair” format**.
+
+So Phase 2 must be designed as **context-budgeted**, not just “raise sequence_len.”
+
+## My call
+
+Use **two Phase 2 lanes**:
+
+```text
+Lane A — 8k main curriculum
+Lane B — 16k long-context specialist
+```
+
+Do not force everything into one format.
+
+## Why
+
+Phase 2 has much bigger records:
+
+```text
+train pairs
+outputs
+T substrates
+test input
+test T
+Python code
+wrong code
+validator feedback
+diff maps / tracebacks
+corrected code
+```
+
+That will blow up fast.
+
+So we should split by record type.
+
+---
+
+## Lane A — 8k main curriculum
+
+Use this for most training:
+
+```text
+code primitives
+single-pair T→code
+two-pair T→code
+compact all-pair records
+short repair records
+```
+
+This lane teaches:
+
+```text
+valid Python
+shape discipline
+safe loops
+primitive code patterns
+small/medium rule compilation
+```
+
+Keep it fast and cheap.
+
+## Lane B — 16k long-context specialist
+
+Use only for records that truly need context:
+
+```text
+all-pair T→code on large puzzles
+multi-pair diff-size prompts
+repair with wrong code + feedback + corrected code
+hard examples with long code
+```
+
+This lane teaches:
+
+```text
+full puzzle synthesis
+long-context repair
+large-grid rule application
+```
+
+Run it after Lane A or as a short continuation.
+
+---
+
+## Better than just 16k: make the generator adaptive
+
+For every Phase 2 record, compute token length and route it:
+
+```text
+<= 8192       → phase2_train_8k.jsonl
+8193–16384    → phase2_train_16k.jsonl
+> 16384       → compress / split / skip
+```
+
+This avoids making the whole training slow because of the long tail.
+
+## Compression rules before 16k
+
+Before routing to 16k, try:
+
+```text
+1. Drop redundant OUTPUT when same-size T is present.
+2. Use only N-1 or 2 representative pairs.
+3. Use pair cycling instead of all pairs.
+4. Use compact feedback instead of full traceback.
+5. Use cropped diff maps, not full diff maps.
+6. Keep only relevant failure info.
+```
+
+If still over 8k, then 16k.
+
+---
+
+## Phase 2 prompt policy
+
+For code training, do not always include every field.
+
+### Short single-pair
+
+```text
+INPUT
+T
+OUTPUT
+CODE:
+```
+
+### Two-pair
+
+```text
+P1 INPUT / OUTPUT / T
+P2 INPUT / OUTPUT / T
+CODE:
+```
+
+### All-pair compact
+
+For same-size, because T is lossless:
+
+```text
+P1 INPUT / T
+P2 INPUT / T
+TEST INPUT / TEST T
+CODE:
+```
+
+Output can be omitted if T is present.
+
+### Diff-size
+
+Because diff-size T is lossy:
+
+```text
+P1 INPUT / OUTPUT / T
+P2 INPUT / OUTPUT / T
+TEST INPUT / TEST T
+CODE:
+```
+
+Need outputs for grounding.
+
+### Repair compact
+
+```text
+PUZZLE SUMMARY
+WRONG CODE
+VALIDATOR FEEDBACK:
+- exception or shape error
+- cell_diff per pair
+- cropped diff map if useful
+CORRECTED CODE:
+```
+
+Avoid giant tracebacks unless the task is specifically exec-error repair.
+
+---
+
+## Training recommendation
+
+Start Phase 2 with:
+
+```yaml
+sequence_len: 8192
+```
+
+for Lane A.
+
+Then separately:
+
+```yaml
+sequence_len: 16384
+micro_batch_size: 1
+gradient_accumulation_steps: higher
+```
+
+for Lane B.
+
+Do a 5-step smoke test first.
+
+## Actual risk of 16k in Phase 2
+
+The risk is acceptable **if it is isolated**.
+
+Bad:
+
+```text
+Everything at 16k
+```
+
+Good:
+
+```text
+Only long-context examples at 16k
+```
+
+Because the latter keeps the main curriculum fast.
+
+---
+
+## Bottom line
+
+You are right: **Phase 2 full records will barely fit or not fit at 8k.**
+
+So the answer is not “just 16k.”
+
+The answer is:
+
+```text
+Phase 2 must be token-routed:
+8k for code primitives and compact T→code,
+16k for long all-pair and repair examples,
+split/compress anything above 16k.
+```
+
+That gives us both speed and full-context capability.
+
