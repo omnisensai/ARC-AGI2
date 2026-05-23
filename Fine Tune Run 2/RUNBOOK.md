@@ -39,10 +39,12 @@ this runbook.
 ## 2. Prerequisites
 
 **Environment:**
-- A GPU machine with `axolotl` installed and working (Run 1 used
-  RunPod with A100; same setup recommended).
+- A GPU machine with `axolotl`. **Bare PyTorch RunPod images do NOT have
+  axolotl or flash-attn preinstalled** — either pick an axolotl template
+  image, or install on a bare pod (see P-INSTALL below). A100-80GB is
+  the tested GPU.
 - Python with `transformers`, `peft`, `torch` for the probe harness.
-- This repo cloned, branch `claude/intelligent-goldberg-4vywU`.
+- This repo cloned, branch `claude/gifted-mayer-3ITc1`.
 
 **Disk:**
 - ~25MB for the train datasets (committed in `Fine Tune Run 2/data_sft/`).
@@ -160,6 +162,26 @@ unquoted shells).
 - **Hugging Face:** `hf auth login`. Base Qwen is public; the adapter
   backup repo is private (needs Contents: Read+Write). The CLI is now
   `hf`, not `huggingface-cli`.
+
+### P-INSTALL. Bare image has no axolotl / flash-attn (install, or use a template)
+
+A fresh RunPod PyTorch image typically has `torch` but **not** `axolotl`
+or `flash_attn`. Symptom from the block-3 sanity check: `axolotl MISSING`,
+`No module named 'flash_attn'`. Two ways:
+
+- **Best: launch the pod from an axolotl template image** (axolotl +
+  flash-attn + matched torch preinstalled) — skips all of the below.
+- **On a bare pod, install:**
+  ```bash
+  hf auth login                              # paste HF token
+  pip install --no-cache-dir axolotl 2>&1 | tail -15
+  axolotl --help >/dev/null 2>&1 && echo OK || echo FAILED
+  pip install flash-attn --no-build-isolation 2>&1 | tail -5   # optional
+  ```
+  If flash-attn is slow to compile or fails, **don't fight it** — set
+  `flash_attention: false` in each `phase1_*_axolotl.yaml` (or
+  `sed -i 's/flash_attention: true/flash_attention: false/'`). On an
+  80 GB A100 with these batch/seq settings, training fits without it.
 
 ### P7. Setup in a Jupyter Terminal, not notebook cells
 
