@@ -342,3 +342,27 @@ quota next time.
    has only the 07:59 pre-save config, NOT the trained weights — point
    diff_lit's lora_model_dir at checkpoint-400, or copy the adapter up).
 4. Launch diff_lit (stage 2).
+
+---
+
+## HARDENED LESSON — Stop/Pause is unreliable; back up per stage (2026-05-24)
+
+Confirmed TWICE in one session: a *stopped* pod refused to restart ("GPU no
+longer available" / "not enough free GPUs") because a pod (non-network) volume
+is tied to one host, and that host's A100 gets taken while you're stopped. So:
+
+- **Do NOT rely on Stop/Pause to save money mid-run.** Treat stopping as
+  "probably losing this pod."
+- **Durable safety = HF backup after EACH stage** (save_adapter_to_hf.sh,
+  byte-verified), NOT stop/resume. If the pod dies, restore the last completed
+  stage from HF onto a fresh pod; you lose only the in-progress stage.
+- **Operating rule: keep the pod running continuously through the whole chain**
+  (diff_lit -> same_rule -> diff_rule -> mixed), running stages back-to-back.
+- **Next-run fix: use a NETWORK volume** (host-independent; attaches to any free
+  GPU, so stop/restart actually works).
+
+Also discovered the disk-quota saga's real cause: TWO pods existed — work landed
+on a **20 GB** pod (constant quota kills) while an empty **100 GB** pod sat
+unused. Moving the run to a 100 GB box; restoring stage 1 from HF (the local
+same_lit top-level save never completed). Cost of a wrong-sized/duplicate pod:
+hours. Verify volume size + that there's only ONE pod before training.
