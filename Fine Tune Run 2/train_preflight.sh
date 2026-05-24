@@ -24,11 +24,20 @@ echo "Phase 1 train preflight"
 echo "=================================================="
 
 # ---- 1. caches off the overlay disk + env -----------------------------------
-cat > /root/.env_train <<'EOF'
-export HF_HOME=/workspace/hf_cache/huggingface
-export HUGGINGFACE_HUB_CACHE=/workspace/hf_cache/huggingface/hub
-export TRANSFORMERS_CACHE=/workspace/hf_cache/huggingface/hub
-export TMPDIR=/workspace/tmp
+# Pick a writable base for caches/tmp. Default /workspace (the persistent
+# volume), but if it's full or unwritable — we've hit glitched RunPod volumes
+# that report 100% full while completely empty — fall back to /root on the
+# container disk. Override explicitly with TRAIN_BASE=/some/path.
+BASE="${TRAIN_BASE:-/workspace}"
+if ! ( mkdir -p "$BASE" 2>/dev/null && touch "$BASE/.wtest" 2>/dev/null && rm -f "$BASE/.wtest" ); then
+  echo "  (note: $BASE is full/unwritable — falling back to /root on the container disk)"
+  BASE=/root
+fi
+cat > /root/.env_train <<EOF
+export HF_HOME=$BASE/hf_cache/huggingface
+export HUGGINGFACE_HUB_CACHE=$BASE/hf_cache/huggingface/hub
+export TRANSFORMERS_CACHE=$BASE/hf_cache/huggingface/hub
+export TMPDIR=$BASE/tmp
 export HF_HUB_DISABLE_XET=1
 export AXOLOTL_DO_NOT_TRACK=1
 export DO_NOT_TRACK=1
@@ -36,8 +45,8 @@ export PYTHONUNBUFFERED=1
 EOF
 grep -q 'source /root/.env_train' ~/.bashrc || echo 'source /root/.env_train' >> ~/.bashrc
 source /root/.env_train
-mkdir -p /workspace/hf_cache/huggingface/hub /workspace/tmp
-echo "[1/6] env + caches set (HF_HOME=$HF_HOME)"
+mkdir -p "$BASE/hf_cache/huggingface/hub" "$BASE/tmp"
+echo "[1/6] env + caches set (BASE=$BASE, HF_HOME=$HF_HOME)"
 
 # ---- 2. axolotl -------------------------------------------------------------
 if axolotl --help >/dev/null 2>&1; then
