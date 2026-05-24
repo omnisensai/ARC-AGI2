@@ -1,0 +1,47 @@
+{
+  "puzzle_id": "6b9890af",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import deque\n\n\ndef _comps(g):\n    R, C = len(g), len(g[0])\n    seen = [[0] * C for _ in range(R)]\n    out = []\n    for r in range(R):\n        for c in range(C):\n            if g[r][c] and not seen[r][c]:\n                q = deque([(r, c)])\n                seen[r][c] = 1\n                cells = []\n                while q:\n                    x, y = q.popleft()\n                    cells.append((x, y))\n                    for dx in (-1, 0, 1):\n                        for dy in (-1, 0, 1):\n                            nx, ny = x + dx, y + dy\n                            if 0 <= nx < R and 0 <= ny < C and g[nx][ny] and not seen[nx][ny]:\n                                seen[nx][ny] = 1\n                                q.append((nx, ny))\n                out.append(cells)\n    return out\n\n\ndef solve(input_grid):\n    g = input_grid\n    comps = _comps(g)\n    comps.sort(key=len, reverse=True)\n    frame = comps[0]\n    shape = comps[1]\n\n    fr = [x for x, _ in frame]\n    fc = [y for _, y in frame]\n    fcolor = g[frame[0][0]][frame[0][1]]\n    size = max(fr) - min(fr) + 1\n\n    sr = [x for x, _ in shape]\n    sc = [y for _, y in shape]\n    sminr, sminc = min(sr), min(sc)\n    sh = max(sr) - min(sr) + 1\n    sw = max(sc) - min(sc) + 1\n    scolor = g[shape[0][0]][shape[0][1]]\n\n    interior = size - 2\n    fy = interior // sh\n    fx = interior // sw\n\n    # build scaled shape pattern\n    pat = [[0] * interior for _ in range(interior)]\n    for (x, y) in shape:\n        dr = x - sminr\n        dc = y - sminc\n        for i in range(fy):\n            for j in range(fx):\n                pat[dr * fy + i][dc * fx + j] = scolor\n\n    out = []\n    for r in range(size):\n        row = []\n        for c in range(size):\n            if r == 0 or r == size - 1 or c == 0 or c == size - 1:\n                row.append(fcolor)\n            else:\n                row.append(pat[r - 1][c - 1])\n        out.append(row)\n    return out\n",
+      "source": "claude_agent_diffsolve_R1",
+      "puzzle_file": "6b9890af_A1T.json",
+      "approach": ""
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {}
+}

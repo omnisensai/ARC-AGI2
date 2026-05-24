@@ -1,0 +1,47 @@
+{
+  "puzzle_id": "50aad11f",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import deque\ndef solve(input_grid):\n    g=input_grid; H=len(g); W=len(g[0])\n    seen=[[False]*W for _ in range(H)]\n    comps=[]\n    for r in range(H):\n        for c in range(W):\n            if g[r][c]==6 and not seen[r][c]:\n                q=deque([(r,c)]); seen[r][c]=True; pts=[]\n                while q:\n                    y,x=q.popleft(); pts.append((y,x))\n                    for dy,dx in((1,0),(-1,0),(0,1),(0,-1),(1,1),(1,-1),(-1,1),(-1,-1)):\n                        ny,nx=y+dy,x+dx\n                        if 0<=ny<H and 0<=nx<W and g[ny][nx]==6 and not seen[ny][nx]:\n                            seen[ny][nx]=True; q.append((ny,nx))\n                comps.append(pts)\n    tags=[(r,c,g[r][c]) for r in range(H) for c in range(W) if g[r][c] not in (0,6)]\n    blocks=[]\n    for pts in comps:\n        rs=[a for a,b in pts]; cs=[b for a,b in pts]\n        r0,r1,c0,c1=min(rs),max(rs),min(cs),max(cs)\n        cy=(r0+r1)/2; cx=(c0+c1)/2\n        # nearest tag\n        best=min(tags,key=lambda t:(t[0]-cy)**2+(t[1]-cx)**2)\n        color=best[2]\n        bh=r1-r0+1; bw=c1-c0+1\n        block=[[0]*bw for _ in range(bh)]\n        for (y,x) in pts:\n            block[y-r0][x-c0]=color\n        blocks.append((r0,c0,block))\n    # orientation\n    rmin=min(b[0] for b in blocks); rmax=max(b[0] for b in blocks)\n    cmin=min(b[1] for b in blocks); cmax=max(b[1] for b in blocks)\n    if (cmax-cmin)>=(rmax-rmin):\n        # horizontal\n        blocks.sort(key=lambda b:b[1])\n        bh=max(len(b[2]) for b in blocks)\n        out=[[] for _ in range(bh)]\n        for _,_,blk in blocks:\n            for i in range(bh):\n                out[i]+= blk[i] if i<len(blk) else [0]*len(blk[0])\n        return out\n    else:\n        blocks.sort(key=lambda b:b[0])\n        out=[]\n        for _,_,blk in blocks:\n            out+= [row[:] for row in blk]\n        return out\n",
+      "source": "claude_agent_diffsolve_R1",
+      "puzzle_file": "50aad11f_A2T.json",
+      "approach": ""
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {}
+}

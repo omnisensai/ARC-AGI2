@@ -1,0 +1,47 @@
+{
+  "puzzle_id": "7d18a6fb",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import deque\n\ndef solve(input_grid):\n    g = input_grid\n    h = len(g); w = len(g[0])\n    ones = [(i,j) for i in range(h) for j in range(w) if g[i][j]==1]\n    r0 = min(i for i,j in ones); r1 = max(i for i,j in ones)\n    c0 = min(j for i,j in ones); c1 = max(j for i,j in ones)\n    oh = r1-r0+1; ow = c1-c0+1\n    out = [[0]*ow for _ in range(oh)]\n    # markers inside box\n    markers = []\n    inbox = lambda i,j: r0<=i<=r1 and c0<=j<=c1\n    for i in range(r0,r1+1):\n        for j in range(c0,c1+1):\n            if g[i][j] not in (0,1):\n                markers.append((g[i][j], i-r0, j-c0))\n    # for each color, find shape outside\n    for color, mr, mc in markers:\n        cells = [(i,j) for i in range(h) for j in range(w)\n                 if g[i][j]==color and not inbox(i,j)]\n        if not cells:\n            continue\n        smi = min(c[0] for c in cells); smj = min(c[1] for c in cells)\n        sh = max(c[0] for c in cells)-smi+1; sw = max(c[1] for c in cells)-smj+1\n        # center of shape\n        ch = sh//2; cw = sw//2\n        for (a,b) in cells:\n            lr = a-smi-ch; lc = b-smj-cw\n            tr = mr+lr; tc = mc+lc\n            if 0<=tr<oh and 0<=tc<ow:\n                out[tr][tc] = color\n    return out\n",
+      "source": "claude_agent_diffsolve_R1",
+      "puzzle_file": "7d18a6fb_A1E.json",
+      "approach": ""
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {}
+}

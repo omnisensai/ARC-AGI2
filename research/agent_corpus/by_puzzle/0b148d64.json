@@ -38,6 +38,7 @@
       ],
       "code": "def solve(input_grid):\n    g = input_grid\n    H = len(g)\n    W = len(g[0])\n\n    def is_zero_row(r):\n        return all(v == 0 for v in g[r])\n\n    def is_zero_col(c):\n        return all(g[r][c] == 0 for r in range(H))\n\n    # group consecutive non-zero rows into row-bands\n    def bands(n, zero_fn):\n        res = []\n        i = 0\n        while i < n:\n            if zero_fn(i):\n                i += 1\n                continue\n            j = i\n            while j < n and not zero_fn(j):\n                j += 1\n            res.append((i, j))\n            i = j\n        return res\n\n    rbands = bands(H, is_zero_row)\n    cbands = bands(W, is_zero_col)\n\n    blocks = []\n    for (r0, r1) in rbands:\n        for (c0, c1) in cbands:\n            blk = [g[r][c0:c1] for r in range(r0, r1)]\n            colors = set(v for row in blk for v in row if v != 0)\n            blocks.append((blk, colors))\n\n    # find the block whose color is unique among all block colors\n    from collections import Counter\n    cnt = Counter()\n    for blk, colors in blocks:\n        for col in colors:\n            cnt[col] += 1\n    # color appearing in fewest blocks -> the odd one\n    rare = min(cnt, key=lambda col: cnt[col])\n    for blk, colors in blocks:\n        if rare in colors:\n            return blk\n    return blocks[0][0]\n",
       "source": "claude_agent_diffsolve_R1",
+      "puzzle_file": "0b148d64_A2T.json",
       "approach": "Split into blocks by all-zero rows/cols; output the block whose color is unique."
     }
   ],

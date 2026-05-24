@@ -1,0 +1,47 @@
+{
+  "puzzle_id": "42f14c03",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import Counter, deque\n\ndef solve(input_grid):\n    g = input_grid\n    h = len(g)\n    w = len(g[0])\n    bg = Counter(v for row in g for v in row).most_common(1)[0][0]\n\n    def signature(cells):\n        r0 = min(r for r, c in cells)\n        c0 = min(c for r, c in cells)\n        return frozenset((r - r0, c - c0) for r, c in cells)\n\n    # connected components (8-conn) of each non-bg color\n    seen = [[False] * w for _ in range(h)]\n    comps = []  # (color, cells)\n    for r in range(h):\n        for c in range(w):\n            if g[r][c] != bg and not seen[r][c]:\n                col = g[r][c]\n                comp = []\n                q = deque([(r, c)])\n                seen[r][c] = True\n                while q:\n                    cr, cc = q.popleft()\n                    comp.append((cr, cc))\n                    for dr in (-1, 0, 1):\n                        for dc in (-1, 0, 1):\n                            nr, nc = cr + dr, cc + dc\n                            if 0 <= nr < h and 0 <= nc < w and not seen[nr][nc] and g[nr][nc] == col:\n                                seen[nr][nc] = True\n                                q.append((nr, nc))\n                comps.append((col, comp))\n\n    # key components signatures\n    keys = [(col, signature(cells)) for col, cells in comps]\n\n    def bbox(cells):\n        rs = [r for r, c in cells]\n        cs = [c for r, c in cells]\n        return min(rs), max(rs), min(cs), max(cs)\n\n    def hole_regions(cells):\n        r0, r1, c0, c1 = bbox(cells)\n        inside = [[False] * w for _ in range(h)]\n        regions = []\n        for r in range(r0, r1 + 1):\n            for c in range(c0, c1 + 1):\n                if g[r][c] == bg and not inside[r][c]:\n                    comp = []\n                    q = deque([(r, c)])\n                    inside[r][c] = True\n                    while q:\n                        cr, cc = q.popleft()\n                        comp.append((cr, cc))\n                        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                            nr, nc = cr + dr, cc + dc\n                            if r0 <= nr <= r1 and c0 <= nc <= c1 and not inside[nr][nc] and g[nr][nc] == bg:\n                                inside[nr][nc] = True\n                                q.append((nr, nc))\n                    regions.append(comp)\n        return (r0, r1, c0, c1), regions\n\n    best = None\n    for ci, (col, cells) in enumerate(comps):\n        (r0, r1, c0, c1), regions = hole_regions(cells)\n        if not regions:\n            continue\n        used = [False] * len(keys)\n        assign = []\n        ok = True\n        for region in regions:\n            rsig = signature(region)\n            fk = None\n            for ki, (kcol, ksig) in enumerate(keys):\n                if ki == ci or used[ki]:\n                    continue\n                if ksig == rsig:\n                    fk = (ki, kcol)\n                    break\n            if fk is None:\n                ok = False\n                break\n            used[fk[0]] = True\n            assign.append((region, fk[1]))\n        if ok:\n            total = sum(len(r) for r in regions)\n            if best is None or total > best[0]:\n                best = (total, (r0, r1, c0, c1), assign)\n    total, (r0, r1, c0, c1), assign = best\n    out = [[g[r][c] for c in range(c0, c1 + 1)] for r in range(r0, r1 + 1)]\n    for region, fillcol in assign:\n        for (rr, cc) in region:\n            out[rr - r0][cc - c0] = fillcol\n    return out\n",
+      "source": "claude_agent_diffsolve_R1",
+      "puzzle_file": "42f14c03_A2T.json",
+      "approach": ""
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {}
+}
