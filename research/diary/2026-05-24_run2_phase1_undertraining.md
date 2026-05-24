@@ -126,9 +126,25 @@ stage trained, probed, attempted HF push. Adapters saved to
 ## Known issues still open
 - **1-epoch adapters never reached HF** (push bug, now fixed). They're on
   `/workspace` only — fine, they're throwaway baselines.
-- **Probe is SLOW** (~0.04 rec/s, ~25 s/record → mixed's 407-record probe ≈ 2.8 hr).
-  Speed this up before heavy iteration: batch generation / vLLM / probe a 50-record
-  subset.
+- **Probe is SLOW** (~25 s/record, one-at-a-time → a full 200–400 record probe ≈
+  1.5 hr/stage; 5 stages ≈ ~6 hr just probing). **For GATE checks use a subset:**
+  ```bash
+  python3 "Fine Tune Run 2/run_probe.py" --adapter outputs/phase1_<stage> \
+    --probe "Fine Tune Run 2/data_sft/phase1_<stage>_probe.jsonl" \
+    --limit 80 --max-new-tokens 1500
+  ```
+  `--limit 80` (enough to gate) + `--max-new-tokens 1500` (T grids are ≤~1000
+  tokens; default 4096 lets it ramble) → ~10–15 min instead of ~1.5 hr. Run the
+  FULL probe only for the final headline number. (Real fix later: batch the
+  generation in run_probe.py, or serve via vLLM.)
+- **SPEED/COST**: at default settings Phase 1 ≈ ~13–15 hr train + ~6 hr probe ≈
+  ~20 hr (~$30). Cut it ~in half with: (1) the subset-probe above, and (2) drop
+  `gradient_checkpointing` on the **8192** stages (same_lit/diff_lit) — 40 GB GPU
+  free, ~30% faster; **keep it ON for the 16384 rule/mixed stages** (they need the
+  memory). ~80 s/step is dominated by the 7B fwd+bwd + grad-checkpointing, not
+  attention, so flash-attn helps ~30%, not 20×. You can run stages one at a time
+  (gated); keep the pod UP between them (do NOT stop — restart hits the
+  GPU-availability lottery).
 - **~1–2% of rule/mixed records exceed 8192 tokens** → axolotl **drops** them
   (confirmed in log: "Dropped 15 sequences…"), does NOT truncate (safe). Those
   puzzles still train via shorter pair-subset variants. **RESOLVED:** same_rule /
@@ -152,12 +168,19 @@ stage trained, probed, attempted HF push. Adapters saved to
    bash "Fine Tune Run 2/train_preflight.sh"   # one-command setup, ~10 min, no debugging
    # hf auth login   (if preflight says NOT logged in)
    ```
-2. **Train ONLY same_lit** (3 epochs / ~440 steps), then probe:
+2. **Train ONLY same_lit** (3 epochs / ~440 steps), then probe (subset = fast gate):
    ```bash
-   axolotl train "Fine Tune Run 2/phase1_same_lit_axolotl.yaml"
-   python3 "Fine Tune Run 2/run_probe.py" --adapter outputs/phase1_same_lit \
-     --probe "Fine Tune Run 2/data_sft/phase1_same_lit_probe.jsonl"
+   nohup bash -c '
+     source /root/.env_train; cd /workspace/ARC-AGI2
+     axolotl train "Fine Tune Run 2/phase1_same_lit_axolotl.yaml" \
+     && python3 "Fine Tune Run 2/run_probe.py" --adapter outputs/phase1_same_lit \
+          --probe "Fine Tune Run 2/data_sft/phase1_same_lit_probe.jsonl" \
+          --limit 80 --max-new-tokens 1500
+   ' > /workspace/same_lit.log 2>&1 &
+   disown; tail -f /workspace/same_lit.log
    ```
+   (No auto-stop — keep the pod UP so you can continue without the restart-GPU
+   lottery. Watch for single-digit-ish `s/it` = flash-attn working, ~3 hr train.)
 3. **Read the new metrics** and apply this DECISION TREE (agreed by Claude+GPT).
    The three failure modes are independent — diagnose by which metric stays bad:
 
