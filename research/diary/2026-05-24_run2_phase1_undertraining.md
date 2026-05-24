@@ -274,3 +274,71 @@ do NOT do it pre-emptively.** Reasons:
 - **Fresh-pod setup is now ONE command** (`bash "Fine Tune Run 2/train_preflight.sh"`)
   — ~15–25 min of *waiting* (axolotl install + flash-attn compile + Qwen
   download), **zero debugging**. The 2-hr saga was bug-discovery; that's done.
+
+---
+
+## RESOLUTION — 3-epoch same_lit run + held-out probe (2026-05-24)
+
+The more-epochs hypothesis is **confirmed**. Re-ran same_lit at 3 epochs / 444
+steps (vs the 1-epoch / ~37-step under-trained run). Trained from base Qwen,
+flash-attn, grad_accum 4. Run was SIGKILLed during the checkpoint-400 save by a
+**disk-quota-exceeded** condition (the provisioned Volume quota filled; the
+optimizer.pt truncated at 335/646 MB, no traceback). The adapter weights for
+checkpoint-400 (`adapter_model.safetensors`, 323 MB) were already flushed and
+are intact — checkpoint-400 is epoch 2.69, fully usable for inference. Did NOT
+reach the final step-444 save; checkpoint-300 (epoch 2.0) is the clean
+resume point.
+
+### In-flight eval_loss (leaky 2% carve — convergence signal, not generalization)
+    step 100 (ep 0.67): eval_loss 0.0363  ppl 1.037
+    step 200 (ep 1.34): eval_loss 0.0104  ppl 1.010
+    step 300 (ep 2.01): eval_loss 0.00429 ppl 1.004
+    step 400 (ep 2.69): eval_loss 0.00388 ppl 1.004   <- plateaued 300->400
+Baseline (step 0, untrained-this-stage): eval_loss 0.5987 ppl 1.82.
+
+### Held-out probe — checkpoint-400, 80 records, greedy, max_new_tokens 1500
+(run_probe.py; whole puzzles never trained, no augmentation = the honest metric)
+
+    Overall:  exact 97.5%  |  cell 99.9%   (78/80 exact)
+
+    format|size                     n   exact   cell%  chgR%  chgP%  .0cf%  pass
+    pair_to_substrate|same_size    40  100.0%  100.0% 100.0% 100.0%   0.0%  PASS
+    substrate_to_output|same_size  40   95.0%   99.8%  99.8%  99.8%   0.0%  PASS
+
+    grid size            n   exact   cell%  chgR%  chgP%  .0cf%
+    small(<=10x10)      36  100.0%  100.0% 100.0% 100.0%   0.0%
+    large(>10x10)       44   95.5%   99.9%  99.9%  99.9%   0.0%
+
+    Verdict: ALL THRESHOLDS PASSED.
+
+### Reading
+- **Memorization fear dismissed.** Held-out (no-augmentation, unseen puzzles)
+  generalization is ~perfect. It learned the skill, not a lookup table.
+- **Small-grid understanding gate = 100%** (exact + cell + recall). This is the
+  verdict metric per the rendering-ceiling framing.
+- **`.0cf` = 0.0%** across the board. The `.`-vs-`0` confusion that dominated the
+  1-epoch run is GONE. Confirms it was an under-training artifact, not a format
+  problem. => `.`->`K` change is NOT needed. Pending decision B is CLOSED (no K).
+- The under-training diagnosis (packing collapsing 1 epoch to ~37 steps) was
+  correct; 444 steps fixed both the loss and the held-out quality.
+- eval_loss plateaued 300->400, and held-out at ckpt-400 is ~ceiling, so ~2-2.7
+  epochs is sufficient for a literacy stage. Calibration for rule stages: start
+  at 2-3 epochs, watch held-out, don't over-bake.
+
+### Root-cause carry-forward: DISK QUOTA (not OOM)
+The kill was `[Errno 122] Disk quota exceeded`, NOT system-RAM OOM. The Volume's
+provisioned quota (separate from the 334T MooseFS cluster `df` reports) filled
+from accumulated checkpoints + HF cache. **This WILL kill the longer rule stages
+at their first checkpoint unless space is freed first.** Before diff_lit:
+free quota (delete superseded checkpoint-100/200 and the truncated
+checkpoint-400/optimizer.pt; consider lowering save_total_limit), and back up
+checkpoint-400's adapter (Run-1 LoRA-loss trauma). Use a NETWORK volume / larger
+quota next time.
+
+### Next
+1. Free pod disk quota (REQUIRED — else diff_lit dies the same way).
+2. Back up checkpoint-400 adapter.
+3. Wire checkpoint-400 as the diff_lit input (top-level outputs/phase1_same_lit
+   has only the 07:59 pre-save config, NOT the trained weights — point
+   diff_lit's lora_model_dir at checkpoint-400, or copy the adapter up).
+4. Launch diff_lit (stage 2).
