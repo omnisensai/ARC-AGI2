@@ -1,0 +1,54 @@
+{
+  "puzzle_id": "652646ff",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 3,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import Counter\n\nTEMPLATE = [\n    [0, 0, 1, 1, 0, 0],\n    [0, 1, 0, 0, 1, 0],\n    [1, 0, 0, 0, 0, 1],\n    [1, 0, 0, 0, 0, 1],\n    [0, 1, 0, 0, 1, 0],\n    [0, 0, 1, 1, 0, 0],\n]\nTCELLS = [(r, c) for r in range(6) for c in range(6) if TEMPLATE[r][c]]\n\n\ndef solve(input_grid):\n    g = input_grid\n    R, C = len(g), len(g[0])\n    cnt = Counter(c for row in g for c in row)\n    bg = cnt.most_common(1)[0][0]\n    shapes = [c for c in cnt if c != bg and cnt[c] >= 8]\n\n    cellset = {}\n    full = {}\n    for c in shapes:\n        pts = set((r, cc) for r in range(R) for cc in range(C) if g[r][cc] == c)\n        r0 = min(r for r, _ in pts)\n        c0 = min(cc for _, cc in pts)\n        cellset[c] = pts\n        full[c] = set((r0 + dr, c0 + dc) for (dr, dc) in TCELLS)\n\n    covers = {c: set() for c in shapes}\n    for a in shapes:\n        for b in shapes:\n            if a != b:\n                missing = full[b] - cellset[b]\n                if missing & cellset[a]:\n                    covers[a].add(b)\n\n    order = []\n    rem = set(shapes)\n    while rem:\n        tops = [c for c in rem if not any(c in covers[o] for o in rem if o != c)]\n        tops.sort(key=lambda c: (-cnt[c], -c))\n        order.append(tops[0])\n        rem.discard(tops[0])\n\n    out = []\n    for color in order:\n        for row in TEMPLATE:\n            out.append([color if v else bg for v in row])\n    return out\n",
+      "source": "claude_agent_diffsolve_R1",
+      "puzzle_file": "652646ff_A2T.json",
+      "approach": ""
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {}
+}
