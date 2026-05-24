@@ -13,11 +13,13 @@ model_type: AutoModelForCausalLM
 tokenizer_type: AutoTokenizer
 trust_remote_code: true
 
-# Continue the adapter from the previous stage. NB: the same_lit run was
-# killed (disk quota) before its final top-level save, so the trained weights
-# live in checkpoint-400 (epoch 2.69, probe-verified), not outputs/phase1_same_lit
-# itself. Point at the checkpoint so we continue the TRAINED adapter.
-lora_model_dir: outputs/phase1_same_lit/checkpoint-400
+# Continue from the stage-1 (same_lit) adapter. On a fresh pod, restore it from
+# HF FIRST (it was backed up there, probe-verified epoch-2.69 weights):
+#   hf download Omnisensai/arc-lora-run2 --include "phase1_same_lit/*" --local-dir outputs
+# That writes the adapter to outputs/phase1_same_lit/, matching this path.
+# (The original same_lit run was killed by disk quota before its top-level
+# save, so HF — not a local checkpoint — is the canonical stage-1 source now.)
+lora_model_dir: outputs/phase1_same_lit
 
 datasets:
   - path: Fine Tune Run 2/data_sft/phase1_diff_lit_train.jsonl.gz
