@@ -1,0 +1,47 @@
+{
+  "puzzle_id": "4290ef0e",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import Counter\n\ndef solve(input_grid):\n    g = input_grid\n    h = len(g)\n    w = len(g[0])\n    bg = Counter(v for row in g for v in row).most_common(1)[0][0]\n    colors = set(v for row in g for v in row if v != bg)\n    info = {}\n    for col in colors:\n        cells = [(r, c) for r in range(h) for c in range(w) if g[r][c] == col]\n        rs = [r for r, c in cells]\n        cs = [c for r, c in cells]\n        span = max(max(rs) - min(rs) + 1, max(cs) - min(cs) + 1)\n        # candidate radii: r such that exists center with all cells chebyshev==r\n        cands = []\n        for r in range(1, 9):\n            ok = False\n            for cy2 in range(2 * (min(rs) - r), 2 * (max(rs) + r) + 1):\n                for cx2 in range(2 * (min(cs) - r), 2 * (max(cs) + r) + 1):\n                    cy = cy2 / 2.0\n                    cx = cx2 / 2.0\n                    if all(max(abs(a - cy), abs(b - cx)) == r for a, b in cells):\n                        ok = True\n                        break\n                if ok:\n                    break\n            if ok:\n                cands.append(r)\n        info[col] = {\"cells\": cells, \"span\": span, \"cands\": cands}\n\n    # assign radii\n    assigned = {}\n    used = set()\n    # unique-candidate colors first\n    pending = []\n    for col, d in info.items():\n        if d[\"span\"] == 1:\n            assigned[col] = 0\n        elif len(d[\"cands\"]) == 1:\n            assigned[col] = d[\"cands\"][0]\n            used.add(d[\"cands\"][0])\n        else:\n            pending.append(col)\n    # determine max radius / N: max assigned, plus pending fill consecutive\n    # available radii to make 1..maxR consecutive\n    maxR = max(used) if used else 0\n    # pending need radii; total radii must be consecutive 1..maxR_final\n    # number needed = len(pending); fill the missing slots in 1..(maxR+len(pending))\n    need = len(pending)\n    target_max = maxR\n    # extend target_max until enough free slots\n    while True:\n        free = [r for r in range(1, target_max + 1) if r not in used]\n        if len(free) >= need:\n            break\n        target_max += 1\n        free = [r for r in range(1, target_max + 1) if r not in used]\n        if len(free) >= need:\n            break\n    free = [r for r in range(1, target_max + 1) if r not in used]\n    # assign: larger span -> larger radius\n    pending_sorted = sorted(pending, key=lambda c: info[c][\"span\"])\n    free_sorted = sorted(free)\n    # but only assign radii within candidate sets where possible\n    for col, r in zip(pending_sorted, free_sorted):\n        assigned[col] = r\n        used.add(r)\n\n    N = 2 * max(used) + 1\n    cen = N // 2\n    out = [[bg] * N for _ in range(N)]\n    # paint largest radius first\n    for col in sorted(assigned, key=lambda c: -assigned[c]):\n        radius = assigned[col]\n        cells = info[col][\"cells\"]\n        rs = [r for r, c in cells]\n        cs = [c for r, c in cells]\n        # find a center\n        center = None\n        for cy2 in range(2 * (min(rs) - radius), 2 * (max(rs) + radius) + 1):\n            for cx2 in range(2 * (min(cs) - radius), 2 * (max(cs) + radius) + 1):\n                cy = cy2 / 2.0\n                cx = cx2 / 2.0\n                if all(max(abs(a - cy), abs(b - cx)) == radius for a, b in cells):\n                    center = (cy, cx)\n                    break\n            if center:\n                break\n        if center is None:\n            continue\n        cy, cx = center\n        for r, c in cells:\n            dy = r - cy\n            dx = c - cx\n            for a, b in [(dy, dx), (dy, -dx), (-dy, dx), (-dy, -dx),\n                         (dx, dy), (dx, -dy), (-dx, dy), (-dx, -dy)]:\n                oi = cen + int(round(a))\n                oj = cen + int(round(b))\n                if 0 <= oi < N and 0 <= oj < N:\n                    out[oi][oj] = col\n    return out\n",
+      "source": "claude_agent_diffsolve_R1",
+      "puzzle_file": "4290ef0e_A2T.json",
+      "approach": "Each color is a square ring; reconstruct true radius via chebyshev center, fold by D4 symmetry, nest concentrically."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {}
+}

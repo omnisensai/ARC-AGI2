@@ -1,0 +1,47 @@
+{
+  "puzzle_id": "6cbe9eb8",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    g = input_grid\n    R, C = len(g), len(g[0])\n    grid_area = R * C\n    colors = set(v for row in g for v in row)\n\n    boxes = []  # (area, h, w, color, ncells, solid)\n    for c in colors:\n        pts = [(r, cc) for r in range(R) for cc in range(C) if g[r][cc] == c]\n        if not pts:\n            continue\n        r0 = min(r for r, _ in pts)\n        r1 = max(r for r, _ in pts)\n        c0 = min(cc for _, cc in pts)\n        c1 = max(cc for _, cc in pts)\n        h = r1 - r0 + 1\n        w = c1 - c0 + 1\n        ba = h * w\n        if ba < 0.7 * grid_area:  # localized -> shape box\n            solid = len(pts) >= ba - 1\n            boxes.append((ba, h, w, c, solid))\n\n    boxes.sort(key=lambda b: -b[0])\n\n    oh = boxes[0][1]\n    ow = boxes[0][2]\n    out = [[0] * ow for _ in range(oh)]\n\n    pr0 = pc0 = ph = pw = None\n    n = len(boxes)\n    for idx, (_, h, w, col, solid) in enumerate(boxes):\n        if idx == 0:\n            rr, cc = 0, 0\n        elif idx == n - 1:\n            rr = pr0 + ph - h\n            cc = pc0\n        else:\n            rr = pr0 + ph - 1 - h\n            cc = pc0 + 1\n        for a in range(h):\n            for b in range(w):\n                if solid or a == 0 or a == h - 1 or b == 0 or b == w - 1:\n                    out[rr + a][cc + b] = col\n        pr0, pc0, ph, pw = rr, cc, h, w\n\n    return out\n",
+      "source": "claude_agent_diffsolve_R1",
+      "puzzle_file": "6cbe9eb8_A2T.json",
+      "approach": "nest box frames by size, bottom-left inset into parent hole, innermost flush solid"
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {}
+}
