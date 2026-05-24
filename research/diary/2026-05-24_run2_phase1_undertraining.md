@@ -113,8 +113,15 @@ stage trained, probed, attempted HF push. Adapters saved to
   `chat_template: tokenizer_default`, **`num_epochs: 3`**, **`gradient_accumulation_steps: 4`**
   (→ same_lit ~440 steps, in GPT's 300–500 target; ~same wall-clock).
 - `run_probe.py` — **added metrics**: `cell_accuracy`, `changed_cell_recall`,
-  `zero_dot_confusion` (printed per-format + in JSON). Gating still on exact_match;
-  these are the diagnostics for judging "understanding".
+  `zero_dot_confusion` (printed per-format + in JSON), plus a **grid-size split**
+  (`small <=10x10` / `large >10x10` / `aggregate`) reporting cell% + changed-recall
+  per bucket. **REFRAME (key):** gate Phase 1 on **small-grid understanding**, not
+  large-grid freehand exact-match. Past ~10x10 the LLM drifts on *rendering* even
+  when the rule is right (operator-confirmed); that drift is the **code path's**
+  job, not a Phase-1 failure. So: small-grid cell% high + large-grid low = GOOD
+  (understood, move to code). `.`→`K` is a reasoning issue not a symbol issue
+  (renaming won't fix "did this cell change to 0 or was it already 0") — contrast
+  data is the real lever if needed.
 - `save_adapter_to_hf.sh` — **fixed the HF-push bug**: strips axolotl's auto
   `README.md` before upload (its dataset-path frontmatter made the Hub reject the
   whole push → all overnight pushes failed; adapters are only on `/workspace`).
