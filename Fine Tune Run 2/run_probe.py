@@ -153,6 +153,23 @@ def grid_diagnostics(generated: str, target: str):
     return cr, zdc
 
 
+def grid_size_bucket(target: str) -> str:
+    """Bucket a record by output-grid size: 'small' (<=10x10), 'large' (>10x10),
+    or 'aggregate' (diff-size facts block, not a grid).
+
+    Rationale (rendering-ceiling finding): LLMs render small grids well but drift
+    on big ones (~>10x10) even when the rule is right. Splitting by size separates
+    'does it UNDERSTAND' (small grids it can render) from 'rendering drift' (large
+    grids — handled by the code path, not a Phase-1 failure)."""
+    t = target.strip()
+    if t[:5] == "SIZE ":
+        return "aggregate"
+    rows = t.split("\n")
+    nrows = len(rows)
+    ncols = max((len(r) for r in rows), default=0)
+    return "small(<=10x10)" if (nrows <= 10 and ncols <= 10) else "large(>10x10)"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--adapter", type=Path, required=True,
@@ -203,6 +220,8 @@ def main():
     cell_by_format = defaultdict(list)
     chgrecall_by_format = defaultdict(list)
     zerodot_by_format = defaultdict(list)
+    cellacc_by_bucket = defaultdict(list)
+    chgrecall_by_bucket = defaultdict(list)
     failures = []
 
     t0 = time.time()
@@ -228,12 +247,17 @@ def main():
         size_kind = "same_size" if is_same_size_record(record) else "diff_size"
         key = (fmt, size_kind)
         results_by_format[key].append(ok)
-        cell_by_format[key].append(cell_accuracy(generated, target))
+        _ca = cell_accuracy(generated, target)
+        cell_by_format[key].append(_ca)
         _cr, _zdc = grid_diagnostics(generated, target)
         if _cr is not None:
             chgrecall_by_format[key].append(_cr)
         if _zdc is not None:
             zerodot_by_format[key].append(_zdc)
+        _bucket = grid_size_bucket(target)
+        cellacc_by_bucket[_bucket].append(_ca)
+        if _cr is not None:
+            chgrecall_by_bucket[_bucket].append(_cr)
 
         if not ok:
             failures.append({
@@ -317,6 +341,27 @@ def main():
         print(f"{fmt+'|'+size_kind:40s} {n:5d} {acc*100:6.1f}% {_pct(cell_acc)} "
               f"{_pct(chg_recall)} {_pct(zero_dot)} {pass_str:>5s}")
     print("(chgR% = changed-cell recall, higher better; .0cf% = .<->0 confusion, lower better)")
+    print()
+
+    # By grid size — separates UNDERSTANDING (small grids the model can render)
+    # from rendering drift (large grids; handled by the code path, not a Phase-1
+    # failure). small high + large low  =>  understanding is fine, move on.
+    report["summary"]["by_grid_size"] = {}
+    print(f"{'grid size':18s} {'n':>5s} {'cell%':>7s} {'chgR%':>7s}")
+    for b in ("small(<=10x10)", "large(>10x10)", "aggregate"):
+        ca = cellacc_by_bucket.get(b, [])
+        if not ca:
+            continue
+        cr = chgrecall_by_bucket.get(b, [])
+        cell_m = sum(ca) / len(ca)
+        cr_m = (sum(cr) / len(cr)) if cr else None
+        report["summary"]["by_grid_size"][b] = {
+            "n": len(ca), "cell_accuracy": cell_m,
+            "changed_cell_recall": cr_m,
+        }
+        cr_s = f"{cr_m*100:6.1f}%" if cr_m is not None else "   — "
+        print(f"{b:18s} {len(ca):5d} {cell_m*100:6.1f}% {cr_s}")
+    print("(small-grid cell% ~ UNDERSTANDING gate; large-grid drift -> code's job)")
     print()
 
     all_decisions = [v for v in pass_fail.values() if v is not None]
