@@ -176,6 +176,21 @@ stage trained, probed, attempted HF push. Adapters saved to
    `zero_dot_confusion`, `exact_match`.
 4. **Do NOT stack stages until same_lit is solid** on the new metrics. same_rule
    was failing because it's reasoning on an alphabet not yet mastered.
+
+   ⚠️ **CRITICAL — `git pull` BEFORE running same_rule / diff_rule / mixed.**
+   Those 3 configs are set to **`sequence_len: 16384` + `micro_batch_size: 1`**
+   (committed) so the big multi-pair records (~1–2% are >8192 tokens, max ~14.2k)
+   are **kept, not dropped**. BUT the live pod was cloned BEFORE that commit, so
+   its local rule/mixed configs are still 8192 — if you run them without pulling,
+   the big examples get dropped again. So:
+   ```bash
+   cd /workspace/ARC-AGI2 && git pull origin claude/gifted-mayer-3ITc1
+   grep -HE "sequence_len|micro_batch_size" "Fine Tune Run 2/"phase1_{same_rule,diff_rule,mixed}_axolotl.yaml
+   # confirm: sequence_len 16384, micro_batch_size 1 for all three
+   ```
+   (same_lit / diff_lit stay 8192 — they have no over-length records, no pull
+   needed for them. Note: 16384 + packing → fewer steps/epoch; if a rule stage
+   looks under-trained, bump its `num_epochs` or lower `grad_accum`.)
 5. Longer term: the real verdict is **Phase 2 (code) solve rate**, not Phase-1
    freehand exact-match. Consider gating Phase 1 on cell-accuracy/changed-recall,
    not exact-match.
