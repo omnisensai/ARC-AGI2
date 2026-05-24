@@ -131,8 +131,13 @@ stage trained, probed, attempted HF push. Adapters saved to
   subset.
 - **~1–2% of rule/mixed records exceed 8192 tokens** → axolotl **drops** them
   (confirmed in log: "Dropped 15 sequences…"), does NOT truncate (safe). Those
-  puzzles still train via shorter pair-subset variants. Optionally bump
-  `sequence_len: 16384` for rule/mixed to keep them (watch memory).
+  puzzles still train via shorter pair-subset variants. **RESOLVED:** same_rule /
+  diff_rule / mixed now set to `sequence_len: 16384` + `micro_batch_size: 1`
+  (1×16384 ≈ 2×8192, ~48 GB, memory-safe). Their max record is ~14.2k tokens, so
+  at 16384 **zero records drop** — all big multi-pair examples are trained.
+  same_lit / diff_lit stay 8192 (no over-length records). NOTE: 16384 + packing
+  yields fewer packed sequences → fewer optimizer steps/epoch; if a rule stage
+  looks under-trained, bump its `num_epochs` or drop `grad_accum` further.
 
 ---
 
@@ -207,3 +212,20 @@ do NOT do it pre-emptively.** Reasons:
 - ~80 s/optimizer-step at grad_accum 16; with grad_accum 4 expect more steps,
   ~same wall-clock per epoch (epoch time ~fixed by data size).
 - HF backup target repo: `Omnisensai/arc-lora-run2` (subfolder per stage).
+
+## Operational lessons that bit us AFTER the first run (also worth a RUNBOOK note)
+- **A stopped pod may refuse to restart**: "not enough free GPUs on the host
+  machine to start this pod." A *Volume disk* is tied to that host, so if the
+  host's A100s are taken you're stuck waiting. **Fix: just spin up a NEW pod**
+  — everything important is on GitHub (repo, data, configs, scripts); the only
+  thing on the old volume is the throwaway 1-epoch adapters + re-downloadable
+  Qwen cache. New pod → clone → `train_preflight.sh` → go. **Lesson: use a
+  NETWORK volume next time** (host-independent, attaches to any free GPU).
+- **Private-repo `git clone` auth**: GitHub does NOT accept the account password
+  (removed 2021). The clone prompt's "Password" must be a **PAT** (fine-grained,
+  `omnisensai/ARC-AGI2`, Contents:Read), OR just **make the repo public** for the
+  clone (fastest; flip back after). Pre-seeding `/workspace/.git-credentials`
+  (RUNBOOK P6) avoids the prompt entirely on a persistent volume.
+- **Fresh-pod setup is now ONE command** (`bash "Fine Tune Run 2/train_preflight.sh"`)
+  — ~15–25 min of *waiting* (axolotl install + flash-attn compile + Qwen
+  download), **zero debugging**. The 2-hr saga was bug-discovery; that's done.
