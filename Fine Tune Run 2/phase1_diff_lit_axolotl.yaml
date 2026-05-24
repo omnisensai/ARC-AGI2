@@ -13,8 +13,11 @@ model_type: AutoModelForCausalLM
 tokenizer_type: AutoTokenizer
 trust_remote_code: true
 
-# Continue the adapter from the previous stage.
-lora_model_dir: outputs/phase1_same_lit
+# Continue the adapter from the previous stage. NB: the same_lit run was
+# killed (disk quota) before its final top-level save, so the trained weights
+# live in checkpoint-400 (epoch 2.69, probe-verified), not outputs/phase1_same_lit
+# itself. Point at the checkpoint so we continue the TRAINED adapter.
+lora_model_dir: outputs/phase1_same_lit/checkpoint-400
 
 datasets:
   - path: Fine Tune Run 2/data_sft/phase1_diff_lit_train.jsonl.gz
@@ -68,7 +71,9 @@ group_by_length: false
 logging_steps: 10
 eval_steps: 100
 save_steps: 100
-save_total_limit: 5
+# Keep only 2 checkpoints — the disk quota (not RAM) killed the same_lit run
+# at a checkpoint save. Fewer retained checkpoints = lower peak quota use.
+save_total_limit: 2
 
 seed: 42
 strict: false
