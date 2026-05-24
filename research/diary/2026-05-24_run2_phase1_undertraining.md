@@ -153,17 +153,22 @@ stage trained, probed, attempted HF push. Adapters saved to
    python3 "Fine Tune Run 2/run_probe.py" --adapter outputs/phase1_same_lit \
      --probe "Fine Tune Run 2/data_sft/phase1_same_lit_probe.jsonl"
    ```
-3. **Read the new metrics** and test GPT's predictions:
-   - Expect (if under-training was the cause): `substrate_to_output` rises fast,
-     `pair_to_substrate` rises meaningfully, **`zero_dot_confusion` drops**,
-     **`changed_cell_recall` rises**.
-   - **If they improve** → continue the chain (diff_lit → … → mixed), still gating
-     each stage's probe.
-   - **If changed-recall stays low / zero-dot stays high** → do GPT's Steps 3–4:
-     add **dot/zero contrast examples** (tiny synthetic pairs, e.g.
-     `111/101/111 → 000` giving T `.../.0./...`) and **oversample sparse/thin-edit
-     puzzles** (single cell, thin lines, endpoints, isolated markers) in
-     `build_phase1_dataset.py`; regenerate same_lit; retrain.
+3. **Read the new metrics** and apply this DECISION TREE (agreed by Claude+GPT).
+   The three failure modes are independent — diagnose by which metric stays bad:
+
+   | After 3-epoch same_lit probe | Interpretation | Action |
+   |---|---|---|
+   | `zero_dot_confusion` drops sharply | was under-training | **keep `.`**, don't change symbol |
+   | `zero_dot_confusion` stays high | real format ambiguity | **`.`→`K`** swap + shrink legend, regen, rerun literacy (decision B) |
+   | `changed_cell_recall` stays low, zero_dot fine | drops sparse/thin edits | **add sparse-edit contrast data** (single cell, thin V/H line, diagonal, endpoint, isolated marker); do NOT change symbol |
+   | positional drift stays high (low cell_acc on stripes) | spatial precision | **train longer / add spatial-precision contrast**; more steps |
+   | all improve (recall↑, zero_dot↓, cell_acc↑, exact↑) | under-training confirmed | **continue the chain** (diff_lit → … → mixed), gating each stage |
+
+   Note: positive prediction if under-training is the cause — `substrate_to_output`
+   rises fast, `pair_to_substrate` rises meaningfully, `zero_dot_confusion` drops,
+   `changed_cell_recall` rises. Diagnose with `changed_cell_recall`,
+   `changed_cell_precision` (not yet implemented — add if useful), `cell_accuracy`,
+   `zero_dot_confusion`, `exact_match`.
 4. **Do NOT stack stages until same_lit is solid** on the new metrics. same_rule
    was failing because it's reasoning on an alphabet not yet mastered.
 5. Longer term: the real verdict is **Phase 2 (code) solve rate**, not Phase-1
