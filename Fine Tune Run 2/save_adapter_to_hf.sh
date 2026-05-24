@@ -84,6 +84,11 @@ except Exception:
 PY
 
 # ---- 5. upload the adapter into its stage subfolder -------------------------
+# Strip axolotl's auto-generated README.md (model card). Its YAML frontmatter
+# lists the LOCAL dataset path (e.g. "Fine Tune Run 2/.../*.jsonl.gz"), which
+# the Hub rejects as an invalid dataset id ("datasets[0] ... is not valid"),
+# aborting the whole upload. We don't need the card — drop it.
+rm -f "$ADAPTER_DIR/README.md"
 echo "uploading '$ADAPTER_DIR' -> '$HF_REPO/$STAGE' ..."
 hf upload "$HF_REPO" "$ADAPTER_DIR" "$STAGE" \
   --commit-message "adapter: $STAGE $(date -Iseconds)"
