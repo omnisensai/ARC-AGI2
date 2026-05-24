@@ -387,3 +387,46 @@ of the run:
   20GB volume, not model failure). Now on a 200GB container disk.
 - If ever re-training a passed stage, version it (e.g. phase1_same_lit_rerun_v2)
   — do NOT replace the known-good adapter in place.
+
+---
+
+## STAGE 2 — diff_lit training stats (2026-05-24)
+
+Diff-size literacy (facts-T alphabet: SIZE/BG/PALETTE/ROWS/COLS/BBOX). Chained
+from same_lit (restored from HF into outputs/phase1_same_lit). Ran on a fresh
+200GB pod, container disk /root (the 200GB volume was a glitched RunPod mount —
+reported 100% full while empty; preflight auto-fell back to /root).
+
+Config: seq_len 8192, micro_batch 2, grad_accum 4, 3 epochs, lr 1.2e-4 cosine,
+save_only_model, save_total_limit 2, flash-attn. 7394 train records (max input
+2217 tokens, ZERO dropped at 8192 — no truncation).
+
+### eval_loss curve (leaky 2% carve — convergence signal, not generalization)
+    step 100 (ep 1.01):  eval_loss 0.1479  ppl 1.159
+    step 200 (ep 2.02):  eval_loss 0.0862  ppl 1.090
+    step 294 (ep 2.98):  eval_loss 0.0700  ppl 1.073
+    final train_loss 0.1555 | train_runtime 5879s (~98 min) | 294 steps | ~20s/it
+
+### Reading
+- Converges cleanly but to a HIGHER floor than same_lit (0.07 vs 0.0038). This
+  is EXPECTED, not weakness: facts-T is NOT a 1:1 lossless copy-with-edits like
+  pixel-T. It requires COMPUTE-and-summarize (counts, ratios via relate(),
+  per-row/col dominants, bounding boxes) over the grid — many independent fields,
+  each must be exactly right. Counting/aggregation is intrinsically harder for an
+  LLM than copying a changed cell, so the loss floor is naturally higher. The two
+  numbers aren't comparable (different target type).
+- Pre-train data audit: recomputed the facts block from the raw INPUT/OUTPUT for
+  ALL 7394 train + 52 probe records and compared to the trained label — 100%
+  match, ZERO mismatches. The facts labels are correct (no corruption); the
+  encoder logic was also hand-verified field-by-field on a worked example.
+
+### Backup
+HF: Omnisensai/arc-lora-run2/diff_lit (byte-verified, 323,014,168 bytes).
+(NB folder naming: stage 1 is phase1_same_lit, stage 2 is diff_lit — passed
+different stage-name args; harmless.)
+
+### Held-out probe (run_probe.py, phase1_diff_lit_probe.jsonl, ~52 records)
+PENDING — to be filled in. Read structure-first: all records land in the
+"aggregate" bucket; cell% (char-level) is the headline, exact-match expected
+LOWER than same_lit (one slipped digit in a long ROWS/COLS line fails the whole
+block).
