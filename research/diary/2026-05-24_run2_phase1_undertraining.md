@@ -170,12 +170,31 @@ stage trained, probed, attempted HF push. Adapters saved to
    freehand exact-match. Consider gating Phase 1 on cell-accuracy/changed-recall,
    not exact-match.
 
-## Pending decision (left for the user)
-Whether to **pre-build Steps 3–4** (dot/zero contrast + sparse oversampling) now
-vs wait for the Step-2 metrics. Recommendation: **run Step 2 first** (cheap,
-GPT's predictions are testable), add Steps 3–4 only if the metrics show the
-specific problems persist — avoids changing the data distribution blindly and
-avoids confounding "did epochs or data help."
+## Pending decisions (left for the user)
+
+**(A) Pre-build Steps 3–4** (dot/zero contrast + sparse oversampling) now vs
+wait for the Step-2 metrics. Recommendation: **run Step 2 first** (cheap, GPT's
+predictions are testable), add Steps 3–4 only if the metrics show the specific
+problems persist — avoids changing the data distribution blindly and avoids
+confounding "did epochs or data help."
+
+**(B) Replace `.` with `K` in the same-size pixel T** (GPT proposal). Rationale:
+`.`=keep vs `0`=write-black are easy to conflate; a distinct letter token `K`
+for "keep" removes the ambiguity. **Assessment: good but gate it on the metric,
+do NOT do it pre-emptively.** Reasons:
+  - It only targets the *secondary* failure (`.`/`0` confusion). The dominant
+    failures (positional drift, dropped sparse edits) are NOT fixed by `K`.
+  - May already be under-training — we now have a `zero_dot_confusion` metric;
+    measure it AFTER the more-epochs run before changing the format.
+  - Cost: it's a core substrate-format change (substrate.py encode/decode, full
+    data regen, prompts, verifier). And `.` gives useful sparsity/salience that
+    a dense `K` grid loses.
+  - **Rule:** run more-epochs same_lit → if `zero_dot_confusion` stays high,
+    THEN do `.`→`K` (+ shrink the legend, per GPT). If it drops, leave it.
+  - If implemented: change `encode`/`decode` in `substrate.py` (top of repo),
+    update `phase1_prompts.py` legend (e.g. "K = keep, 0-9 = write color; K is
+    an operation not a color; 0 is a color not keep"), regen all stages, update
+    `verify_records.py`/`run_probe.py` (the `grid_diagnostics` `.`/`0` logic).
 
 ## Pod / cost facts
 - RunPod A100-SXM4-80GB, region **us-wa-1**, **Volume disk** (survives Stop,
