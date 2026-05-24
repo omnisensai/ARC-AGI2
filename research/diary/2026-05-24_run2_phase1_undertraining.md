@@ -131,8 +131,13 @@ stage trained, probed, attempted HF push. Adapters saved to
   subset.
 - **~1–2% of rule/mixed records exceed 8192 tokens** → axolotl **drops** them
   (confirmed in log: "Dropped 15 sequences…"), does NOT truncate (safe). Those
-  puzzles still train via shorter pair-subset variants. Optionally bump
-  `sequence_len: 16384` for rule/mixed to keep them (watch memory).
+  puzzles still train via shorter pair-subset variants. **RESOLVED:** same_rule /
+  diff_rule / mixed now set to `sequence_len: 16384` + `micro_batch_size: 1`
+  (1×16384 ≈ 2×8192, ~48 GB, memory-safe). Their max record is ~14.2k tokens, so
+  at 16384 **zero records drop** — all big multi-pair examples are trained.
+  same_lit / diff_lit stay 8192 (no over-length records). NOTE: 16384 + packing
+  yields fewer packed sequences → fewer optimizer steps/epoch; if a rule stage
+  looks under-trained, bump its `num_epochs` or drop `grad_accum` further.
 
 ---
 
