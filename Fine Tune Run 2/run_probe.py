@@ -94,6 +94,65 @@ def exact_match(generated: str, target: str) -> bool:
     return generated.strip() == target.strip()
 
 
+def cell_accuracy(generated: str, target: str) -> float:
+    """Fraction of TARGET cells the model reproduced correctly.
+
+    For pixel/output grids this is literal cell accuracy; for aggregate
+    facts blocks it's char-level similarity. Denominator is the target's
+    char count, so short/missing output is penalized. This is the "how
+    close did it get" signal — useful because full-grid exact-match is
+    all-or-nothing and an LLM rarely nails every cell of a big grid even
+    when it clearly understood the transformation."""
+    g_rows = generated.strip().split("\n")
+    t_rows = target.strip().split("\n")
+    total = sum(len(r) for r in t_rows)
+    if total == 0:
+        return 1.0 if generated.strip() == target.strip() else 0.0
+    correct = 0
+    for ri, trow in enumerate(t_rows):
+        grow = g_rows[ri] if ri < len(g_rows) else ""
+        for ci, tch in enumerate(trow):
+            if ci < len(grow) and grow[ci] == tch:
+                correct += 1
+    return correct / total
+
+
+def grid_diagnostics(generated: str, target: str):
+    """For same-size pixel T grids, two targeted signals (GPT's key two):
+
+      changed_cell_recall  — of cells the target marks as CHANGED (a digit),
+                             how many did the model place correctly? Catches
+                             the "drops thin/sparse edits" failure.
+      zero_dot_confusion   — of positions where '.' or '0' is expected, how
+                             often did the model swap them ('.'<->'0')?
+                             '.' = unchanged, '0' = changed-to-black; the model
+                             conflates them.
+
+    Returns (changed_cell_recall, zero_dot_confusion); either may be None when
+    not applicable (e.g. aggregate facts block, or no such cells)."""
+    if target[:6].startswith("SIZE "):
+        return None, None
+    g_rows = generated.strip().split("\n")
+    t_rows = target.strip().split("\n")
+    changed_total = changed_hit = 0
+    confusable = confused = 0
+    for ri, trow in enumerate(t_rows):
+        grow = g_rows[ri] if ri < len(g_rows) else ""
+        for ci, tch in enumerate(trow):
+            gch = grow[ci] if ci < len(grow) else ""
+            if tch.isdigit():
+                changed_total += 1
+                if gch == tch:
+                    changed_hit += 1
+            if tch in ".0":
+                confusable += 1
+                if (tch == "." and gch == "0") or (tch == "0" and gch == "."):
+                    confused += 1
+    cr = changed_hit / changed_total if changed_total else None
+    zdc = confused / confusable if confusable else None
+    return cr, zdc
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--adapter", type=Path, required=True,
@@ -141,6 +200,9 @@ def main():
     print(f"Evaluating {len(records)} probe records…")
 
     results_by_format = defaultdict(list)
+    cell_by_format = defaultdict(list)
+    chgrecall_by_format = defaultdict(list)
+    zerodot_by_format = defaultdict(list)
     failures = []
 
     t0 = time.time()
@@ -166,6 +228,12 @@ def main():
         size_kind = "same_size" if is_same_size_record(record) else "diff_size"
         key = (fmt, size_kind)
         results_by_format[key].append(ok)
+        cell_by_format[key].append(cell_accuracy(generated, target))
+        _cr, _zdc = grid_diagnostics(generated, target)
+        if _cr is not None:
+            chgrecall_by_format[key].append(_cr)
+        if _zdc is not None:
+            zerodot_by_format[key].append(_zdc)
 
         if not ok:
             failures.append({
@@ -193,18 +261,30 @@ def main():
         n = len(oks)
         c = sum(oks)
         acc = c / n
+        cells = cell_by_format[key]
+        cell_acc = sum(cells) / len(cells) if cells else 0.0
+        chg = chgrecall_by_format[key]
+        chg_recall = sum(chg) / len(chg) if chg else None
+        zd = zerodot_by_format[key]
+        zero_dot = sum(zd) / len(zd) if zd else None
         overall_correct += c
         overall_total += n
         threshold = THRESHOLDS.get(key) or THRESHOLDS.get((fmt, "any"))
         passed = (threshold is not None) and (acc >= threshold)
         report["by_key"][f"{fmt}|{size_kind}"] = {
             "n": n, "correct": c, "exact_match": acc,
+            "cell_accuracy": cell_acc,
+            "changed_cell_recall": chg_recall,
+            "zero_dot_confusion": zero_dot,
             "threshold": threshold, "passed": passed,
         }
         pass_fail[f"{fmt}|{size_kind}"] = passed if threshold is not None else None
 
     overall_acc = overall_correct / overall_total if overall_total else 0.0
+    all_cell = [c for cells in cell_by_format.values() for c in cells]
+    overall_cell = sum(all_cell) / len(all_cell) if all_cell else 0.0
     report["summary"]["overall_exact_match"] = overall_acc
+    report["summary"]["overall_cell_accuracy"] = overall_cell
     report["summary"]["overall_n"] = overall_total
     report["summary"]["overall_correct"] = overall_correct
 
@@ -212,22 +292,31 @@ def main():
     print("\n=== Phase probe report ===")
     print(f"Adapter:  {args.adapter}")
     print(f"Probe:    {args.probe}")
-    print(f"Overall:  {overall_correct}/{overall_total} = {overall_acc*100:.1f}%")
+    print(f"Overall:  exact {overall_acc*100:.1f}%  |  cell {overall_cell*100:.1f}%   "
+          f"({overall_correct}/{overall_total} exact)")
     print()
-    print(f"{'format|size':40s} {'n':>5s} {'correct':>8s} {'acc':>7s} "
-          f"{'thresh':>7s} {'pass':>5s}")
+    def _pct(x):
+        return f"{x*100:5.1f}%" if x is not None else "   — "
+    print(f"{'format|size':40s} {'n':>5s} {'exact':>7s} {'cell%':>6s} "
+          f"{'chgR%':>6s} {'.0cf%':>6s} {'pass':>5s}")
     for key, oks in sorted(results_by_format.items()):
         fmt, size_kind = key
         n = len(oks)
         c = sum(oks)
         acc = c / n
+        cells = cell_by_format[key]
+        cell_acc = sum(cells) / len(cells) if cells else 0.0
+        chg = chgrecall_by_format[key]
+        chg_recall = sum(chg) / len(chg) if chg else None
+        zd = zerodot_by_format[key]
+        zero_dot = sum(zd) / len(zd) if zd else None
         threshold = THRESHOLDS.get(key) or THRESHOLDS.get((fmt, "any"))
-        thr_str = f"{threshold*100:.0f}%" if threshold else "  —  "
         pass_str = "—"
         if threshold is not None:
             pass_str = "PASS" if acc >= threshold else "FAIL"
-        print(f"{fmt+'|'+size_kind:40s} {n:5d} {c:8d} {acc*100:6.1f}% "
-              f"{thr_str:>7s} {pass_str:>5s}")
+        print(f"{fmt+'|'+size_kind:40s} {n:5d} {acc*100:6.1f}% {_pct(cell_acc)} "
+              f"{_pct(chg_recall)} {_pct(zero_dot)} {pass_str:>5s}")
+    print("(chgR% = changed-cell recall, higher better; .0cf% = .<->0 confusion, lower better)")
     print()
 
     all_decisions = [v for v in pass_fail.values() if v is not None]
