@@ -366,3 +366,24 @@ on a **20 GB** pod (constant quota kills) while an empty **100 GB** pod sat
 unused. Moving the run to a 100 GB box; restoring stage 1 from HF (the local
 same_lit top-level save never completed). Cost of a wrong-sized/duplicate pod:
 hours. Verify volume size + that there's only ONE pod before training.
+
+---
+
+## GUARDRAIL — protect passed LoRAs (immutable artifacts)
+
+phase1_same_lit is a precious passed artifact (97.5% exact / 99.9% cell / 0%
+dot-zero confusion, held-out parent-level probe, saved on HF). Rule for the rest
+of the run:
+
+- **Treat each passed LoRA as immutable.** Continue FROM it; never train INTO
+  its dir or overwrite its HF folder.
+- Each stage: own output_dir (outputs/phase1_<stage>), own HF subfolder
+  (arc-lora-run2/phase1_<stage>); chain via lora_model_dir from the prior stage.
+- Restoring an adapter from HF is read-only (hf download) — cannot overwrite it.
+- **train -> probe (held-out) -> back up to HF -> only then continue.** Don't
+  stack stages blindly; promote a stage only after its probe passes.
+- Watch optimizer STEPS, not just epochs (the good same_lit run was ~400 steps).
+- Disk: save_only_model + save_total_limit small (the crash was disk quota on a
+  20GB volume, not model failure). Now on a 200GB container disk.
+- If ever re-training a passed stage, version it (e.g. phase1_same_lit_rerun_v2)
+  — do NOT replace the known-good adapter in place.
