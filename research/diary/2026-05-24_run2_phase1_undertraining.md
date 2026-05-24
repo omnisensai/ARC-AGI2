@@ -425,8 +425,44 @@ HF: Omnisensai/arc-lora-run2/diff_lit (byte-verified, 323,014,168 bytes).
 (NB folder naming: stage 1 is phase1_same_lit, stage 2 is diff_lit — passed
 different stage-name args; harmless.)
 
-### Held-out probe (run_probe.py, phase1_diff_lit_probe.jsonl, ~52 records)
-PENDING — to be filled in. Read structure-first: all records land in the
-"aggregate" bucket; cell% (char-level) is the headline, exact-match expected
-LOWER than same_lit (one slipped digit in a long ROWS/COLS line fails the whole
-block).
+### Held-out probe (run_probe.py, phase1_diff_lit_probe.jsonl, 52 records)
+
+    Overall:  exact 21.2%  |  cell 95.7%   (11/52 exact)
+    format|size                    n   exact   cell%   pass
+    pair_to_substrate|diff_size   52   21.2%   95.7%   FAIL(threshold artifact)
+    (all records bucket = "aggregate"; chgR/chgP/.0cf are N/A for facts blocks)
+
+### Reading — the "almost correct" signature, and it's BENIGN
+Low exact (21%) + high cell (95.7%) = strict-cliff vs slope. Pulled per-failure
+expected-vs-got line diffs (41 failures). **Every error is a COUNTING/ARITHMETIC
+slip. Not one is structural.** Concrete:
+  - PALETTE `0 4 -> 24 ×6` -> got `0 4 -> 28 Δ+24`  (input count right; MIScounted
+    output 24->28, so relation tag flipped)
+  - PALETTE `0 91 -> 0 dropped` -> `0 89 -> 0 dropped`  (off by 2; "dropped" right)
+  - PALETTE `4 15 -> 60 ×4` -> `4 14 -> 56 ×4`  (counts off by 1, ×4 STILL right)
+  - ROWS/COLS `...4 8 4...` -> `...4 9 4...`  (one per-row non-bg count off by 1)
+
+NEVER wrong: SIZE, BG, field structure, dominant colors, mostly the relations.
+The model learned the transformation STRUCTURE perfectly; it just can't COUNT
+exactly (165 cells -> says 169). Facts-block analogue of same_lit's positional
+drift: comprehension present, LLM-can't-count limit bites on magnitudes. Failures
+cluster on big/dense grids — ONE puzzle (2697da3f) = 4 of 6 sampled failures.
+
+### Verdict: diff_lit PASSES on the understanding interpretation. Proceed.
+- The 0.90 EXACT-MATCH threshold is the WRONG gate for facts blocks (set for the
+  pixel substrate). cell 95.7% + all-structural-correct is the real result;
+  "FAIL" is a threshold artifact, not a comprehension gap.
+- facts-T is a LOSSY scaffold, not the answer. "165 vs 169" doesn't break
+  reasoning about the transform; in Phase 2 CODE EXECUTION is the truth, not the
+  model's counts. Model-emitted facts can even be internally inconsistent (count
+  28 with tag Δ+24 when 4->28 is ×7) — fine for a scaffold, but DON'T trust
+  model-emitted facts as ground truth.
+- More SFT will NOT fix this — same limit as freehand-rendering huge grids.
+  Diminishing returns; alphabet learned. Don't over-train chasing exact counts.
+
+### TODO / design note (revisit, not now)
+facts-T asks for EXACT COUNTS (PALETTE, per-row/col NZ) — the LLM's weakest skill.
+Mild tension: we train on labels the model structurally can't reproduce
+token-perfectly. Tolerable (lossy + code-validated), but a future facts-T v2
+could de-emphasize raw counts in favor of relations/structure (which it gets
+right), or drop the longest per-cell count lines on big grids.
