@@ -237,6 +237,10 @@ def main():
     chgprec_by_bucket = defaultdict(list)
     zerodot_by_bucket = defaultdict(list)
     failures = []
+    # Full per-record log (EVERY record, not just misses) — for close-miss
+    # analysis ("almost right, needs more steps?"). Written first so it survives
+    # even if a later write fails.
+    per_record = []
 
     t0 = time.time()
     for i, record in enumerate(records):
@@ -279,6 +283,20 @@ def main():
             chgprec_by_bucket[_bucket].append(_cp)
         if _zdc is not None:
             zerodot_by_bucket[_bucket].append(_zdc)
+
+        per_record.append({
+            "puzzle_id":   record["provenance"].get("puzzle_id"),
+            "format":      fmt,
+            "size_kind":   size_kind,
+            "bucket":      _bucket,
+            "exact":       ok,
+            "cell_accuracy":          _ca,
+            "changed_cell_recall":    _cr,
+            "changed_cell_precision": _cp,
+            "zero_dot_confusion":     _zdc,
+            "expected":    target,
+            "got":         generated,
+        })
 
         if not ok:
             failures.append({
@@ -410,14 +428,22 @@ def main():
             failed = [k for k, v in pass_fail.items() if v is False]
             print(f"Verdict: FAIL on {len(failed)} format(s): {failed}")
 
-    # Persist.
+    # Persist. Write the full per-record log FIRST — it's the analysis artifact
+    # ("how close was each, what exactly did it get wrong"), and writing it
+    # before the report means a later failure can't cost us the per-line data
+    # (last time the report write crashed on disk-quota and we lost everything).
+    records_path = args.probe.with_name(args.probe.stem + "_probe_records.jsonl")
+    with records_path.open("w") as f:
+        for rec in per_record:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     report_path = args.probe.with_name(args.probe.stem + "_probe_report.json")
     failures_path = args.probe.with_name(args.probe.stem + "_probe_failures.jsonl")
     report_path.write_text(json.dumps(report, indent=2))
     with failures_path.open("w") as f:
         for fail in failures:
             f.write(json.dumps(fail, ensure_ascii=False) + "\n")
-    print(f"\nWrote {report_path.name} and {failures_path.name} "
+    print(f"\nWrote {records_path.name} ({len(per_record)} records), "
+          f"{report_path.name}, and {failures_path.name} "
           f"({len(failures)} failures)")
 
 
