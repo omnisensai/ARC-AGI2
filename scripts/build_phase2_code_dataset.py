@@ -168,6 +168,18 @@ def main():
         if args.limit and stats["puzzles_used"] >= args.limit:
             break
 
+    # Drop over-length records BEFORE rebalancing so the mix stays exact on what
+    # survives. train_on_inputs:false means trainer truncation eats the trailing
+    # tokens — i.e. the ASSISTANT code target — which would teach "emit code,
+    # then stop mid-function". ~0.42 tok/char (Qwen BPE on digit grids); the 0.92
+    # factor reserves slack for chat-template/role tokens + heuristic error.
+    SEQ_LEN, TOK_PER_CHAR = 8192, 0.42
+    char_budget = int(SEQ_LEN * 0.92 / TOK_PER_CHAR)
+    before = len(records)
+    records = [r for r in records
+               if sum(len(m["content"]) for m in r["messages"]) <= char_budget]
+    stats["skipped_overlen"] = before - len(records)
+
     # Rebalance toward GPT's 35/40/25 (all_pairs / subset_cycled / pseudo_test),
     # anchored on subset_cycled (the core invariance variant) at 40%.
     by_v = {"all_pairs": [], "subset_cycled": [], "pseudo_test": []}
