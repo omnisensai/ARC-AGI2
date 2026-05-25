@@ -76,17 +76,25 @@ def resolve(pid, code):
             return f, pz
     return None, None
 
-def demos_block(pairs, idxs):
+def demos_block(pairs, idxs, compact):
+    """compact=True (same-size): show INPUT + T only (OUTPUT is recoverable from
+    them, lossless -> ~1/3 fewer tokens). compact=False (diff-size): show
+    INPUT + OUTPUT + T, since diff-size T is lossy and OUTPUT is needed."""
     parts = []
     for i in idxs:
         p = pairs[i]
-        parts.append(f"INPUT:\n{grid_str(p['input'])}\n\nOUTPUT:\n{grid_str(p['output'])}\n\n"
-                     f"T:\n{t_text(p['input'], p['output'])}")
+        if compact:
+            parts.append(f"INPUT:\n{grid_str(p['input'])}\n\nT:\n{t_text(p['input'], p['output'])}")
+        else:
+            parts.append(f"INPUT:\n{grid_str(p['input'])}\n\nOUTPUT:\n{grid_str(p['output'])}\n\n"
+                         f"T:\n{t_text(p['input'], p['output'])}")
     return "\n\n".join(parts)
 
-def make_record(pairs, demo_idxs, test_input, code, prov):
-    user = (demos_block(pairs, demo_idxs)
-            + f"\n\nTEST INPUT:\n{grid_str(test_input)}\n\nWrite def solve(input_grid):")
+def make_record(pairs, demo_idxs, code, prov, compact):
+    # No TEST INPUT: the code is the invariant rule derived from the shown pairs;
+    # the test input is runtime machinery, not needed to write the rule, and
+    # showing it invites tailoring the code to one input (false-positive risk).
+    user = demos_block(pairs, demo_idxs, compact) + "\n\nWrite def solve(input_grid):"
     return {"messages": [{"role": "system", "content": SYSTEM},
                          {"role": "user", "content": user},
                          {"role": "assistant", "content": code}],
@@ -96,6 +104,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--same-only", action="store_true",
+                    help="Emit only same-size puzzles (the focused sprint).")
     args = ap.parse_args()
     rng = random.Random(args.seed)
     forbidden = set((FT / "splits/phase2_diffsolver_forbidden.txt").read_text().split())
@@ -103,7 +113,7 @@ def main():
     files = sorted(glob.glob(str(CORPUS / "*.json")))
     records = []
     stats = {"puzzles_used": 0, "skipped_forbidden": 0, "skipped_nofile": 0,
-             "skipped_nocode": 0, "same": 0, "diff": 0}
+             "skipped_nocode": 0, "skipped_diff": 0, "skipped_1pair": 0, "same": 0, "diff": 0}
     for cf in files:
         pid = os.path.splitext(os.path.basename(cf))[0]
         if pid in forbidden:
@@ -116,29 +126,33 @@ def main():
         path, pz = resolve(pid, code)
         if not pz:
             stats["skipped_nofile"] += 1; continue
-        tr = pz["train"]; te = pz["test"]
+        tr = pz["train"]
         n = len(tr)
         same = all(len(p["input"]) == len(p["output"]) and len(p["input"][0]) == len(p["output"][0])
                    for p in tr)
+        if args.same_only and not same:
+            stats["skipped_diff"] += 1; continue
+        if n < 2:  # one pair underdetermines the rule
+            stats["skipped_1pair"] += 1; continue
+        compact = same  # same-size: drop OUTPUT (lossless via T). diff-size: keep it.
         stats["same" if same else "diff"] += 1
         stats["puzzles_used"] += 1
         ctid = f"{pid}#0"
-        # leave-one-out variants (needs >=2 train pairs)
-        if n >= 2:
+        # all-pairs record (shows every train pair)
+        demo = list(range(n)); rng.shuffle(demo)
+        records.append(make_record(tr, demo, code, {
+            "puzzle_id": pid, "variant": "all", "visible_pair_indices": demo,
+            "substrate_type": "same" if same else "diff", "code_target_id": ctid,
+            "puzzle_file": os.path.basename(path)}, compact))
+        # leave-one-out subsets — only when the shown subset stays >=2 pairs (n>=3),
+        # so we never train on a single underdetermining pair.
+        if n >= 3:
             for held in range(n):
-                demo = [i for i in range(n) if i != held]
-                rng.shuffle(demo)
-                prov = {"puzzle_id": pid, "variant": "loo", "visible_pair_indices": demo,
-                        "hidden_test_pair_index": held, "substrate_type": "same" if same else "diff",
-                        "code_target_id": ctid, "puzzle_file": os.path.basename(path)}
-                records.append(make_record(tr, demo, tr[held]["input"], code, prov))
-        # all-demo variant -> real test input
-        if te:
-            demo = list(range(n)); rng.shuffle(demo)
-            prov = {"puzzle_id": pid, "variant": "alldemo", "visible_pair_indices": demo,
-                    "hidden_test_pair_index": None, "substrate_type": "same" if same else "diff",
-                    "code_target_id": ctid, "puzzle_file": os.path.basename(path)}
-            records.append(make_record(tr, demo, te[0]["input"], code, prov))
+                demo = [i for i in range(n) if i != held]; rng.shuffle(demo)
+                records.append(make_record(tr, demo, code, {
+                    "puzzle_id": pid, "variant": "loo", "visible_pair_indices": demo,
+                    "held_out_pair_index": held, "substrate_type": "same" if same else "diff",
+                    "code_target_id": ctid, "puzzle_file": os.path.basename(path)}, compact))
         if args.limit and stats["puzzles_used"] >= args.limit:
             break
 
