@@ -1,98 +1,129 @@
 """Canonical latent-T solver for ARC puzzle 28a6681f.
 
-Rule (gravity / water settling):
-  Color 1 behaves like water; every other non-background (non-0) color is an
-  inert wall forming containers. The water cells fall straight down and spread
-  horizontally to reach lower positions, blocked by the walls and the grid
-  edges, until they reach equilibrium. The output is the input with the water
-  removed from its original cells and re-placed at its settled resting cells.
+Rule (gravity-driven water settling, color 1 conserved):
+  Each grid holds several "container" shapes drawn in solid colors (the walls /
+  terrain) plus a reservoir of the special color 1 (water). The water is poured
+  down from the top of its reservoir column and settles under downward gravity:
+  every unit falls straight down, and when its descent is blocked it spreads
+  sideways along the current surface level to the nearest column where it can
+  keep falling, finally resting at the deepest cell it can reach. The total
+  number of 1-cells is conserved; the reservoir's surplus cascades over the wall
+  rims into the empty pockets of the container shapes.
 
-infer_T simulates the settling on the input alone and returns the latent mask
-T = {(r,c): 1} of the cells the water finally occupies (plus the originally
-occupied cells that must be cleared, encoded as the full new-water set vs the
-old-water set). apply_T copies the input, clears the old water, and writes the
-settled water.
+  infer_T -> simulate the settling from the input ALONE and return the latent
+             mask T = {(r,c): 1} of the cells the water finally occupies (every
+             original 1 is treated as empty during the simulation).
+  apply_T -> copy the input, clear the old water (1 -> 0 background), then paint
+             the masked cells with 1.
 """
 
+from collections import deque
 
-def _settle(grid, walls):
-    """Return the set of cells where the water (color 1) comes to rest."""
+
+def _water_source(grid):
+    """Top-left cell of the largest 4-connected component of color 1.
+
+    This identifies the reservoir column the water pours down from.
+    """
     H, W = len(grid), len(grid[0])
-    # base grid with water removed; occ marks current water positions
-    base = [[(0 if grid[r][c] == 1 else grid[r][c]) for c in range(W)]
-            for r in range(H)]
-    occ = [[grid[r][c] == 1 for c in range(W)] for r in range(H)]
-
-    def free(r, c):
-        return 0 <= r < H and 0 <= c < W and base[r][c] == 0 and not occ[r][c]
-
-    moved = True
-    guard = 0
-    while moved and guard < 100000:
-        moved = False
-        guard += 1
-        # 1) gravity: every water cell with empty space below falls one step
-        for r in range(H - 2, -1, -1):
-            for c in range(W):
-                if occ[r][c] and free(r + 1, c):
-                    occ[r][c] = False
-                    occ[r + 1][c] = True
-                    moved = True
-        if moved:
-            continue
-        # 2) spreading: a settled water cell that cannot fall flows
-        #    horizontally (through free cells in its row) toward the nearest
-        #    column where it can drop, then stops to fall next iteration.
-        for r in range(H - 1, -1, -1):
-            for c in range(W):
-                if not occ[r][c] or free(r + 1, c):
-                    continue
-                for step in (1, -1):
-                    cc = c + step
-                    done = False
-                    while free(r, cc):
-                        if free(r + 1, cc):
-                            occ[r][c] = False
-                            occ[r][cc] = True
-                            moved = True
-                            done = True
-                            break
-                        cc += step
-                    if done:
-                        break
-                if moved:
-                    break
-            if moved:
-                break
-
-    return set((r, c) for r in range(H) for c in range(W) if occ[r][c])
+    seen = set()
+    best = None
+    for r in range(H):
+        for c in range(W):
+            if grid[r][c] == 1 and (r, c) not in seen:
+                comp = []
+                dq = deque([(r, c)])
+                while dq:
+                    rr, cc = dq.popleft()
+                    if (rr, cc) in seen:
+                        continue
+                    if not (0 <= rr < H and 0 <= cc < W):
+                        continue
+                    if grid[rr][cc] != 1:
+                        continue
+                    seen.add((rr, cc))
+                    comp.append((rr, cc))
+                    for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        dq.append((rr + dr, cc + dc))
+                if best is None or len(comp) > len(best):
+                    best = comp
+    if best is None:
+        return None
+    return min(best, key=lambda rc: (rc[0], rc[1]))
 
 
 def infer_T(input_grid):
-    """Latent transformation mask: T[r][c] = 1 where water settles, else None."""
+    """Latent mask of the cells that end up holding water (color 1).
+
+    Derived purely from the input by simulating the gravity settling of the
+    conserved water mass. Walls are every non-(0, 1) colored cell.
+    """
     H, W = len(input_grid), len(input_grid[0])
-    # walls = every non-background, non-water color
-    walls = set(v for row in input_grid for v in row) - {0, 1}
-    settled = _settle(input_grid, walls)
-    T = [[None] * W for _ in range(H)]
-    # any cell that was water OR becomes water is part of the mask;
-    # settled cells -> 1, previously-water cells that are no longer occupied -> 0
+    wall = [[input_grid[r][c] not in (0, 1) for c in range(W)] for r in range(H)]
+    n_water = sum(v == 1 for row in input_grid for v in row)
+
+    T = {}
+    src = _water_source(input_grid)
+    if src is None or n_water == 0:
+        return T
+    _, sc = src
+
+    water = [[False] * W for _ in range(H)]
+
+    def free(r, c):
+        return 0 <= r < H and 0 <= c < W and not wall[r][c] and not water[r][c]
+
+    for _ in range(n_water):
+        # Enter at the topmost free cell of the source column.
+        r = 0
+        while r < H and not free(r, sc):
+            r += 1
+        if r >= H:
+            break
+        c = sc
+
+        # Fall, then settle.
+        while True:
+            if free(r + 1, c):
+                r += 1
+                continue
+            # Blocked below: spread sideways at the current surface level and
+            # look for the nearest column where the unit can keep falling.
+            seen = {(r, c)}
+            dq = deque([(r, c)])
+            drops = []
+            while dq:
+                rr, cc = dq.popleft()
+                if free(rr + 1, cc):
+                    drops.append((rr, cc))
+                for dc in (-1, 1):
+                    nc = cc + dc
+                    if free(r, nc) and (r, nc) not in seen:
+                        seen.add((r, nc))
+                        dq.append((r, nc))
+            if not drops:
+                # No further descent possible: rest at the cell nearest the
+                # source column within the reachable surface segment.
+                r, c = min(seen, key=lambda x: (abs(x[1] - sc), x[1]))
+                break
+            # Continue falling from the descent column nearest the source.
+            nd = min(drops, key=lambda x: (abs(x[1] - sc), x[1]))
+            r, c = nd[0] + 1, nd[1]
+
+        water[r][c] = True
+
     for r in range(H):
         for c in range(W):
-            if (r, c) in settled:
-                T[r][c] = 1
-            elif input_grid[r][c] == 1:
-                T[r][c] = 0
+            if water[r][c]:
+                T[(r, c)] = 1
     return T
 
 
 def apply_T(input_grid, T):
-    H, W = len(input_grid), len(input_grid[0])
-    out = [row[:] for row in input_grid]
-    for r in range(H):
-        for c in range(W):
-            if T[r][c] is not None:
-                out[r][c] = T[r][c]
+    """Copy the input, clear the old water, and paint the masked cells with 1."""
+    out = [[(0 if v == 1 else v) for v in row] for row in input_grid]
+    for (r, c), color in T.items():
+        out[r][c] = color
     return out
 
 
