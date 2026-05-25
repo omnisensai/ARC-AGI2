@@ -171,72 +171,98 @@ def audit(code):
     hard_reject = any(f.startswith(("BIG_GRID_LITERAL","EQ_GRID_LOOKUP","FINGERPRINT_LOOKUP","unparseable")) for f in flags)
     return (not hard_reject) and has_mask, flags
 
+def process_puzzle(pid, client, args, resolve):
+    """Generate -> validate-all-pairs -> repair-loop -> audit for ONE puzzle.
+    Returns (status, record_or_None). Bounded by repair_tries x client timeout."""
+    f = resolve(pid)
+    if not f:
+        return "no_file", None
+    pz = load_puzzle(f)
+    msgs = [{"role": "system", "content": SYSTEM},
+            {"role": "user", "content": build_prompt(pz)}]
+    for tryi in range(1, args.repair_tries + 1):
+        try:
+            resp = client.chat.completions.create(
+                model=args.model, temperature=args.temperature, messages=msgs
+            ).choices[0].message.content
+        except Exception:
+            return "api_error", None
+        code = extract(resp)
+        if not code:
+            msgs += [{"role": "assistant", "content": resp},
+                     {"role": "user", "content": "Return ONLY a python code block with def solve(input_grid)."}]
+            continue
+        ok, err, fails = run_all(code, pz)
+        if ok:
+            aok, flags = audit(code)
+            if aok:
+                return "accepted", {"puzzle_id": pid, "code": code, "audit": flags, "tries": tryi}
+            msgs += [{"role": "assistant", "content": resp},
+                     {"role": "user", "content": f"Rejected audit: {flags}. Rewrite in canonical infer_T/apply_T form, no hardcoding, expose the mask. Code only."}]
+            continue
+        if fails:
+            i, g, e = fails[0]
+            got = gstr(g) if isinstance(g, list) and g and isinstance(g[0], list) else g
+            fb = f"Your solve() is wrong on pair {i+1}.\nExpected:\n{gstr(e)}\nGot:\n{got}\nFix infer_T and return corrected code only."
+        else:
+            fb = f"Your code errored: {err}. Fix and return code only."
+        msgs += [{"role": "assistant", "content": resp}, {"role": "user", "content": fb}]
+    return "failed_validate", None
+
+
 def main():
-    ap=argparse.ArgumentParser()
+    from collections import Counter
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    ap = argparse.ArgumentParser()
     ap.add_argument("--ids", default="Fine Tune Run 2/splits/golden_train_ids.txt")
     ap.add_argument("--puzzle-dir", default="Fine Tune Run 2/puzzles")
+    ap.add_argument("--out-dir", default="research/canonical_solvers")
     ap.add_argument("--model", default="gpt-5")
     ap.add_argument("--repair-tries", type=int, default=3)
     ap.add_argument("--temperature", type=float, default=0.4)
+    ap.add_argument("--workers", type=int, default=10, help="puzzles processed concurrently")
+    ap.add_argument("--puzzle-timeout", type=int, default=420,
+                    help="seconds per puzzle before abandoning it so the pool keeps moving")
     ap.add_argument("--limit", type=int, default=0)
-    args=ap.parse_args()
+    args = ap.parse_args()
     from openai import OpenAI
-    client=OpenAI()
+    client = OpenAI(timeout=120, max_retries=2)  # bounded per-call
 
     def resolve(pid):
-        for suf in ("_A2E","_A2T","_A1E","_A1T",""):
-            c=Path(args.puzzle_dir)/f"{pid}{suf}.json"
-            if c.exists(): return str(c)
-        g=glob.glob(f"{args.puzzle_dir}/{pid}*.json"); return g[0] if g else None
+        for suf in ("_A2E", "_A2T", "_A1E", "_A1T", ""):
+            c = Path(args.puzzle_dir) / f"{pid}{suf}.json"
+            if c.exists():
+                return str(c)
+        g = glob.glob(f"{args.puzzle_dir}/{pid}*.json")
+        return g[0] if g else None
 
-    ids=[x.strip() for x in Path(args.ids).read_text().split() if x.strip()]
-    if args.limit: ids=ids[:args.limit]
-    outdir=ROOT/"research/canonical_solvers"; outdir.mkdir(parents=True, exist_ok=True)
-    stats={"attempted":0,"accepted":0,"failed_validate":0,"failed_audit":0,"no_code":0,"solved_on_try":{}}
+    outdir = Path(args.out_dir); outdir.mkdir(parents=True, exist_ok=True)
+    ids = [x.strip() for x in Path(args.ids).read_text().split() if x.strip()]
+    if args.limit:
+        ids = ids[:args.limit]
+    todo = [p for p in ids if not (outdir / f"{p}.json").exists()]   # resume: skip done
+    print(f"{len(ids)} ids | {len(ids)-len(todo)} already done | {len(todo)} to process | {args.workers} workers")
 
-    for pid in ids:
-        f=resolve(pid)
-        if not f: continue
-        pz=load_puzzle(f); stats["attempted"]+=1
-        msgs=[{"role":"system","content":SYSTEM},{"role":"user","content":build_prompt(pz)}]
-        accepted=None
-        for tryi in range(1, args.repair_tries+1):
+    stats = Counter(); done = 0
+    with ThreadPoolExecutor(max_workers=args.workers) as ex:
+        futs = {ex.submit(process_puzzle, pid, client, args, resolve): pid for pid in todo}
+        for fut in as_completed(futs):
+            pid = futs[fut]; done += 1
             try:
-                resp=client.chat.completions.create(model=args.model,temperature=args.temperature,messages=msgs).choices[0].message.content
-            except Exception as e:
-                print(f"{pid} try{tryi}: API error {e}"); break
-            code=extract(resp)
-            if not code:
-                msgs += [{"role":"assistant","content":resp},{"role":"user","content":"Return ONLY a python code block with def solve(input_grid)."}]; continue
-            ok,err,fails=run_all(code,pz)
-            if ok:
-                aok,flags=audit(code)
-                if aok:
-                    accepted={"puzzle_id":pid,"code":code,"audit":flags,"tries":tryi}
-                    stats["solved_on_try"][str(tryi)]=stats["solved_on_try"].get(str(tryi),0)+1
-                    print(f"{pid}: ACCEPTED on try {tryi}  flags={flags}")
-                else:
-                    print(f"{pid} try{tryi}: passed pairs but FAILED AUDIT {flags}")
-                    msgs += [{"role":"assistant","content":resp},{"role":"user","content":f"Rejected: {flags}. Rewrite in canonical infer_T/apply_T form, no hardcoding, expose the mask. Code only."}]
-                    continue
-                break
-            # repair: feed back first failing pair
-            if fails:
-                i,g,e=fails[0]
-                fb=f"Your solve() is wrong on pair {i+1}.\nExpected:\n{gstr(e)}\nGot:\n{gstr(g) if isinstance(g,list) and g and isinstance(g[0],list) else g}\nFix infer_T and return corrected code only."
-            else:
-                fb=f"Your code errored: {err}. Fix and return code only."
-            msgs += [{"role":"assistant","content":resp},{"role":"user","content":fb}]
-        if accepted:
-            (outdir/f"{pid}.json").write_text(json.dumps(accepted,indent=2)); stats["accepted"]+=1
-        else:
-            stats["failed_validate"]+=1
+                status, rec = fut.result(timeout=args.puzzle_timeout)
+            except Exception:
+                status, rec = "timeout", None   # abandon slow ones; keep progressing
+            if rec:
+                (outdir / f"{pid}.json").write_text(json.dumps(rec, indent=2))
+            stats[status] += 1
+            print(f"[{done}/{len(todo)}] {pid} -> {status}   (accepted so far: {stats['accepted']})")
 
-    Path(ROOT/"reports").mkdir(exist_ok=True)
-    (ROOT/"reports/canonical_build_report.json").write_text(json.dumps(stats,indent=2))
+    Path("reports").mkdir(exist_ok=True)
+    Path("reports/canonical_build_report.json").write_text(json.dumps(dict(stats), indent=2))
     print("\n=== REPORT ===")
-    print(json.dumps(stats,indent=2))
-    print(f"accepted canonical solvers -> {outdir}")
+    print(json.dumps(dict(stats), indent=2))
+    print(f"accepted canonical solvers -> {outdir}  (re-run to resume; done puzzles are skipped)")
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     main()
