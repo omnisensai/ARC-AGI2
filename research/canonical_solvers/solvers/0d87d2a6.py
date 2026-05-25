@@ -1,5 +1,5 @@
 def _components(g):
-    """Connected components (4-connectivity) of color-2 cells."""
+    """4-connected components of color-2 cells, as lists of (r, c)."""
     H, W = len(g), len(g[0])
     seen = [[False] * W for _ in range(H)]
     comps = []
@@ -20,11 +20,22 @@ def _components(g):
     return comps
 
 
+def _contains(a_lo, a_hi, b_lo, b_hi):
+    """True if interval [a_lo,a_hi] contains [b_lo,b_hi] or vice-versa."""
+    return (a_lo >= b_lo and a_hi <= b_hi) or (b_lo >= a_lo and b_hi <= a_hi)
+
+
 def infer_T(input_grid):
-    """Border markers (color 1) define full-grid lines. A vertical line is
-    drawn at the column of a top/bottom marker; a horizontal line at the row
-    of a left/right marker. Every line cell becomes 1; any color-2 block the
-    line passes through is fully recolored to 1."""
+    """Border markers (color 1) define full-grid lines: a top/bottom marker at
+    column c draws a vertical line down column c; a left/right marker at row r
+    draws a horizontal line across row r. Every line cell becomes color 1.
+
+    A color-2 block that a line passes through is fully recolored to 1.
+    Additionally, when a HORIZONTAL line touches a block exactly at the block's
+    top or bottom edge, the block re-emits a vertical ray in the direction it
+    extends away from that line; that ray recolors the first aligned block it
+    reaches (a block whose column span is contained in / contains the source's),
+    without drawing a connecting line."""
     H, W = len(input_grid), len(input_grid[0])
 
     vcols, hrows = set(), set()
@@ -36,27 +47,60 @@ def infer_T(input_grid):
                 if c in (0, W - 1):
                     hrows.add(r)
 
+    blocks = []
+    for cells in _components(input_grid):
+        rs = [r for r, _ in cells]
+        cs = [c for _, c in cells]
+        blocks.append({
+            'rmin': min(rs), 'rmax': max(rs),
+            'cmin': min(cs), 'cmax': max(cs),
+            'cells': cells,
+        })
+
+    recolor = [False] * len(blocks)
+    emissions = []  # (clo, chi, direction, start_row)
+
+    for i, b in enumerate(blocks):
+        for hr in hrows:
+            if b['rmin'] <= hr <= b['rmax']:
+                recolor[i] = True
+                if hr == b['rmin']:          # line at top edge -> extend down
+                    emissions.append((b['cmin'], b['cmax'], 'DOWN', b['rmax']))
+                elif hr == b['rmax']:        # line at bottom edge -> extend up
+                    emissions.append((b['cmin'], b['cmax'], 'UP', b['rmin']))
+        for vc in vcols:
+            if b['cmin'] <= vc <= b['cmax']:
+                recolor[i] = True
+
+    for (clo, chi, direction, start) in emissions:
+        best, best_d = None, None
+        for i, b in enumerate(blocks):
+            if recolor[i]:
+                continue
+            if not _contains(b['cmin'], b['cmax'], clo, chi):
+                continue
+            if direction == 'UP' and b['rmax'] < start:
+                d = start - b['rmax']
+            elif direction == 'DOWN' and b['rmin'] > start:
+                d = b['rmin'] - start
+            else:
+                continue
+            if best_d is None or d < best_d:
+                best_d, best = d, i
+        if best is not None:
+            recolor[best] = True
+
     T = {}
-    # Draw the lines across the full grid.
     for c in vcols:
         for r in range(H):
             T[(r, c)] = 1
     for r in hrows:
         for c in range(W):
             T[(r, c)] = 1
-
-    # Recolor any block that a line passes through.
-    for cells in _components(input_grid):
-        rs = [r for r, _ in cells]
-        cs = [c for _, c in cells]
-        rmin, rmax = min(rs), max(rs)
-        cmin, cmax = min(cs), max(cs)
-        crossed = any(cmin <= vc <= cmax for vc in vcols) or \
-                  any(rmin <= hr <= rmax for hr in hrows)
-        if crossed:
-            for (r, c) in cells:
+    for i, b in enumerate(blocks):
+        if recolor[i]:
+            for (r, c) in b['cells']:
                 T[(r, c)] = 1
-
     return T
 
 
