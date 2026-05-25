@@ -1,247 +1,188 @@
-from collections import Counter, defaultdict
+"""Canonical latent-T solver for ARC puzzle 4ff4c9da.
 
-# Puzzle 4ff4c9da.
-#
-# The grid is a self-similar pattern carved into rectangular content "blocks"
-# by full-length separator lines (rows/cols of a single repeated color).  A
-# few cells have been overwritten with the colour 8, forming one or more small
-# marker objects.  Each marker covers cells of one underlying ("object") colour
-# inside its block.  The transformation copies the marker onto every block where
-# that same object colour forms the same local shape (block-bounded window),
-# leaving everything else untouched.
-#
-# infer_T reconstructs the clean background, locates the markers, and builds the
-# latent mask of every cell that must become 8.  apply_T overwrites only those.
+Rule
+----
+The grid is a doubly-periodic "outer-product" pattern: every background cell value
+equals f(rowtype[r], coltype[c]), where a row's type is its full content and a
+column's type is its full content. A few cells are overwritten with the marker
+colour 8, forming one or more small connected shapes (markers).
 
-_NB8 = [(dy, dx) for dy in (-1, 0, 1) for dx in (-1, 0, 1) if (dy, dx) != (0, 0)]
+Each marker is replicated across the symmetries of the underlying clean pattern:
+
+  * Translations: a marker may be shifted by (dr, dc) when the clean background,
+    over the marker's footprint padded by one cell, is preserved by that shift.
+    The two axes are checked independently (a row-shift must preserve the
+    background over the marker's column strip; a col-shift over its row strip),
+    so a marker can translate independently along each axis.
+  * Reflections: a marker may also be mirrored across an axis, but ONLY when its
+    own shape is symmetric under that mirror (so the placed copy keeps the same
+    orientation). Asymmetric markers are translated only.
+
+The latent transformation mask T is the dict of cells that must become 8 (the
+source markers together with all their valid images). apply_T copies the input
+and paints exactly those cells with 8.
+"""
 
 
-def _reconstruct_background(inp):
-    """Recover the clean (8-free) background grid."""
-    H, W = len(inp), len(inp[0])
-    g = [row[:] for row in inp]
+def _row_types(grid):
+    """Group identical rows (treating 8 as a wildcard); return per-row class id."""
+    H, W = len(grid), len(grid[0])
 
-    def overlap_eq(a, b):
-        for x, y in zip(a, b):
-            if x == 8 or y == 8:
+    def eq(i, j):
+        for c in range(W):
+            a, b = grid[i][c], grid[j][c]
+            if a == 8 or b == 8:
                 continue
-            if x != y:
+            if a != b:
                 return False
         return True
 
-    def consensus_fill(g):
-        # cluster identical rows, vote per column, fill remaining 8s
-        rlab = [-1] * H
-        reps = []
-        for r in range(H):
-            for i, rep in enumerate(reps):
-                if overlap_eq(g[r], g[rep]):
-                    rlab[r] = i
-                    break
-            if rlab[r] < 0:
-                rlab[r] = len(reps)
-                reps.append(r)
-        for lab in set(rlab):
-            rows = [r for r in range(H) if rlab[r] == lab]
-            for c in range(W):
-                cnt = Counter(g[r][c] for r in rows if g[r][c] != 8)
-                if cnt:
-                    v = cnt.most_common(1)[0][0]
-                    for r in rows:
-                        if g[r][c] == 8:
-                            g[r][c] = v
-        # same for columns
-        clab = [-1] * W
-        creps = []
-        for c in range(W):
-            colc = [g[r][c] for r in range(H)]
-            for i, cr in enumerate(creps):
-                if overlap_eq(colc, [g[r][cr] for r in range(H)]):
-                    clab[c] = i
-                    break
-            if clab[c] < 0:
-                clab[c] = len(creps)
-                creps.append(c)
-        for lab in set(clab):
-            cols = [c for c in range(W) if clab[c] == lab]
-            for r in range(H):
-                cnt = Counter(g[r][c] for c in cols if g[r][c] != 8)
-                if cnt:
-                    v = cnt.most_common(1)[0][0]
-                    for c in cols:
-                        if g[r][c] == 8:
-                            g[r][c] = v
-        return g
-
-    for _ in range(3):
-        # the background is transpose-symmetric: copy from the mirror cell
-        changed = True
-        while changed:
-            changed = False
-            for r in range(H):
-                for c in range(W):
-                    if g[r][c] == 8 and r < W and c < H and g[c][r] != 8:
-                        g[r][c] = g[c][r]
-                        changed = True
-        g = consensus_fill(g)
-
-    return g
+    grp = [-1] * H
+    gid = 0
+    for i in range(H):
+        if grp[i] == -1:
+            grp[i] = gid
+            for j in range(i + 1, H):
+                if grp[j] == -1 and eq(i, j):
+                    grp[j] = gid
+            gid += 1
+    return grp
 
 
-def _partition(n, seps):
-    """Maximal runs of non-separator indices -> content blocks."""
-    res, cur = [], []
-    for i in range(n):
-        if i in seps:
-            if cur:
-                res.append(cur)
-                cur = []
-        else:
-            cur.append(i)
-    if cur:
-        res.append(cur)
-    return res
+def _types(grid, axis):
+    if axis == 'col':
+        grid = [list(col) for col in zip(*grid)]
+    return _row_types(grid)
 
 
-def _fill_marked_blocks(g, RB, CB, sr, sc):
-    """Fill any background cells still hidden by markers using the fact that
-    blocks of the same (meta-row, meta-col) class are identical."""
-    H, W = len(g), len(g[0])
-
-    def block(rb, cb):
-        return [[g[r][c] for c in cb] for r in rb]
-
-    def bmatch(A, B):
-        for ra, rb in zip(A, B):
-            for a, b in zip(ra, rb):
-                if a == 8 or b == 8:
-                    continue
-                if a != b:
-                    return False
-        return True
-
-    for _ in range(3):
-        blocks = {(I, J): block(rb, cb)
-                  for I, rb in enumerate(RB) for J, cb in enumerate(CB)}
-        # meta-row classes
-        ml = [-1] * len(RB)
-        mr = []
-        for I in range(len(RB)):
-            for k, rep in enumerate(mr):
-                if all(bmatch(blocks[(I, J)], blocks[(rep, J)])
-                       for J in range(len(CB))):
-                    ml[I] = k
-                    break
-            if ml[I] < 0:
-                ml[I] = len(mr)
-                mr.append(I)
-        # meta-col classes
-        nc = [-1] * len(CB)
-        mc = []
-        for J in range(len(CB)):
-            for k, rep in enumerate(mc):
-                if all(bmatch(blocks[(I, J)], blocks[(I, rep)])
-                       for I in range(len(RB))):
-                    nc[J] = k
-                    break
-            if nc[J] < 0:
-                nc[J] = len(mc)
-                mc.append(J)
-        # vote per (class, in-block position)
-        votes = defaultdict(lambda: defaultdict(Counter))
-        for I, rb in enumerate(RB):
-            for J, cb in enumerate(CB):
-                for i, r in enumerate(rb):
-                    for j, c in enumerate(cb):
-                        if g[r][c] != 8:
-                            votes[(ml[I], nc[J])][(i, j)][g[r][c]] += 1
-        for I, rb in enumerate(RB):
-            for J, cb in enumerate(CB):
-                for i, r in enumerate(rb):
-                    for j, c in enumerate(cb):
-                        if g[r][c] == 8:
-                            cnt = votes[(ml[I], nc[J])][(i, j)]
-                            if cnt:
-                                g[r][c] = cnt.most_common(1)[0][0]
-    return g
-
-
-def _components(inp):
-    """8-connected components of the colour-8 marker cells."""
-    H, W = len(inp), len(inp[0])
-    seen = [[False] * W for _ in range(H)]
-    comps = []
+def _restore_bg(grid):
+    """Reconstruct the clean background (each marker cell replaced by the most
+    common value seen at its (rowtype, coltype) class)."""
+    H, W = len(grid), len(grid[0])
+    rt = _types(grid, 'row')
+    ct = _types(grid, 'col')
+    counts = {}
     for r in range(H):
         for c in range(W):
-            if inp[r][c] == 8 and not seen[r][c]:
-                stack = [(r, c)]
-                cells = []
-                while stack:
-                    y, x = stack.pop()
-                    if not (0 <= y < H and 0 <= x < W) or seen[y][x] \
-                            or inp[y][x] != 8:
-                        continue
-                    seen[y][x] = True
-                    cells.append((y, x))
-                    for dy, dx in _NB8:
-                        stack.append((y + dy, x + dx))
-                comps.append(cells)
-    return comps
+            v = grid[r][c]
+            if v == 8:
+                continue
+            key = (rt[r], ct[c])
+            d = counts.setdefault(key, {})
+            d[v] = d.get(v, 0) + 1
+    bg = [[0] * W for _ in range(H)]
+    for r in range(H):
+        for c in range(W):
+            v = grid[r][c]
+            if v != 8:
+                bg[r][c] = v
+            else:
+                d = counts.get((rt[r], ct[c]))
+                bg[r][c] = max(d, key=d.get) if d else v
+    return bg
 
 
-def _bounds(lo, hi, seps, n):
-    """Grow [lo,hi] to the enclosing block, including its bounding separators."""
-    a = lo
-    while a - 1 >= 0 and (a - 1) not in seps:
-        a -= 1
-    b = hi
-    while b + 1 < n and (b + 1) not in seps:
-        b += 1
-    return (a - 1 if a - 1 >= 0 else a), (b + 1 if b + 1 < n else b)
+def _clusters8(cells):
+    """8-connected connected components of the given cell set."""
+    cells = set(cells)
+    seen = set()
+    out = []
+    for start in cells:
+        if start in seen:
+            continue
+        stack = [start]
+        comp = []
+        while stack:
+            x = stack.pop()
+            if x in seen or x not in cells:
+                continue
+            seen.add(x)
+            comp.append(x)
+            r, c = x
+            for dr in (-1, 0, 1):
+                for dc in (-1, 0, 1):
+                    if dr or dc:
+                        stack.append((r + dr, c + dc))
+        out.append(comp)
+    return out
 
 
 def infer_T(input_grid):
     H, W = len(input_grid), len(input_grid[0])
-    g = _reconstruct_background(input_grid)
-
-    sr = set(r for r in range(H) if len(set(g[r])) == 1)
-    sc = set(c for c in range(W) if len(set(g[r][c] for r in range(H))) == 1)
-    RB = _partition(H, sr)
-    CB = _partition(W, sc)
-    g = _fill_marked_blocks(g, RB, CB, sr, sc)
+    bg = _restore_bg(input_grid)
+    markers = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 8]
 
     T = {}
-    for cells in _components(input_grid):
-        rs = [y for y, x in cells]
-        cs = [x for y, x in cells]
-        r0, r1, c0, c1 = min(rs), max(rs), min(cs), max(cs)
-        # the underlying object colour(s) the marker covered
-        vs = set(g[y][x] for y, x in cells if g[y][x] != 8)
-        if not vs:
-            continue
-        R0, R1 = _bounds(r0, r1, sr, H)
-        C0, C1 = _bounds(c0, c1, sc, W)
-        bh, bw = R1 - R0 + 1, C1 - C0 + 1
-        rel = [(y - R0, x - C0) for y, x in cells]
-        # reference mask: which cells of the block carry the object colour
-        ref = [[(g[R0 + i][C0 + j] in vs) for j in range(bw)]
-               for i in range(bh)]
-        for tr in range(H - bh + 1):
-            for tc in range(W - bw + 1):
-                ok = True
-                for i in range(bh):
-                    for j in range(bw):
-                        cv = g[tr + i][tc + j]
-                        if cv == 8:
-                            continue
-                        if (cv in vs) != ref[i][j]:
-                            ok = False
-                            break
-                    if not ok:
+    R = 1  # one-cell pad around each marker for the local background-match check
+    for cl in _clusters8(markers):
+        for (r, c) in cl:
+            T[(r, c)] = 8  # keep every source marker cell
+        rows = sorted({r for r, c in cl})
+        cols = sorted({c for r, c in cl})
+        minr, maxr = min(rows), max(rows)
+        minc, maxc = min(cols), max(cols)
+        cellset = set(cl)
+
+        # A reflection along an axis is allowed only if the marker's own shape is
+        # symmetric under that reflection (so orientation is preserved).
+        row_sym = all((minr + maxr - r, c) in cellset for (r, c) in cl)
+        col_sym = all((r, minc + maxc - c) in cellset for (r, c) in cl)
+
+        frows = [r for r in range(minr - R, maxr + R + 1) if 0 <= r < H]
+        fcols = [c for c in range(minc - R, maxc + R + 1) if 0 <= c < W]
+
+        # candidate 1D affine maps  i -> s*i + o   (s=1 translation, s=-1 reflection)
+        rmaps = [(1, sh) for sh in range(-H, H + 1)]
+        if row_sym:
+            rmaps += [(-1, a) for a in range(0, 2 * H - 1)]
+        cmaps = [(1, sh) for sh in range(-W, W + 1)]
+        if col_sym:
+            cmaps += [(-1, a) for a in range(0, 2 * W - 1)]
+
+        # valid row maps: preserve clean background over the column strip + pad
+        row_ok = []
+        for m in rmaps:
+            if not all(0 <= m[0] * r + m[1] < H for r in rows):
+                continue
+            good = True
+            for r in frows:
+                rr = m[0] * r + m[1]
+                if not (0 <= rr < H):
+                    good = False
+                    break
+                for c in fcols:
+                    if bg[r][c] != bg[rr][c]:
+                        good = False
                         break
-                if ok:
-                    for dy, dx in rel:
-                        T[(tr + dy, tc + dx)] = 8
+                if not good:
+                    break
+            if good:
+                row_ok.append(m)
+
+        # valid col maps: preserve clean background over the row strip + pad
+        col_ok = []
+        for m in cmaps:
+            if not all(0 <= m[0] * c + m[1] < W for c in cols):
+                continue
+            good = True
+            for c in fcols:
+                cc = m[0] * c + m[1]
+                if not (0 <= cc < W):
+                    good = False
+                    break
+                for r in frows:
+                    if bg[r][c] != bg[r][cc]:
+                        good = False
+                        break
+                if not good:
+                    break
+            if good:
+                col_ok.append(m)
+
+        for rm in row_ok:
+            for cm in col_ok:
+                for (r, c) in cl:
+                    T[(rm[0] * r + rm[1], cm[0] * c + cm[1])] = 8
     return T
 
 
