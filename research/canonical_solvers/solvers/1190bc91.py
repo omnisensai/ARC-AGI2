@@ -1,148 +1,139 @@
+"""Canonical solver for ARC puzzle 1190bc91.
+
+Rule (discovered from all train+test pairs):
+
+The input contains:
+  * one MAIN RAY: the longest connected colored line (>=3 cells of distinct
+    colors), pointing to a grid edge (its "tip"), and
+  * zero or more DOUBLE markers: 2-cell connected components of a single color
+    (one may sit on the top edge, one on a side edge).
+
+After rotating so the main ray is vertical with its tip at the bottom edge:
+  1. Each ray cell emits a downward-opening "V" (chevron): cell (r,c) takes the
+     ray color whose spine row is (r - |c - spine_col|).  This paints the whole
+     lower cone, the colors nesting outward from the tip.
+  2. The two ray cells farthest from the tip ALSO emit upward arms (so they form
+     a full diagonal X), giving the upper boundary of the central diamond.
+  3. Each double marker FLOODS its enclosing wedge (4-connected fill through the
+     still-empty cells, blocked by the painted ray cells) with its color.  The
+     wedge that has no marker stays background (0).
+
+The transformation mask T overwrites only the cells the construction paints.
+"""
+
+from collections import deque
+
+
+def _rot90(g):
+    H = len(g)
+    return [[g[H - 1 - c][r] for c in range(H)] for r in range(len(g[0]))]
+
+
+def _rotk(g, k):
+    for _ in range(k % 4):
+        g = _rot90(g)
+    return g
+
+
+def _components(g):
+    """4-connected components of non-zero cells; returns (list_of_cell_lists, pos_dict)."""
+    H, W = len(g), len(g[0])
+    pos = {(r, c): g[r][c] for r in range(H) for c in range(W) if g[r][c] != 0}
+    used, comps = set(), []
+    for cell in pos:
+        if cell in used:
+            continue
+        stack, comp = [cell], []
+        while stack:
+            x = stack.pop()
+            if x in comp or x not in pos:
+                continue
+            comp.append(x)
+            r, c = x
+            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                if (r + dr, c + dc) in pos:
+                    stack.append((r + dr, c + dc))
+        used.update(comp)
+        comps.append(sorted(comp))
+    return comps, pos
+
+
+def _canon_rotation(g):
+    """Rotation count k (CW quarter-turns) that puts the main ray vertical, tip at bottom."""
+    comps, _ = _components(g)
+    main = max(comps, key=len)
+    rows = {r for r, c in main}
+    cols = {c for r, c in main}
+    H, W = len(g), len(g[0])
+    if len(cols) == 1:          # already vertical
+        if max(rows) == H - 1:
+            return 0            # tip at bottom
+        if min(rows) == 0:
+            return 2            # tip at top -> 180
+    if len(rows) == 1:          # horizontal
+        if max(cols) == W - 1:
+            return 1            # tip at right -> CW once -> bottom
+        if min(cols) == 0:
+            return 3            # tip at left -> CW thrice -> bottom
+    return 0
+
+
 def infer_T(input_grid):
-    """Latent mask: a rotated-diamond ("X / nested wedge") field radiating from one
-    end of a color sequence, with the three back wedges capped by wall markers.
+    """Infer the latent transformation mask T (None / color grid) from the input alone."""
+    k = _canon_rotation(input_grid)
+    cg = _rotk(input_grid, k)
+    H, W = len(cg), len(cg[0])
+    comps, pos = _components(cg)
 
-    Input structure (read from the grid alone):
-      * One straight line of DISTINCT colors -- the "sequence".
-      * Up to two MARKER pairs (two adjacent equal-colored cells) sitting on grid
-        walls.  Each marker pair contributes a fill color for one direction.
+    main = max(comps, key=len)
+    spine_col = main[0][1]
+    rows = sorted(r for r, c in main)
+    ray_top = rows[0]
+    spine = {r: pos[(r, spine_col)] for r in rows}   # row -> ray color
 
-    Construction (in 45-degree rotated coordinates a = (c-CC)-(r-CR),
-    b = (c-CC)+(r-CR) measured from the sequence's interior end CENTER):
-      * ring = min(|a|, |b|); diamond value = seq[ring] (seq read from the center
-        outward, color 0 when ring exceeds the sequence length).
-      * The two diagonal ARMS (a==0 or b==0) and the FILL wedge (the wedge the
-        sequence points into) show the full diamond.
-      * The OPPOSITE wedge is entirely the marker on that wall (else background 0).
-      * The two SIDE wedges show the diamond only on the single "bleed" line
-        (ring 1, on the axis whose sign matches the fill wedge) that continues a
-        fill-wedge arm; beyond it they take their wall marker (else 0).
+    cells = {}  # (r,c) -> color, in canonical orientation
 
-    The latent mask T overwrites every cell with this reconstructed value.
-    """
-    H, W = len(input_grid), len(input_grid[0])
-    nz = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] != 0]
-
-    # --- marker pairs: two adjacent equal-colored cells (they live on walls) ---
-    markers = []
-    used = set()
-    for (r, c) in nz:
-        for dr, dc in ((0, 1), (1, 0)):
-            r2, c2 = r + dr, c + dc
-            if 0 <= r2 < H and 0 <= c2 < W and input_grid[r2][c2] == input_grid[r][c]:
-                markers.append(((r, c), (r2, c2), input_grid[r][c]))
-                used.add((r, c))
-                used.add((r2, c2))
-
-    # --- the sequence: the remaining non-zero cells lie in one row or one column ---
-    seqcells = [(r, c) for (r, c) in nz if (r, c) not in used]
-    rows = set(r for r, c in seqcells)
-    if len(rows) == 1:
-        seqcells.sort(key=lambda x: x[1])      # horizontal
-    else:
-        seqcells.sort(key=lambda x: x[0])      # vertical
-
-    e1, e2 = seqcells[0], seqcells[-1]
-
-    def on_edge(p):
-        r, c = p
-        return r in (0, H - 1) or c in (0, W - 1)
-
-    # center = the sequence end NOT on a grid edge (the colors radiate from it)
-    if on_edge(e2) and not on_edge(e1):
-        center, far = e1, e2
-        order = seqcells
-    elif on_edge(e1) and not on_edge(e2):
-        center, far = e2, e1
-        order = seqcells[::-1]
-    else:
-        center, far = e1, e2
-        order = seqcells
-
-    seq = [input_grid[r][c] for r, c in order]
-    CR, CC = center
-
-    def wedge(r, c):
-        a = (c - CC) - (r - CR)
-        b = (c - CC) + (r - CR)
-        if a == 0 or b == 0:
-            return 'arm', a, b
-        if a > 0 and b > 0:
-            return 'R', a, b
-        if a < 0 and b < 0:
-            return 'L', a, b
-        if a > 0 and b < 0:
-            return 'T', a, b
-        return 'B', a, b
-
-    # fill direction = the wedge the sequence points into (center -> far)
-    fr, fc = far
-    da, db = (fc - CC) - (fr - CR), (fc - CC) + (fr - CR)
-    if da > 0 and db > 0:
-        fill = 'R'
-    elif da < 0 and db < 0:
-        fill = 'L'
-    elif da > 0 and db < 0:
-        fill = 'T'
-    elif da < 0 and db > 0:
-        fill = 'B'
-    else:
-        if abs(fr - CR) >= abs(fc - CC):
-            fill = 'B' if fr > CR else 'T'
-        else:
-            fill = 'R' if fc > CC else 'L'
-
-    # marker color for each wall/wedge
-    wallcolor = {}
-    for (m1, m2, col) in markers:
-        mr = (m1[0] + m2[0]) / 2.0
-        mc = (m1[1] + m2[1]) / 2.0
-        a = (mc - CC) - (mr - CR)
-        b = (mc - CC) + (mr - CR)
-        if a > 0 and b > 0:
-            w = 'R'
-        elif a < 0 and b < 0:
-            w = 'L'
-        elif a > 0 and b < 0:
-            w = 'T'
-        elif a < 0 and b > 0:
-            w = 'B'
-        else:
-            if abs(mr - CR) >= abs(mc - CC):
-                w = 'B' if mr > CR else 'T'
-            else:
-                w = 'R' if mc > CC else 'L'
-        wallcolor[w] = col
-
-    opp = {'R': 'L', 'L': 'R', 'T': 'B', 'B': 'T'}[fill]
-    fa = {'R': 1, 'T': 1, 'L': -1, 'B': -1}      # sign of a inside fill wedge
-    fb = {'R': 1, 'T': -1, 'L': -1, 'B': 1}      # sign of b inside fill wedge
-    L = len(seq)
-
-    T = [[None] * W for _ in range(H)]
+    # 1. downward chevrons from every ray cell
     for r in range(H):
         for c in range(W):
-            w, a, b = wedge(r, c)
-            m = min(abs(a), abs(b))
-            dd = seq[m] if m < L else None
-            keep = (w == 'arm' or w == fill)
-            if (not keep) and w != opp and m == 1:
-                if abs(a) == 1 and (1 if a > 0 else -1) == fa[fill]:
-                    keep = True
-                if abs(b) == 1 and (1 if b > 0 else -1) == fb[fill]:
-                    keep = True
-            if keep:
-                T[r][c] = dd if dd is not None else 0
-            else:
-                T[r][c] = wallcolor.get(w, 0)
-    return T
+            src = r - abs(c - spine_col)
+            if src in spine:
+                cells[(r, c)] = spine[src]
+
+    # 2. upward arms for the two ray cells farthest from the tip -> full X
+    far_rows = {ray_top, ray_top + 1}
+    for r in range(H):
+        for c in range(W):
+            src = r + abs(c - spine_col)
+            if src in far_rows and src in spine and (r, c) not in cells:
+                cells[(r, c)] = spine[src]
+
+    # 3. each double marker floods its wedge through empty cells (ray cells block)
+    doubles = [comp for comp in comps if comp is not main and len(comp) <= 2]
+    for db in doubles:
+        color = pos[db[0]]
+        q = deque(db)
+        seen = set()
+        while q:
+            r, c = q.popleft()
+            if (r, c) in seen or not (0 <= r < H and 0 <= c < W):
+                continue
+            if (r, c) in cells:
+                continue
+            seen.add((r, c))
+            cells[(r, c)] = color
+            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                q.append((r + dr, c + dc))
+
+    T_canon = [[cells.get((r, c)) for c in range(W)] for r in range(H)]
+    return _rotk(T_canon, (4 - k) % 4)   # rotate mask back to original orientation
 
 
 def apply_T(input_grid, T):
-    H, W = len(input_grid), len(input_grid[0])
+    """Copy the input, overwriting only the cells the mask marks."""
     out = [row[:] for row in input_grid]
-    for r in range(H):
-        for c in range(W):
+    for r in range(len(out)):
+        for c in range(len(out[0])):
             if T[r][c] is not None:
                 out[r][c] = T[r][c]
     return out
