@@ -47,7 +47,11 @@ def main():
     args = ap.parse_args()
 
     print("Loading tokenizer + base model (this is the slow part, ~1-2 min)...")
-    tok = AutoTokenizer.from_pretrained(args.base)
+    # Use the adapter's PINNED tokenizer/chat_template (bundled at save time) if
+    # present — a wrong chat template silently tanks the eval (OOD prompt).
+    tok_src = args.adapter if (Path(args.adapter) / "tokenizer_config.json").exists() else args.base
+    print(f"  tokenizer from: {tok_src}")
+    tok = AutoTokenizer.from_pretrained(tok_src)
     model = AutoModelForCausalLM.from_pretrained(
         args.base, torch_dtype=torch.bfloat16, device_map="cuda",
         attn_implementation="sdpa")
