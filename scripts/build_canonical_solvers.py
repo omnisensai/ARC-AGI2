@@ -43,6 +43,39 @@ def solve(input_grid):
                     out[r][c] = T[r][c]
         return out
     return apply_T(input_grid, infer_T(input_grid))
+```
+
+Example of the REQUIRED shape (marker/region/boundary rule — this one was
+verified to generalize from 3 shown pairs to a hidden 4th grid):
+```python
+def solve(input_grid):
+    H, W = len(input_grid), len(input_grid[0])
+    out = [row[:] for row in input_grid]
+    counts = {}
+    for row in input_grid:
+        for v in row: counts[v] = counts.get(v, 0) + 1
+    bg = max(counts, key=counts.get)
+    start = next(((r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 6), None)
+    if start is None: return out
+    # infer region reachable from the marker through background
+    reachable, stack = set(), [start]
+    while stack:
+        r, c = stack.pop()
+        if (r, c) in reachable or not (0 <= r < H and 0 <= c < W): continue
+        if input_grid[r][c] not in (bg, 6): continue
+        reachable.add((r, c))
+        for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)): stack.append((r+dr, c+dc))
+    # build latent T: reachable background cells on the region boundary -> 7
+    T = [[None]*W for _ in range(H)]
+    for r, c in reachable:
+        if input_grid[r][c] != bg: continue
+        if any(not (0<=r+dr<H and 0<=c+dc<W) or (r+dr,c+dc) not in reachable
+               for dr in (-1,0,1) for dc in (-1,0,1) if (dr,dc)!=(0,0)):
+            T[r][c] = 7
+    for r in range(H):
+        for c in range(W):
+            if T[r][c] is not None: out[r][c] = T[r][c]
+    return out
 ```'''
 
 SYSTEM = (
@@ -140,7 +173,7 @@ def audit(code):
 
 def main():
     ap=argparse.ArgumentParser()
-    ap.add_argument("--ids", default="Fine Tune Run 2/splits/canonical_build_ids.txt")
+    ap.add_argument("--ids", default="Fine Tune Run 2/splits/golden_train_ids.txt")
     ap.add_argument("--puzzle-dir", default="Fine Tune Run 2/puzzles")
     ap.add_argument("--model", default="gpt-5")
     ap.add_argument("--repair-tries", type=int, default=3)
