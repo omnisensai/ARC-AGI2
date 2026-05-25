@@ -1,0 +1,1035 @@
+===== 1c56ad9f | wrong_training =====
+def solve(input_grid):
+    H = len(input_grid)
+    W = len(input_grid[0])
+    # Find bounding box of non-zero cells
+    rs, cs = [], []
+    for r in range(H):
+        for c in range(W):
+            if input_grid[r][c] != 0:
+                rs.append(r)
+                cs.append(c)
+    r0, r1 = min(rs), max(rs)
+    c0, c1 = min(cs), max(cs)
+    # Fill interior with zeros
+    out = [row[:] for row in input_grid]
+    for r in range(r0 + 1, r1):
+        for c in range(c0 + 1, c1):
+            out[r][c] = 0
+    # For each non-boundary cell inside, place a reflected copy
+    # Identify boundary cells (cells on edge of bbox)
+    is_boundary = lambda r, c: r == r0 or r == r1 or c == c0 or c == c1
+    for r in range(r0, r1 + 1):
+        for c in range(c0, c1 + 1):
+            if out[r][c] != 0 and not is_boundary(r, c):
+                # Reflect across the four edges of the bbox
+                # Top edge: swap r with r0 (vertical mirror)
+                out[r0 + (r0 - r)][c] = out[r][c]
+                # Bottom edge: swap r with r1
+                out[r1 + (r1 - r)][c] = out[r][c]
+                # Left edge: swap c with c0 (horizontal mirror)
+                out[r][c0 + (c0 - c)] = out[r][c]
+                # Right edge: swap c with c1
+                out[r][c1 + (c1 - c)] = out[r][c]
+    return out
+
+
+===== 1e81d6f9 | wrong_training =====
+def solve(input_grid):
+    H = len(input_grid)
+    W = len(input_grid[0])
+    out = [row[:] for row in input_grid]
+    for r in range(H):
+        for c in range(W):
+            if input_grid[r][c] == 5:
+                for dr in range(-1, 2):
+                    for dc in range(-1, 2):
+                        nr, nc = r + dr, c + dc
+                        if 0 <= nr < H and 0 <= nc < W:
+                            if input_grid[nr][nc] == 0:
+                                out[nr][nc] = 5
+    return out
+
+
+===== 2546ccf6 | wrong_training =====
+def solve(input_grid):
+    H = len(input_grid)
+    W = len(input_grid[0])
+    # Find separator rows (all 6s)
+    sep_rows = [r for r in range(H) if all(input_grid[r][c] == 6 for c in range(W))]
+    # Bands are between separators
+    bands = []
+    for i in range(len(sep_rows) - 1):
+        start = sep_rows[i] + 1
+        end = sep_rows[i + 1]
+        if end > start:
+            bands.append((start, end))
+
+    # For each band, find the two colors that appear (excluding 6 and 0)
+    # Prepare output: list of (row_index, color) for cells in separated regions
+    # Cell is "separated" if its row is between two separators (inclusive of separators that are rows themselves)
+    separated_cells = []
+    for (r0, r1) in bands:
+        colors = set()
+        for r in range(r0, r1 + 1):
+            for c in range(W):
+                v = input_grid[r][c]
+                if v != 6 and v != 0:
+                    colors.add(v)
+        if len(colors) < 2:
+            continue
+        # Actually colors contains distinct non-zero non-6 colors in band.
+        # Now find each color's column range in band.
+        for color in colors:
+            col_counts = {}
+            for c in range(W):
+                if input_grid[r0][c] == color:
+                    col_counts[c] = 0
+            for r in range(r0, r1 + 1):
+                for c in range(W):
+                    if input_grid[r][c] == color:
+                        col_counts[c] += 1
+            # Find maximal contiguous cols for this co
+
+===== 2de01db2 | wrong_training =====
+def solve(input_grid):
+    rows = len(input_grid)
+    cols = len(input_grid[0])
+    # Find background color (the one in column 0)
+    bg = input_grid[0][0]
+    # Extract non-bg, non-zero colors in the first row (pattern colors)
+    pattern_colors = [c for c in input_grid[0] if c != bg and c != 0]
+    # Count zeros in the first row
+    num_zeros = sum(1 for c in input_grid[0] if c == 0)
+    # Determine tile size from pattern length (assume tile size = pattern length)
+    tile_size = len(pattern_colors)
+    # Build output: start with zeros only in the specified number of leading zeros
+    output = [[0] * cols for _ in range(rows)]
+    # Tile rows = rows / tile_size
+    tilerows = rows // tile_size
+    # Tile cols = number of tiles that fit horizontally
+    # Invariant: tile at (tr, tc) covers rows tr*tile_size .. tr*tile_size+tile_size-1
+    # We need tiles that span columns 0..cols-1.
+    # Actually tile cols = max of (cols / tile size) or 1 (since even a single tile
+    # might span multiple tile_size columns if tile_size <= 1).
+    tilecols = max(1, cols // tile_size)
+    # Now tile from rows 0..tilerows-1, cols 0..tilecols-1
+    for tr in range(tilerows):
+        for tc in range(tilecols):
+            # The tile at (tr, tc) contributes its colors to rows tr*tile_size .. tr*tile_size+tile_size-1
+            # Determine which pattern positions to keep (depend on tc)
+            # Since tile_size == len(pattern_colors), we have positions 0..tile_size-1
+            # Map tc (0.
+
+===== 342ae2ed | wrong_training =====
+def solve(input_grid):
+    H = len(input_grid)
+    W = len(input_grid[0])
+    bg = 7
+
+    # Group cells by color
+    color_cells = {}
+    for r in range(H):
+        for c in range(W):
+            v = input_grid[r][c]
+            if v != bg:
+                color_cells.setdefault(v, []).append((r, c))
+
+    # 8-connected components
+    def components(cells):
+        cellset = set(cells)
+        seen = set()
+        comps = []
+        for cell in cells:
+            if cell in seen:
+                continue
+            stack = [cell]
+            comp = []
+            while stack:
+                r, c = stack.pop()
+                if (r, c) in seen or (r, c) not in cellset:
+                    continue
+                seen.add((r, c))
+                comp.append((r, c))
+                for dr in (-1, 0, 1):
+                    for dc in (-1, 0, 1):
+                        if dr or dc:
+                            stack.append((r + dr, c + dc))
+            comps.append(comp)
+        return comps
+
+    line_color = None
+    line_cells = None
+    template_color = None
+    template_comps = None
+
+    for color, cells in color_cells.items():
+        comps = components(cells)
+        if len(comps) == 1:
+            line_color = color
+            line_cells = comps[0]
+        else:
+            template_color = color
+            template_comps = comps
+
+    # Endpoints of the line: cells with exactly one 8-neighbor in the line
+    line_set = set(line_cells)
+    endpoints = []
+    for (r, c) i
+
+===== 3aa6fb7a | wrong_training =====
+def solve(input_grid):
+    h = len(input_grid)
+    w = len(input_grid[0])
+    out = [row[:] for row in input_grid]
+    # Find 3x3 solid block of 8s
+    for r in range(h - 2):
+        for c in range(w - 2):
+            ok = True
+            for dr in range(3):
+                for dc in range(3):
+                    if input_grid[r + dr][c + dc] != 8:
+                        ok = False
+                        break
+                if not ok:
+                    break
+            if ok:
+                # Allow up to 2 helper cells at edges (outside the 3x3) (up to one per edge)
+                # In sample 1: top row has 1 above the left 8; left col has 1 left of the top 8
+                # In sample 2: bottom row has 1 below the right 8
+                placed = 0
+                # Top row: need 8 at c+1, also allow 1 at c (above), and 1 at r-1 (left col)
+                if input_grid[r][c + 1] == 8:
+                    if 0 <= r - 1 < h and 0 <= c < w and out[r - 1][c] == 0:
+                        out[r - 1][c] = 1
+                    if 0 <= r < h and 0 <= c + 1 < w and out[r][c + 1] == 0:
+                        out[r][c + 1] = 1
+                    placed += 1
+                # Bottom row: need 8 at c+1, place 1 at r+2
+                if input_grid[r + 2][c + 1] == 8:
+                    if 0 <= r + 2 < h and 0 <= c < w and out[r + 2][c] == 0:
+                        out[r + 2][c] = 1
+                    placed += 1
+                # Left col: need 8 at r+1, place 1 at r of 
+
+===== 3d588dc9 | wrong_training =====
+def solve(input_grid):
+    H = len(input_grid)
+    W = len(input_grid[0])
+    grid = [row[:] for row in input_grid]
+
+    visited = [[False] * W for _ in range(H)]
+    shapes = []
+    for r in range(H):
+        for c in range(W):
+            if grid[r][c] != 7 and not visited[r][c]:
+                stack = [(r, c)]
+                cells = []
+                while stack:
+                    rr, cc = stack.pop()
+                    if rr < 0 or rr >= H or cc < 0 or cc >= W:
+                        continue
+                    if visited[rr][cc]:
+                        continue
+                    if grid[rr][cc] == 7:
+                        continue
+                    visited[rr][cc] = True
+                    cells.append((rr, cc))
+                    stack.extend([(rr + 1, cc), (rr - 1, cc), (rr, cc + 1), (rr, cc - 1)])
+                shapes.append(cells)
+
+    out = [row[:] for row in input_grid]
+    for cells in shapes:
+        rs = [c[1] for c in cells]
+        cs = [c[0] for c in cells]
+        r_min, r_max = min(rs), max(rs)
+        c_min, c_max = min(cs), max(cs)
+        height = r_max - r_min + 1
+        width = c_max - c_min + 1
+        if height != width:
+            continue
+        if height < 2:
+            continue
+        # Check if it's a valid solid rectangle of non-7 values
+        ok = True
+        for r in range(r_min, r_max + 1):
+            for c in range(c_min, c_max + 1):
+                if grid[r][c] == 7:
+                    ok = False
+             
+
+===== 54db823b | wrong_training =====
+def solve(input_grid):
+    H = len(input_grid)
+    W = len(input_grid[0])
+    grid = [row[:] for row in input_grid]
+    out = [[0]*W for _ in range(H)]
+    visited = [[False]*W for _ in range(H)]
+
+    for r in range(H):
+        for c in range(W):
+            if grid[r][c] != 0 and not visited[r][c]:
+                # BFS to find connected component (4-connected, non-zero cells)
+                stack = [(r, c)]
+                cells = []
+                while stack:
+                    cr, cc = stack.pop()
+                    if cr < 0 or cr >= H or cc < 0 or cc >= W:
+                        continue
+                    if visited[cr][cc]:
+                        continue
+                    if grid[cr][cc] == 0:
+                        continue
+                    visited[cr][cc] = True
+                    cells.append((cr, cc))
+                    stack.extend([(cr+1, cc), (cr-1, cc), (cr, cc+1), (cr, cc-1)])
+                # Count 9s in this shape
+                nine_count = sum(1 for (cr, cc) in cells if grid[cr][cc] == 9)
+                if nine_count <= 1:
+                    for (cr, cc) in cells:
+                        out[cr][cc] = grid[cr][cc]
+    return out
+
+
+===== 5af49b42 | wrong_training =====
+def solve(input_grid):
+    rows = len(input_grid)
+    cols = len(input_grid[0])
+    # Find center: row and column with the most non-zero cells
+    row_counts = [sum(1 for v in input_grid[r] if v != 0) for r in range(rows)]
+    col_counts = [sum(1 for r in range(rows) if input_grid[r][c] != 0) for c in range(cols)]
+    cr = max(range(rows), key=lambda r: row_counts[r])
+    cc = max(range(cols), key=lambda c: col_counts[c])
+
+    # Extract center symbol as the odd color
+    odd_color = input_grid[cr][cc]
+
+    # Determine orientation: horizontal or vertical banding
+    # Check if the odd color appears in the same row across columns (banding through rows)
+    row_banding = all(input_grid[cr][c] == odd_color for c in range(cols))
+    col_banding = all(input_grid[r][cc] == odd_color for r in range(rows))
+
+    if row_banding:
+        # Odd color forms a horizontal band at row cr
+        # Reflect each non-zero cell in input about row cr
+        out = [[0] * cols for _ in range(rows)]
+        for r in range(rows):
+            for c in range(cols):
+                if input_grid[r][c] != 0:
+                    # reflection of (r,c) about row cr is (2*cr - r, c)
+                    vr = 2 * cr - r
+                    if 0 <= vr < rows:
+                        out[vr][c] = input_grid[r][c]
+    else:
+        # Odd color forms a vertical band at col cc
+        out = [[0] * cols for _ in range(rows)]
+        for r in range(rows):
+            for c in range(cols):
+                if input_gri
+
+===== 67385a82 | wrong_training =====
+def solve(input_grid):
+    rows = len(input_grid)
+    cols = len(input_grid[0])
+    out = [row[:] for row in input_grid]
+    for r in range(rows):
+        for c in range(cols):
+            if input_grid[r][c] == 3:
+                mirror_c = cols - 1 - c
+                if input_grid[r][mirror_c] == 3:
+                    out[r][c] = 8
+    return out
+
+
+===== 689c358e | wrong_training =====
+def solve(input_grid):
+    H = len(input_grid)
+    W = len(input_grid[0])
+    BG = 6
+    DOOR = 7
+    GRID_COLORS = {8, 9, 2, 5}
+
+    # Find connected components for each color (4-connectivity against BG)
+    visited = [[False] * W for _ in range(H)]
+    components = []  # list of (color, list of cells)
+    for color in GRID_COLORS:
+        for r in range(H):
+            for c in range(W):
+                if input_grid[r][c] == color and not visited[r][c]:
+                    stack = [(r, c)]
+                    visited[r][c] = True
+                    cells = []
+                    while stack:
+                        rr, cc = stack.pop()
+                        cells.append((rr, cc))
+                        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                            nr, nc = rr + dr, cc + dc
+                            if 0 <= nr < H and 0 <= nc < W and not visited[nr][nc] and input_grid[nr][nc] == color:
+                                visited[nr][nc] = True
+                                stack.append((nr, nc))
+                    components.append((color, cells))
+
+    # Build output
+    output = [[BG] * W for _ in range(H)]
+
+    # Place doors (DOOR) - find columns with doors in input: they're 4-connected against BG in column (full column of 7s)
+    door_cols = set()
+    for r in range(H):
+        c = 0
+        while c < W:
+            if input_grid[r][c] == DOOR:
+                c += 1
+            else:
+                break
+        if c == W:
+         
+
+===== 72a961c9 | wrong_training =====
+def solve(input_grid):
+    H = len(input_grid)
+    W = len(input_grid[0])
+    grid = [row[:] for row in input_grid]
+
+    # Find the "key" shape: a vertical line of 1s followed by a block of identical non-zero colors.
+    # First locate the column of 1s (the 1-column).
+    one_col = None
+    for c in range(W):
+        counts = {}
+        for r in range(H):
+            v = grid[r][c]
+            if v != 0:
+                counts[v] = counts.get(v, 0) + 1
+        if counts.get(1, 0) >= H:
+            one_col = c
+            break
+
+    # Find top row of key block (first row where the cell is not 0/1 and equals the others in the column block).
+    top = None
+    for r in range(H):
+        vals = [grid[r][one_col], grid[r+1][one_col], grid[r-1][one_col]]
+        non_zero = [v for v in vals if v != 0]
+        if len(non_zero) < 2:
+            continue
+        if len(set(non_zero)) == 1:
+            top = r
+            break
+
+    # Key color = value at top+1 of the 1-column block.
+    key_color = grid[top + 1][one_col]
+
+    # Find the other non-zero color in the key block.
+    other_color = None
+    for r in range(H):
+        for c in range(W):
+            v = grid[r][c]
+            if v != 0 and v != 1 and v != key_color:
+                other_color = v
+                break
+        if other_color is not None:
+            break
+
+    # The key column index (where the 1-line is).
+    kci = one_col
+
+    # Find all rows that contain the other_color, but exclude the key block rows (top-2
+
+===== 73251a56 | wrong_training =====
+def solve(input_grid):
+    from collections import Counter
+    N = len(input_grid)
+    M = len(input_grid[0])
+    # b[j] = base value for column j when row i > j (bottom area).
+    b = [None] * M
+    for j in range(M):
+        cnt = Counter()
+        for i in range(j + 1, N):
+            v = input_grid[i][j]
+            if v != 0:
+                cnt[v] += 1
+        if cnt:
+            b[j] = cnt.most_common(1)[0][0]
+    # top[j] = value used for rows i <= j (the "top" of column j).
+    top = [None] * M
+    for j in range(M):
+        cnt = Counter()
+        for i in range(0, j + 1):
+            v = input_grid[i][j]
+            if v != 0:
+                cnt[v] += 1
+        if cnt:
+            top[j] = cnt.most_common(1)[0][0]
+
+    # Detect period P from the b sequence so we can fill any None entries.
+    P = None
+    for cand in range(1, M + 1):
+        ok = True
+        for j in range(M):
+            if b[j] is None:
+                continue
+            ref = None
+            for k in range(j % cand, M, cand):
+                if b[k] is not None:
+                    ref = b[k]
+                    break
+            if ref is not None and ref != b[j]:
+                ok = False
+                break
+        if ok:
+            P = cand
+            break
+    if P is None:
+        P = M
+
+    # Fill missing b values using period.
+    for j in range(M):
+        if b[j] is None:
+            for k in range(M):
+                if k % P == j % P and b[k] is not None:
+                  
+
+===== 794b24be | wrong_training =====
+def solve(input_grid):
+    rows = len(input_grid)
+    cols = len(input_grid[0])
+    out = [[0] * cols for _ in range(rows)]
+    for r in range(rows):
+        for c in range(cols):
+            if input_grid[r][c] == 1:
+                nr = rows - 1 - r
+                nc = cols - 1 - c
+                if input_grid[nr][nc] == 1:
+                    out[r][c] = 2
+    return out
+
+
+===== 84551f4c | wrong_training =====
+def solve(input_grid):
+    rows = len(input_grid)
+    cols = len(input_grid[0])
+    out = [[0] * cols for _ in range(rows)]
+    for r in range(rows):
+        for c in range(cols):
+            if input_grid[r][c] == 2:
+                out[r][c] = 2
+            elif input_grid[r][c] == 1:
+                out[r][c] = 1
+    return out
+
+
+===== 8e5a5113 | wrong_training =====
+def solve(input_grid):
+    # Copy input
+    out = [row[:] for row in input_grid]
+    # Determine the non-5, non-zero color (the odd one)
+    # It's the color that appears only in one row and shifted by 1 column
+    # Find the "odd" color: the one that has 1 occurrence in the rows where it appears
+    # Actually, find it by position: the value at input[i][i] is the odd color
+    odd_color = None
+    for i in range(3):
+        if input_grid[i][i] != 5 and input_grid[i][i] != 0:
+            odd_color = input_grid[i][i]
+            break
+    # Find the two "frame" rows (rows with 3 distinct values)
+    frame_rows = []
+    for i in range(3):
+        vals = set(input_grid[i])
+        if len(vals) >= 3:
+            frame_rows.append(i)
+    # The two frame rows' intersection gives the diagonal replacement
+    # Actually: for each row, find the two values that pair with odd_color at diagonals
+    for r in frame_rows:
+        # Find positions of odd_color in this row
+        positions = [c for c in range(3) if input_grid[r][c] == odd_color]
+        # For each position, find the other value in that column across the other frame row
+        # i.e., position's value in the other frame row
+        for pos in positions:
+            other_row = 1 if r == 2 else 2
+            # Other value in this position across
+            other_val = input_grid[other_row][pos]
+            # Place at diag position (r + pos) % 3
+            d_pos = (r + pos) % 3
+            out[d_pos][d_pos] = other_val
+    
+
+===== 984d8a3e | wrong_training =====
+def solve(input_grid):
+    from collections import Counter
+    H = len(input_grid)
+    W = len(input_grid[0])
+
+    counts = Counter()
+    for row in input_grid:
+        for v in row:
+            counts[v] += 1
+    bg = counts.most_common(1)[0][0]
+
+    objects = []
+    for r in range(H):
+        for c in range(W):
+            if input_grid[r][c] != bg:
+                objects.append((r, c, input_grid[r][c]))
+
+    by_color = {}
+    for o in objects:
+        by_color.setdefault(o[2], []).append(o)
+
+    rects = {}
+    for color, group in by_color.items():
+        rs = [p[0] for p in group]
+        cs = [p[1] for p in group]
+        rects[color] = (min(rs), max(rs), min(cs), max(cs))
+
+    anchorrze = {}
+    for color, (r0, r1, c0, c1) in rects.items():
+        candidate_zs = set()
+        for other_color, (or0, or1, oc0, oc1) in rects.items():
+            if color == other_color:
+                continue
+            if r0 <= or1 and r1 >= or0 and c0 <= oc1 and c1 >= oc0:
+                candidate_zs.add(max(or1, c1))
+        anchorrze[color] = min(candidate_zs) if candidate_zs else max(r1, c1)
+
+    sorted_colors = sorted(rects.keys(),
+                           key=lambda col: (anchorrze[col], rects[col][0]))
+
+    heights = Counter()
+    widths = Counter()
+    for col in sorted_colors:
+        r0, r1, c0, c1 = rects[col]
+        h = r1 - r0 + 1
+        w = c1 - c0 + 1
+        heights[h] += 1
+        widths[w] += 1
+
+    sorted_by_height = sorted(heights.items(),
+                   
+
+===== 98cf29f8 | wrong_training =====
+def solve(input_grid):
+    H = len(input_grid)
+    W = len(input_grid[0])
+    out = [[0] * W for _ in range(H)]
+
+    # Find all non-zero colors and their cells
+    color_cells = {}
+    for r in range(H):
+        for c in range(W):
+            v = input_grid[r][c]
+            if v != 0:
+                color_cells.setdefault(v, []).append((r, c))
+
+    for color, cells in color_cells.items():
+        rows = sorted(set(r for r, c in cells))
+        top_row = rows[0]
+        bot_row = rows[-1]
+        left_col = min(c for r, c in cells)
+        right_col = max(c for r, c in cells)
+
+        # Determine if shape is horizontal (rows == top_row) or vertical (cols == left_col)
+        if all(r == top_row for r, c in cells):
+            # Horizontal shape
+            # Extend from right most column up to right_col + 2*rows - 1
+            new_right = right_col + 2 * len(rows) - 1
+            # The original bottom row stays. We add an additional row below.
+            # New bottom row = bot_row + 1
+            new_bottom = bot_row + 1
+            # Cells in new bottom row: left_col .. new_right
+            for c in range(left_col, new_right + 1):
+                out[new_bottom][c] = color
+            # The shape does NOT extend towards left; it only extends right by
+            # adding one full-row below.
+        else:
+            # Vertical shape
+            # Extend from bottom most row up to bot_row + 2*cols - 1
+            new_bottom = bot_row + 2 * len(cols) - 1
+            new_le
+
+===== 9f27f097 | wrong_training =====
+def solve(input_grid):
+    H = len(input_grid)
+    W = len(input_grid[0])
+    grid = [row[:] for row in input_grid]
+
+    # Find background color (most common)
+    counts = {}
+    for r in range(H):
+        for c in range(W):
+            v = grid[r][c]
+            counts[v] = counts.get(v, 0) + 1
+    bg = max(counts, key=counts.get)
+
+    # Find connected components of non-bg cells (4-connectivity)
+    visited = [[False] * W for _ in range(H)]
+    shapes = []
+    for r in range(H):
+        for c in range(W):
+            if grid[r][c] != bg and not visited[r][c]:
+                color = grid[r][c]
+                cells = []
+                q = deque([(r, c)])
+                visited[r][c] = True
+                while q:
+                    cr, cc = q.popleft()
+                    cells.append((cr, cc))
+                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        nr, nc = cr + dr, cc + dc
+                        if 0 <= nr < H and 0 <= nc < W and not visited[nr][nc] and grid[nr][nc] == color:
+                            visited[nr][nc] = True
+                            q.append((nr, nc))
+                shapes.append({'color': color, 'cells': cells})
+
+    # Build output as background
+    output = [[bg] * W for _ in range(H)]
+
+    for s in shapes:
+        color = s['color']
+        cells = s['cells']
+        rs = [c[0] for c in cells]
+        cs = [c[1] for c in cells]
+        rmin, rmax = min(rs), max(rs)
+        cmin, cmax = min(cs), max(cs)
+
+  
+
+===== a406ac07 | wrong_training =====
+def solve(input_grid):
+    rows = len(input_grid)
+    cols = len(input_grid[0])
+    # Build histogram: for each non-zero cell, count its occurrences in the row
+    from collections import Counter
+    hist = Counter()
+    for r in range(rows):
+        c = 0
+        while c < cols:
+            v = input_grid[r][c]
+            if v != 0:
+                hist[v, r] += 1
+                c += hist[v, r]
+            else:
+                c += 1
+    # Order rows by original order (so we don't change the output grid)
+    order = list(range(rows))
+    order.sort(key=lambda r: -hist[0, r])
+    out = [list(row) for row in input_grid]
+    for r in order:
+        # Restore zeros (in case hist entry was removed because value is 0)
+        out[r][0] = 0
+        out[r][cols - 1] = 0
+    return out
+
+
+===== a699fb00 | wrong_training =====
+def solve(input_grid):
+    rows = len(input_grid)
+    cols = len(input_grid[0])
+    out = [row[:] for row in input_grid]
+    for r in range(rows):
+        for c in range(cols):
+            if input_grid[r][c] == 1:
+                placements = [
+                    (-1, -1), (-1, 0), (-1, 1),
+                    (0, -1),         (0, 1),
+                    (1, -1), (1, 0), (1, 1),
+                ]
+                for dr, dc in placements:
+                    nr, nc = r + dr, c + dc
+                    if 0 <= nr < rows and 0 <= nc < cols and out[nr][nc] != 1:
+                        out[nr][nc] = 2
+    return out
+
+
+===== af902bf9 | wrong_training =====
+def solve(input_grid):
+    h = len(input_grid)
+    w = len(input_grid[0])
+    out = [row[:] for row in input_grid]
+    # Find positions of 4s
+    fours = []
+    for r in range(h):
+        for c in range(w):
+            if input_grid[r][c] == 4:
+                fours.append((r, c))
+    # Group 4s by diagonal (r-c)
+    diagonals = {}
+    for (r, c) in fours:
+        diagonals.setdefault(r - c, []).append((r, c))
+    # For each diagonal with at least 2 4s, fill between ends with 2s
+    for d, positions in diagonals.items():
+        if len(positions) < 2:
+            continue
+        pos_sorted = sorted(positions, key=lambda p: p[0])
+        r1, c1 = pos_sorted[0]
+        r2, c2 = pos_sorted[-1]
+        min_r = min(r1, r2)
+        max_r = max(r1, r2)
+        # Fill between diagonal ends with 2
+        for r in range(min_r, max_r + 1):
+            c = r - d
+            if 0 <= c < w:
+                if out[r][c] == 0:
+                    out[r][c] = 2
+        # Also fill 4 positions themselves with 2 (replace them)
+        for (r, c) in positions:
+            out[r][c] = 2
+    return out
+
+
+===== b7249182 | wrong_training =====
+def solve(input_grid):
+    H = len(input_grid)
+    W = len(input_grid[0])
+    # Find non-zero cells: (r, c, value)
+    pixels = []
+    for r in range(H):
+        for c in range(W):
+            v = input_grid[r][c]
+            if v != 0:
+                pixels.append((r, c, v))
+    # By default color stays at original location then extends
+    # Find main color = majority
+    from collections import Counter
+    cnt = Counter()
+    for _, _, v in pixels:
+        cnt[v] += 1
+    main = cnt.most_common(1)[0][0]
+    # Duplicates: positions of main color
+    main_positions = [(r, c) for r, c, v in pixels if v == main]
+    # Number of main pixels
+    n_main = len(main_positions)
+    # Gather satellite pixels (other non-zero)
+    satellites = []  # list of (color, positions)
+    other_pixels = [(r, c, v) for r, c, v in pixels if v != main]
+    for col, group in groupby(other_pixels, key=lambda x: x[2]):
+        positions = list(group)
+        satellites.append((col, [p[:2] for p in positions]))
+    n_sat = len(satellites)
+    out = [[main] * W for _ in range(H)]
+    # Place main color (it may be modified later if satellite influences)
+    for r, c in main_positions:
+        out[r][c] = main
+    # For each satellite, look up its positions; the "cone" is ray-3 in 2 directions
+    # From position (r0,c0): at distance 2 -> 4 cells (orthogonal), distance 3 -> 5 cells (diagonal+orthogonal).
+    # Actually satellite positions are already at distance 2 (one step right, one step down).
+    # 
+
+===== b9630600 | wrong_training =====
+def solve(input_grid):
+    H = len(input_grid)
+    W = len(input_grid[0])
+    grid = [row[:] for row in input_grid]
+    out = [row[:] for row in input_grid]
+
+    # Find connected components of non-zero cells (4-connectivity).
+    visited = [[False] * W for _ in range(H)]
+    components = []
+    for i in range(H):
+        for j in range(W):
+            if grid[i][j] != 0 and not visited[i][j]:
+                stack = [(i, j)]
+                visited[i][j] = True
+                cells = []
+                while stack:
+                    r, c = stack.pop()
+                    cells.append((r, c))
+                    for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                        nr, nc = r + dr, c + dc
+                        if 0 <= nr < H and 0 <= nc < W and not visited[nr][nc] and grid[nr][nc] != 0:
+                            visited[nr][nc] = True
+                            stack.append((nr, nc))
+                components.append(cells)
+
+    for cells in components:
+        rs = [r for r, c in cells]
+        cs = [c for r, c in cells]
+        r0, r1 = min(rs), max(rs)
+        c0, c1 = min(cs), max(cs)
+        # Check if bbox has zero interior and non-zero edges.
+        has_non_zero_edge = False
+        has_zero_interior = False
+        for r in range(r0, r1 + 1):
+            for c in range(c0, c1 + 1):
+                if grid[r][c] == 0:
+                    has_zero_interior = True
+                elif grid[r][c] != 0:
+                    has_non_zero_edge = Tr
+
+===== bcb3040b | wrong_training =====
+def solve(input_grid):
+    H = len(input_grid)
+    W = len(input_grid[0])
+    grid = [row[:] for row in input_grid]
+    twos = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 2]
+    threes = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == 3]
+
+    def flipper(r, c):
+        # Flip the cell (make it 3 if it's 1, make it 1 if it's 0).
+        if grid[r][c] == 1:
+            grid[r][c] = 3
+        elif grid[r][c] == 0:
+            grid[r][c] = 1
+        # 2s and 3s are left as-is.
+
+    # First, handle the 3s. For each 3 at (R3, C3), gather the 2s in
+    # the rectangle [(R3, C3), (R3, C3)+3)did-1, (R3)+3)did-1, (R3)+3)did-1)+3].
+    for (R3, C3) in threes:
+        # The 2s form a plus centered at (R3, C3) extending 2 up/down and 2 left/right.
+        # Actually the 2s are at (R3-1, C3-1),(R3-1, C3),(R3-1, C3+1),
+        # (R3, C3-1),(R3, C3),(R3, C3+1), (R3+1, C3-1),(R3+1, C3),(R3+1, C3+1).
+        f2 = [(R3-1, C3-1), (R3-1, C3), (R3-1, C3+1),
+              (R3, C3-1), (R3, C3), (R3, C3+1),
+              (R3+1, C3-1), (R3+1, C3), (R3+1, C3+1)]
+        # Flip them all.
+        for (r, c) in f2:
+            if 0 <= r < H and 0 <= c < W:
+                flipper(r, c)
+
+    # Second, handle the 2s. For each 2 at (R2, C2), find the two cells
+    # in {up,down,left,right} that are 1; flip both.
+    for (R2, C2) in twos:
+        # Determine which directions have 1-cells.
+        up = grid[R2-1][C2] == 1
+        down = grid[R2+1][C2] == 1
+        left = grid[R2][
+
+===== bd5af378 | wrong_training =====
+def solve(input_grid):
+    H = len(input_grid)
+    W = len(input_grid[0])
+    border = input_grid[0][0]
+
+    # Determine inner color: the fill color inside the border in the
+    # top section (rows 1..H-1). The inner color is the one that fills
+    # the interior of the bottom section too.
+    top_rows = [r for r in range(1, H - 1)]
+    col_sums_top = [sum(1 for r in top_rows if input_grid[r][c] == border) for c in range(W)]
+    inner = border if max(col_sums_top) >= H - 2 else input_grid[1][1]
+
+    # Generate output in two steps: first the bottom half as reflections,
+    # then the top half is all 8s with the original border restored at the edge.
+
+    # Bottom half: (H-1)/2 rows of reflections of rows 1..H-2 across row H-1.
+    # Actually we keep rows 1..H-2 unchanged and add mirrored rows below.
+    rows_out = [list(r) for r in input_grid[:H - 1]]
+    # Mirror each of rows 1..H-2 across row H-1, filling with inner where applicable.
+    for r in range(1, H - 1):
+        src = H - 1 - r
+        for c in range(W):
+            if c == 0:
+                rows_out.append([8] * W)  # new row initialized to 8
+            else:
+                v = rows_out[-1][c]
+                if v == border:
+                    rows_out[-1][c] = inner
+                else:
+                    rows_out[-1][c] = v
+
+    # Now the top half: (H-1)/2 rows. Each row i of the top training
+    # (for i <= H-2) becomes a reflection across row 1.
+    # Actually we build top result by placing each reflection
+
+===== d22278a0 | wrong_training =====
+def solve(input_grid):
+    H = len(input_grid)
+    W = len(input_grid[0])
+    # find the two non-zero columns: col_a at left, col_b at right
+    col_a = None
+    col_b = None
+    for c in range(W):
+        cells = [r[c] for r in input_grid]
+        if any(v != 0 for v in cells):
+            col_a = c
+        cells = [r[W - 1 - c] for r in input_grid]
+        if any(v != 0 for v in cells):
+            col_b = c
+    out = [[0] * W for _ in range(H)]
+    for r in range(H):
+        out[r][col_a] = input_grid[r][col_b]
+        out[r][col_b] = input_grid[r][col_a]
+    return out
+
+
+===== db93a21d | wrong_training =====
+def solve(input_grid):
+    H = len(input_grid)
+    W = len(input_grid[0])
+    out = [row[:] for row in input_grid]
+
+    visited = [[False] * W for _ in range(H)]
+
+    # Find connected components of 9s (4-connectivity)
+    for sr in range(H):
+        for sc in range(W):
+            if input_grid[sr][sc] == 9 and not visited[sr][sc]:
+                stack = [(sr, sc)]
+                cells = []
+                while stack:
+                    r, c = stack.pop()
+                    if r < 0 or r >= H or c < 0 or c >= W:
+                        continue
+                    if visited[r][c] or input_grid[r][c] != 9:
+                        continue
+                    visited[r][c] = True
+                    cells.append((r, c))
+                    stack.extend([(r + 1, c), (r - 1, c), (r, c + 1), (r, c - 1)])
+
+                if not cells:
+                    continue
+
+                rs = [r for r, _ in cells]
+                cs = [c for _, c in cells]
+                r0, r1 = min(rs), max(rs)
+                c0, c1 = min(cs), max(cs)
+
+                # Fill interior with 1
+                for r in range(r0 + 1, r1):
+                    for c in range(c0 + 1, c1):
+                        out[r][c] = 1
+
+                # Top edge: for each column, if 9 fills entire top half, mark bottom 3
+                for c in range(c0, c1 + 1):
+                    tm = r1 - (r1 - r0) // 2
+                    nine_count = sum(1 for r in range(tm + 1) if input_grid[r][c] == 9)
+                 
+
+===== dd2401ed | wrong_training =====
+def solve(input_grid):
+    H = len(input_grid)
+    W = len(input_grid[0])
+    # Find all 1 positions
+    ones = [(r, c) for r in range(H) for c in range(W) if input_grid[r][c] == 1]
+    # Bounding box of 1s
+    rmin = min(r for r, c in ones)
+    rmax = max(r for r, c in ones)
+    cmin = min(c for r, c in ones)
+    cmax = max(c for r, c in ones)
+    # Output: all zeros except keep 1s
+    out = [[0] * W for _ in range(H)]
+    for r, c in ones:
+        out[r][c] = 1
+
+    # For each column in the bbox, find first and last 2
+    for c in range(cmin, cmax + 1):
+        twos = [(r, input_grid[r][c]) for r in range(H) if input_grid[r][c] == 2]
+        if not twos:
+            continue
+        # Determine orientation: horizontal or vertical cluster
+        rows = [r for r, v in twos]
+        cols = [c for r, v in twos]
+        if max(cols) - min(cols) < max(rows) - min(rows):
+            # Horizontal: 2s in same row across different columns
+            top_row = min(rows)
+            bot_row = max(rows)
+            # Count 2s in top row and bottom row
+            n_top = sum(1 for v in twos if v[0] == top_row)
+            n_bot = sum(1 for v in twos if v[0] == bot_row)
+            for r in range(rmin, rmax + 1):
+                if r == top_row:
+                    val = n_bot
+                elif r == bot_row:
+                    val = n_top
+                else:
+                    val = 0
+                for c2 in range(cmin, cmax + 1):
+                    if out[r][c2] == 0:
+      
+root@a00a68a6cd9f:/workspace/ARC-AGI2# 
