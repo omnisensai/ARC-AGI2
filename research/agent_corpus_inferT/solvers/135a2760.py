@@ -6,130 +6,189 @@ def solve(input_grid):
     return apply_T(input_grid, T)
 
 
-def _components(g, color, H, W):
-    seen = [[False] * W for _ in range(H)]
-    comps = []
-    for r in range(H):
-        for c in range(W):
-            if g[r][c] == color and not seen[r][c]:
-                st = [(r, c)]
-                cells = []
-                while st:
-                    a, b = st.pop()
-                    if a < 0 or a >= H or b < 0 or b >= W or seen[a][b] or g[a][b] != color:
-                        continue
-                    seen[a][b] = True
-                    cells.append((a, b))
-                    for da, db in ((1, 0), (-1, 0), (0, 1), (0, -1),
-                                   (1, 1), (1, -1), (-1, 1), (-1, -1)):
-                        st.append((a + da, b + db))
-                comps.append(cells)
-    return comps
-
-
-def _period_along(seqs, n):
-    # seqs: sequences (each length n) sampled along the candidate periodic axis.
-    # Return the smallest period p (>=1, repeating at least twice so p<=n//2)
-    # whose per-phase consensus best explains the data; else period = n (no
-    # genuine repetition along this axis).
-    if n < 2:
-        return n
-
-    def score(p):
-        ag = 0
-        tot = 0
-        for seq in seqs:
-            for ph in range(p):
-                col = [seq[i] for i in range(ph, n, p)]
-                if not col:
-                    continue
-                ag += Counter(col).most_common(1)[0][1]
-                tot += len(col)
-        return ag / tot if tot else 0
-
-    bestsc = -1
-    for p in range(1, n // 2 + 1):
-        s = score(p)
-        if s > bestsc + 1e-9:
-            bestsc = s
-    if bestsc < 0.75:
-        return n
-    for p in range(1, n // 2 + 1):
-        if score(p) >= bestsc - 1e-9:
-            return p
-    return n
-
-
-def _repair_region(g, r0, r1, c0, c1):
-    # Repair the periodic pattern inside a box interior: detect the period along
-    # the longer axis (the shorter axis is treated as a single tile), then set
-    # every cell to the per-phase consensus value of its (pr, pc) tile.
-    sub = [[g[r][c] for c in range(c0, c1 + 1)] for r in range(r0, r1 + 1)]
-    h = len(sub)
-    w = len(sub[0])
-    if w >= h:
-        rows_seqs = [sub[r] for r in range(h)]
-        pc = _period_along(rows_seqs, w)
-        pr = h
-    else:
-        cols_seqs = [[sub[r][c] for r in range(h)] for c in range(w)]
-        pr = _period_along(cols_seqs, h)
-        pc = w
-    changes = {}
-    for ph_r in range(pr):
-        for ph_c in range(pc):
-            vals = []
-            for r in range(ph_r, h, pr):
-                for c in range(ph_c, w, pc):
-                    vals.append(sub[r][c])
-            if not vals:
-                continue
-            val = Counter(vals).most_common(1)[0][0]
-            for r in range(ph_r, h, pr):
-                for c in range(ph_c, w, pc):
-                    if sub[r][c] != val:
-                        changes[(r0 + r, c0 + c)] = val
-    return changes
-
-
-def infer_T(g):
-    H = len(g)
-    W = len(g[0])
-    cnt = Counter(v for row in g for v in row)
-    frame = cnt.most_common(1)[0][0]
-    # Box-border color: the non-frame color whose connected component spans the
-    # largest bounding box (the rectangular box frames).
-    border = None
-    bestspan = -1
-    for col, _ in cnt.most_common():
-        if col == frame:
-            continue
-        comps = _components(g, col, H, W)
-        for cells in comps:
-            rs = [a for a, b in cells]
-            cs = [b for a, b in cells]
-            span = (max(rs) - min(rs)) * (max(cs) - min(cs))
-            if span > bestspan:
-                bestspan = span
-                border = col
-        if border is not None:
-            break
-    T = {}
-    if border is None:
-        return T
-    for cells in _components(g, border, H, W):
-        rs = [a for a, b in cells]
-        cs = [b for a, b in cells]
-        r0, r1, c0, c1 = min(rs), max(rs), min(cs), max(cs)
-        ir0, ir1, ic0, ic1 = r0 + 1, r1 - 1, c0 + 1, c1 - 1
-        if ir1 < ir0 or ic1 < ic0:
-            continue
-        T.update(_repair_region(g, ir0, ir1, ic0, ic1))
-    return T
-
-
 def apply_T(g, T):
     out = [row[:] for row in g]
     for (r, c), v in T.items():
         out[r][c] = v
     return out
+
+
+def infer_T(g):
+    H = len(g)
+    W = len(g[0])
+
+    cnt = Counter(v for row in g for v in row)
+    frame = cnt.most_common(1)[0][0]
+
+    border = find_border_color(g, frame, H, W)
+    T = {}
+
+    if border is None:
+        return T
+
+    for cells in components(g, border, H, W):
+        rs = [r for r, c in cells]
+        cs = [c for r, c in cells]
+
+        r0, r1 = min(rs), max(rs)
+        c0, c1 = min(cs), max(cs)
+
+        # Interior of the detected box/frame.
+        ir0, ir1 = r0 + 1, r1 - 1
+        ic0, ic1 = c0 + 1, c1 - 1
+
+        if ir0 <= ir1 and ic0 <= ic1:
+            T.update(repair_region(g, ir0, ir1, ic0, ic1))
+
+    return T
+
+
+def find_border_color(g, frame, H, W):
+    cnt = Counter(v for row in g for v in row)
+
+    best_color = None
+    best_span = -1
+
+    # Search all non-frame colors. Do not stop at the first one.
+    for color in cnt:
+        if color == frame:
+            continue
+
+        for cells in components(g, color, H, W):
+            if not cells:
+                continue
+
+            rs = [r for r, c in cells]
+            cs = [c for r, c in cells]
+
+            # True bounding-box area.
+            span = (max(rs) - min(rs) + 1) * (max(cs) - min(cs) + 1)
+
+            if span > best_span:
+                best_span = span
+                best_color = color
+
+    return best_color
+
+
+def components(g, color, H, W):
+    seen = [[False for _ in range(W)] for _ in range(H)]
+    comps = []
+
+    # 8-connected components.
+    dirs = [
+        (1, 0), (-1, 0), (0, 1), (0, -1),
+        (1, 1), (1, -1), (-1, 1), (-1, -1),
+    ]
+
+    for r in range(H):
+        for c in range(W):
+            if seen[r][c] or g[r][c] != color:
+                continue
+
+            stack = [(r, c)]
+            cells = []
+
+            while stack:
+                rr, cc = stack.pop()
+
+                if rr < 0 or rr >= H or cc < 0 or cc >= W:
+                    continue
+                if seen[rr][cc] or g[rr][cc] != color:
+                    continue
+
+                seen[rr][cc] = True
+                cells.append((rr, cc))
+
+                for dr, dc in dirs:
+                    stack.append((rr + dr, cc + dc))
+
+            comps.append(cells)
+
+    return comps
+
+
+def repair_region(g, r0, r1, c0, c1):
+    sub = [
+        [g[r][c] for c in range(c0, c1 + 1)]
+        for r in range(r0, r1 + 1)
+    ]
+
+    h = len(sub)
+    w = len(sub[0])
+
+    # Detect the repeating period along the longer axis.
+    # The shorter axis is treated as one full tile dimension.
+    if w >= h:
+        row_sequences = [sub[r] for r in range(h)]
+        pc = period_along(row_sequences, w)
+        pr = h
+    else:
+        col_sequences = [
+            [sub[r][c] for r in range(h)]
+            for c in range(w)
+        ]
+        pr = period_along(col_sequences, h)
+        pc = w
+
+    T = {}
+
+    for ph_r in range(pr):
+        for ph_c in range(pc):
+            vals = []
+
+            for rr in range(ph_r, h, pr):
+                for cc in range(ph_c, w, pc):
+                    vals.append(sub[rr][cc])
+
+            if not vals:
+                continue
+
+            target = Counter(vals).most_common(1)[0][0]
+
+            for rr in range(ph_r, h, pr):
+                for cc in range(ph_c, w, pc):
+                    if sub[rr][cc] != target:
+                        T[(r0 + rr, c0 + cc)] = target
+
+    return T
+
+
+def period_along(sequences, n):
+    if n < 2:
+        return n
+
+    def score(p):
+        agree = 0
+        total = 0
+
+        for seq in sequences:
+            for phase in range(p):
+                vals = [seq[i] for i in range(phase, n, p)]
+
+                if not vals:
+                    continue
+
+                agree += Counter(vals).most_common(1)[0][1]
+                total += len(vals)
+
+        return agree / total if total else 0
+
+    best_score = -1
+
+    for p in range(1, n // 2 + 1):
+        s = score(p)
+        if s > best_score:
+            best_score = s
+
+    # If no repeated periodic explanation is strong enough,
+    # treat the whole axis as non-periodic.
+    if best_score < 0.75:
+        return n
+
+    # Return the smallest equally-good period.
+    for p in range(1, n // 2 + 1):
+        if score(p) >= best_score - 1e-9:
+            return p
+
+    return n
