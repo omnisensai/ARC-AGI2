@@ -1,15 +1,22 @@
 """Canonical solver for ARC puzzle 6ca952ad.
 
-Rule: the grid contains several connected objects (8-connectivity) of a single
-non-background color on a background of 7. Small objects (3 or fewer cells) are
-left untouched. Every larger object (4 or more cells) is dropped straight down
-(columns preserved, shape preserved) so that its bottom row lands on the last
-grid row. The latent transformation mask records, for the moved objects, which
-cells become empty (their original locations) and which cells become colored
-(their dropped locations).
-"""
+Rule: the grid holds several connected objects (4-connectivity) of a single
+non-background color on a background of 7. Each object is classified by shape:
 
-SIZE_THRESHOLD = 4  # objects with >= this many cells fall to the bottom
+  - A "block" object occupies at least 2 columns that each span 2 or more rows
+    (i.e. it is genuinely two-dimensional, not a thin line / L-stub). Every
+    block falls straight down with its columns and shape preserved until its
+    bottom row lands on the last grid row.
+  - A "thin marker" object (everything else: single cells, vertical/horizontal
+    lines, and small L-stubs that have only one tall column) stays in place.
+
+The latent mask vacates each faller's original cells (sets them to background)
+and paints the faller's color at the dropped-down cells.
+
+The column-span test is what distinguishes train pair 0's staying L-stub
+(##/.# -> only one column has 2 cells) from blocks that look superficially
+similar but have 2+ tall columns.
+"""
 
 
 def _background(grid):
@@ -37,42 +44,47 @@ def _components(grid, bg):
                         continue
                     seen.add((a, b))
                     cells.append((a, b))
-                    for dr in (-1, 0, 1):
-                        for dc in (-1, 0, 1):
-                            if dr or dc:
-                                stack.append((a + dr, b + dc))
+                    for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        stack.append((a + dr, b + dc))
                 comps.append(cells)
     return comps
 
 
 def infer_T(input_grid):
-    """Return a dict {(r, c): new_color} describing every cell that changes."""
+    """Return a latent mask grid of None/int describing every changed cell."""
     H, W = len(input_grid), len(input_grid[0])
     bg = _background(input_grid)
-    vacate = set()
-    paint = {}
+    T = [[None] * W for _ in range(H)]
+    clears = set()
+    placements = {}
     for cells in _components(input_grid, bg):
-        if len(cells) < SIZE_THRESHOLD:
-            continue  # small objects stay put
+        colcount = {}
+        for r, c in cells:
+            colcount[c] = colcount.get(c, 0) + 1
+        tall_cols = sum(1 for c in colcount if colcount[c] >= 2)
         color = input_grid[cells[0][0]][cells[0][1]]
-        bottom = max(r for r, _ in cells)
-        shift = (H - 1) - bottom  # drop so bottom row hits last grid row
-        for (r, c) in cells:
-            vacate.add((r, c))
-            paint[(r + shift, c)] = color
-    T = {}
-    for cell in vacate:
-        if cell not in paint:
-            T[cell] = bg
-    for cell, color in paint.items():
-        T[cell] = color
+        if tall_cols >= 2:  # block -> falls to the bottom
+            bottom = max(r for r, _ in cells)
+            shift = (H - 1) - bottom
+            for r, c in cells:
+                clears.add((r, c))
+            for r, c in cells:
+                placements[(r + shift, c)] = color
+        # else: thin marker -> stays in place
+    for (r, c) in clears:
+        T[r][c] = bg
+    for (r, c), color in placements.items():
+        T[r][c] = color
     return T
 
 
 def apply_T(input_grid, T):
+    H, W = len(input_grid), len(input_grid[0])
     out = [row[:] for row in input_grid]
-    for (r, c), color in T.items():
-        out[r][c] = color
+    for r in range(H):
+        for c in range(W):
+            if T[r][c] is not None:
+                out[r][c] = T[r][c]
     return out
 
 
