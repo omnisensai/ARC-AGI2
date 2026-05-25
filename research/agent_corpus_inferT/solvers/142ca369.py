@@ -27,20 +27,22 @@ def _components(cells):
 def infer_T(input_grid):
     """Infer the diagonal-ray transformation mask from the input structure.
 
-    Object types found in the input:
-      * L-corner (3 cells, one cell with both a horizontal and a vertical
-        neighbour): an *emitter*.  It launches a diagonal ray pointing away
-        from its two arms.
-      * line of 3 (straight H or V): a *mirror/obstacle*.  A vertical line
-        reflects the horizontal ray component; a horizontal line reflects the
-        vertical component.
-      * single dot: a per-colour reflector.  A ray of the dot's colour flips
-        its vertical (or horizontal) direction when it passes orthogonally
-        adjacent to the dot.
+    Object types (4-connected components, classified by shape):
+      * L-corner (3 cells, one cell having both an H and a V neighbour) is an
+        EMITTER.  It launches a single diagonal ray pointing away from its two
+        arms.
+      * straight line of 3 (H or V) is a MIRROR.  A vertical line reflects the
+        ray's horizontal component, a horizontal line its vertical component.
+        When a ray reflects off a mirror, every cell from the reflection point
+        onward (until the next reflection) is repainted in the MIRROR's colour.
+      * single dot is a per-colour reflector.  A ray of the dot's colour flips
+        one velocity component once, the first time it passes orthogonally
+        adjacent to that dot.
 
-    Rays travel diagonally, bounce off line obstacles, reflect once off their
-    own-colour dot, and otherwise exit at the grid border.  The returned mask
-    maps changed cells -> colour.
+    A ray steps diagonally from the emitter, recolouring/bouncing on mirrors,
+    reflecting once off its own-colour dot, and exits at the grid border (or
+    stops if wedged between two mirrors).  The returned mask maps every changed
+    empty cell to the colour painted there.
     """
     H = len(input_grid)
     W = len(input_grid[0])
@@ -52,9 +54,9 @@ def infer_T(input_grid):
             if v:
                 by_color[v].append((r, c))
 
-    emitters = []                  # (corner, (dr, dc), color)
+    emitters = []                 # (corner, (dr, dc), color)
+    mirror = {}                   # cell -> ('H' or 'V', color)
     dots_by_color = defaultdict(list)
-    obstacle = {}                  # cell -> 'H' or 'V'
 
     for col, cells in by_color.items():
         for comp in _components(cells):
@@ -62,32 +64,41 @@ def infer_T(input_grid):
             if len(comp) == 1:
                 dots_by_color[col].append(comp[0])
             elif len(comp) == 3:
-                corner = None
-                for (r, c) in comp:
-                    horiz = (r, c - 1) in cset or (r, c + 1) in cset
-                    vert = (r - 1, c) in cset or (r + 1, c) in cset
-                    if horiz and vert:
-                        corner = (r, c)
-                if corner is not None:
+                rows = set(r for r, c in comp)
+                cols = set(c for r, c in comp)
+                if len(rows) == 1:
+                    for x in comp:
+                        mirror[x] = ('H', col)
+                elif len(cols) == 1:
+                    for x in comp:
+                        mirror[x] = ('V', col)
+                else:
+                    corner = None
+                    for (r, c) in comp:
+                        horiz = (r, c - 1) in cset or (r, c + 1) in cset
+                        vert = (r - 1, c) in cset or (r + 1, c) in cset
+                        if horiz and vert:
+                            corner = (r, c)
                     r, c = corner
                     up = (r - 1, c) in cset
                     left = (r, c - 1) in cset
-                    # ray points away from the arms
-                    dr = 1 if up else -1
+                    dr = 1 if up else -1     # ray points away from the arms
                     dc = 1 if left else -1
                     emitters.append((corner, (dr, dc), col))
-                else:
-                    rows = set(r for r, c in comp)
-                    orient = 'H' if len(rows) == 1 else 'V'
-                    for x in comp:
-                        obstacle[x] = orient
+
+    occupied = set()
+    for cells in by_color.values():
+        for x in cells:
+            occupied.add(x)
 
     T = {}
 
-    def trace(start, dr, dc, col, my_dots):
+    def trace(start, dr, dc, color, my_dots):
         r, c = start
+        cur = color
         dot_done = False
-        for _ in range(2 * (H + W) + 10):
+        for _ in range(4 * (H + W)):
+            # one-time reflection off own-colour dot
             if not dot_done:
                 for (dr0, dc0) in my_dots:
                     if dr0 == r and abs(dc0 - c) == 1:
@@ -101,22 +112,30 @@ def infer_T(input_grid):
             nr, nc = r + dr, c + dc
             if not (0 <= nr < H and 0 <= nc < W):
                 return
-            if (nr, nc) in obstacle:
-                if obstacle[(nr, nc)] == 'V':
+            if (nr, nc) in mirror:
+                orient, mcol = mirror[(nr, nc)]
+                cur = mcol                     # adopt the mirror's colour
+                if (r, c) not in occupied:
+                    T[(r, c)] = cur
+                if orient == 'V':
                     dc = -dc
                 else:
                     dr = -dr
                 nr, nc = r + dr, c + dc
                 if not (0 <= nr < H and 0 <= nc < W):
                     return
-                if (nr, nc) in obstacle:
+                if (nr, nc) in mirror:
                     return
+                r, c = nr, nc
+                if (r, c) not in occupied:
+                    T[(r, c)] = cur
+                continue
             r, c = nr, nc
-            if input_grid[r][c] == 0:
-                T[(r, c)] = col
+            if (r, c) not in occupied:
+                T[(r, c)] = cur
 
-    for corner, (dr, dc), col in emitters:
-        trace(corner, dr, dc, col, set(dots_by_color.get(col, [])))
+    for corner, (dr, dc), color in emitters:
+        trace(corner, dr, dc, color, set(dots_by_color.get(color, [])))
 
     return T
 
