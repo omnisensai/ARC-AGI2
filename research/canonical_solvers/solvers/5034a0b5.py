@@ -58,8 +58,15 @@ def infer_T(input_grid):
 
 def apply_T(input_grid, T):
     out = [row[:] for row in input_grid]
+    bg = _border_colors(input_grid)[0]
+    # apply clears (-> bg) first, then colored placements, so a marker moving
+    # into a vacated cell is not erased by another marker's clear.
     for (r, c), color in T.items():
-        out[r][c] = color
+        if color == bg:
+            out[r][c] = color
+    for (r, c), color in T.items():
+        if color != bg:
+            out[r][c] = color
     return out
 
 
