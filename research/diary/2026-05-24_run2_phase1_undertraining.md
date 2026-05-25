@@ -466,3 +466,45 @@ Mild tension: we train on labels the model structurally can't reproduce
 token-perfectly. Tolerable (lossy + code-validated), but a future facts-T v2
 could de-emphasize raw counts in favor of relations/structure (which it gets
 right), or drop the longest per-cell count lines on big grids.
+
+---
+
+## STAGE 3 — same_rule training stats (2026-05-25)
+
+Multi-pair RULE INDUCTION on same-size pairs (test_substrate_prediction +
+multi_pair_to_rule + literacy carry). Chained from diff_lit. Ran on the 200GB
+pod (container disk /root). seq_len 16384, micro_batch 1, grad_accum 4, 3 epochs,
+save_only_model. 16,364 train records; max_input_len 9442 (ZERO dropped at
+16384 — the seq-len bump from 8192 was justified: longest example > 8192).
+
+### eval_loss curve (leaky 2% carve — convergence, not generalization)
+    baseline ep0:  0.8943  ppl 2.446   (untrained-this-stage: rule induction is NEW)
+    ep 0.25:       0.2126
+    ep 0.50:       0.1755
+    ep 1.00:       0.1421
+    ep 1.51:       0.1211
+    ep 2.01:       0.1073
+    ep 2.51:       0.1009
+    ep 2.76:       0.0999   <- min
+    ep 2.99:       0.1002   (flat; +0.0003 = noise, NOT a rise)
+    final train_loss 0.1329 | train_runtime ~25,070s (~6.96 h) | 1191 steps | ~21 s/it
+
+### Reading
+- Dropped ~9x from baseline (0.89 -> ~0.10) and PLATEAUED in the last epoch.
+  Converged; epoch 3 added little (same diminishing-returns pattern as same_lit).
+- The ~0.10 floor is HIGHER than same_lit (0.004) and diff_lit (0.07), and that's
+  EXPECTED: rule induction (infer the rule from pairs, predict a held-out T) is
+  intrinsically harder than literacy (transcribe a given pair). Higher floor !=
+  worse — different, harder task. The high baseline (0.89) confirms the model
+  started NOT knowing the task; the drop is the rule-learning signal.
+- ~2-2.5 epochs would likely have sufficed (plateau by ep 2.5). Calibration for
+  diff_rule/mixed: 2-3 epochs, watch for plateau.
+- This is the leaky carve; the held-out probe is the real verdict.
+
+### Backup
+HF: Omnisensai/arc-lora-run2/same_rule (byte-verified, 323,014,168 bytes).
+
+### Held-out probe (run_probe.py, phase1_same_rule_probe.jsonl)
+PENDING — running. The KEY metric: test_substrate_prediction small-grid
+cell%/exact = does it reason ACROSS pairs (infer rule -> predict held-out T),
+not just transcribe. This is the verdict the whole same-size curriculum builds to.
