@@ -1,119 +1,140 @@
-"""Canonical solver for ARC puzzle 195c6913.
+"""Canonical latent-T solver for ARC puzzle 195c6913.
 
-Rule (same-size):
-  The grid is split into two large regions whose shared boundary is a diagonal
-  "coastline" staircase.  A horizontal row of 2x2 blocks at the top is a LEGEND
-  that defines a repeating colour sequence S (blocks read left-to-right).  A
-  single 2x2 block elsewhere defines the ENDPOINT cap colour.  On the left edge
-  (column 0) there are single-cell MARKERS, each coloured S[0]; every marker
-  seeds a "snake".
+Rule (inferred from ALL pairs):
+  The grid is split into two background regions by a meandering 45-degree
+  "river" boundary.  In the top-left corner sits a "legend": a row of 2x2
+  colour blocks that, read left-to-right, define a periodic colour sequence.
+  An isolated 2x2 block elsewhere defines the "terminator" colour.  Single
+  non-background cells on the border are "markers".
 
-  Each snake enters its region moving Right and walks straight while the cell
-  ahead stays in that region.  When the cell ahead is the OTHER region it drops
-  an endpoint cap there and turns 90 degrees (Right->Up, Up->Right); if the turn
-  target is not in the region, or the cell ahead is the grid edge, it stops.
-  Cells along the walk are painted with S cycled continuously (the marker cell
-  is index 0 == S[0]).
+  Each marker emits a ray that travels straight into the region of its inward
+  neighbour, painting the periodic legend sequence cell-by-cell (continuously
+  across corners).  When the ray reaches the river bank (the other region) it
+  drops the terminator colour onto that bank cell and reflects like light off a
+  "/" diagonal mirror (right<->up, left<->down), continuing to paint the same
+  running sequence.  The ray stops when it would leave the grid or cannot
+  reflect.  Finally the legend blocks and the terminator block are erased back
+  to their local background colour.
 
-  infer_T builds the mask of all cells to overwrite (snake cells + caps + the
-  erased legend/endpoint blocks); apply_T copies the input and overwrites only
-  those cells.
+  infer_T builds the latent mask (a {(r, c): new_color} dict of erasures + ray
+  paint); apply_T copies the input and overwrites only the masked cells.
 """
+
 from collections import Counter
 
 
-def _find_blocks(g, H, W, bigset):
-    """Find solid 2x2 single-colour blocks of a minority colour."""
-    blocks = []
-    used = set()
+def _find_blocks(inp, bg2):
+    """Find all isolated 2x2 monochromatic non-background blocks."""
+    H, W = len(inp), len(inp[0])
+    blocks, seen = [], set()
     for r in range(H - 1):
         for c in range(W - 1):
-            v = g[r][c]
-            if v in bigset or (r, c) in used:
+            v = inp[r][c]
+            if v in bg2 or (r, c) in seen:
                 continue
-            if g[r][c + 1] == v and g[r + 1][c] == v and g[r + 1][c + 1] == v:
+            if inp[r][c + 1] == v and inp[r + 1][c] == v and inp[r + 1][c + 1] == v:
                 blocks.append((r, c, v))
                 for dr in (0, 1):
                     for dc in (0, 1):
-                        used.add((r + dr, c + dc))
+                        seen.add((r + dr, c + dc))
     return blocks
 
 
 def infer_T(input_grid):
-    g = input_grid
-    H, W = len(g), len(g[0])
+    inp = input_grid
+    H, W = len(inp), len(inp[0])
 
-    cnt = Counter()
-    for row in g:
-        for v in row:
-            cnt[v] += 1
-    common = [c for c, _ in cnt.most_common()]
-    bigset = set(common[:2])  # the two large regions
+    # The two background colours are simply the two most common colours.
+    common = Counter(v for row in inp for v in row).most_common()
+    bg2 = [common[0][0], common[1][0]]
 
-    # legend (top row of 2x2 blocks) + endpoint block
-    blocks = _find_blocks(g, H, W, bigset)
-    minr = min(b[0] for b in blocks)
-    legend = sorted((b for b in blocks if b[0] == minr), key=lambda b: b[1])
-    seq = [b[2] for b in legend]            # repeating colour sequence
-    L = len(seq)
-    endcolor = next(b[2] for b in blocks if b[0] > minr + 1)
+    blocks = _find_blocks(inp, bg2)
+    # Legend = 2x2 blocks near the top edge, read left-to-right -> sequence.
+    legend = sorted([b for b in blocks if b[0] <= 2], key=lambda b: b[1])
+    seq = [b[2] for b in legend]
+    # Terminator block = the other isolated 2x2 block.
+    target = [b for b in blocks if b[0] > 2]
+    term = target[0][2] if target else None
 
-    # latent transformation mask: {(r, c): new_colour}
-    T = {}
-
-    # 1) erase legend + endpoint blocks back to the surrounding big region
-    for (br, bc, _v) in blocks:
-        fill = None
-        for dr in range(-1, 3):
-            for dc in range(-1, 3):
-                rr, cc = br + dr, bc + dc
-                if 0 <= rr < H and 0 <= cc < W and g[rr][cc] in bigset:
-                    fill = g[rr][cc]
-                    break
-            if fill is not None:
-                break
+    block_cells = set()
+    for r, c, _ in blocks:
         for dr in (0, 1):
             for dc in (0, 1):
-                T[(br + dr, bc + dc)] = fill
+                block_cells.add((r + dr, c + dc))
 
-    # 2) trace each snake from its left-edge marker
-    markers = [r for r in range(H) if g[r][0] not in bigset]
-    for mr in markers:
-        river = g[mr][1]                    # region this marker enters
-        r, c = mr, 0
-        d = (0, 1)                          # start moving Right
-        idx = 0                             # marker cell == index 0 == seq[0]
-        T[(mr, 0)] = seq[0]
-        while True:
-            nr, nc = r + d[0], c + d[1]
-            inb = 0 <= nr < H and 0 <= nc < W
-            if inb and g[nr][nc] == river:
-                r, c = nr, nc
-                idx += 1
-                T[(r, c)] = seq[idx % L]
+    # Markers = single non-background cells that are not part of any 2x2 block.
+    markers = []
+    for r in range(H):
+        for c in range(W):
+            if inp[r][c] not in bg2 and (r, c) not in block_cells:
+                markers.append((r, c))
+
+    def in_region(rr, cc, region):
+        return 0 <= rr < H and 0 <= cc < W and inp[rr][cc] == region
+
+    T = {}  # latent mask: cell -> new colour
+
+    # 1) Erase every 2x2 block (legend + terminator) to its local background.
+    for r, c, _ in blocks:
+        bg_local = None
+        for ar, ac in ((r - 1, c), (r + 2, c), (r, c - 1), (r, c + 2),
+                       (r - 1, c - 1), (r + 2, c + 2)):
+            if 0 <= ar < H and 0 <= ac < W and inp[ar][ac] in bg2:
+                bg_local = inp[ar][ac]
+                break
+        if bg_local is None:
+            bg_local = bg2[0]
+        for dr in (0, 1):
+            for dc in (0, 1):
+                T[(r + dr, c + dc)] = bg_local
+
+    # 2) Trace each marker's ray, reflecting off the river ("/" mirror).
+    if seq and term is not None:
+        for mr, mc in markers:
+            if mc == 0:
+                dr, dc = 0, 1
+            elif mc == W - 1:
+                dr, dc = 0, -1
+            elif mr == 0:
+                dr, dc = 1, 0
             else:
-                if not inb:
-                    break                   # grid edge -> stop
-                # blocked by the other region: drop cap, then turn
-                T[(nr, nc)] = endcolor
-                if d == (0, 1):
-                    nd = (-1, 0)            # Right -> Up
-                elif d == (-1, 0):
-                    nd = (0, 1)            # Up -> Right
-                else:
-                    break
-                tr, tc = r + nd[0], c + nd[1]
-                if 0 <= tr < H and 0 <= tc < W and g[tr][tc] == river:
-                    d = nd
-                else:
-                    break
+                dr, dc = -1, 0
+            # Ray lives in the region of the marker's inward neighbour.
+            if 0 <= mr + dr < H and 0 <= mc + dc < W:
+                region = inp[mr + dr][mc + dc]
+            else:
+                region = bg2[1]
+
+            r, c, idx = mr, mc, 0
+            painted = {}
+            for _ in range(H * W * 4):
+                if (r, c) not in painted:
+                    painted[(r, c)] = seq[idx % len(seq)]
+                nr, nc = r + dr, c + dc
+                if in_region(nr, nc, region):
+                    r, c, idx = nr, nc, idx + 1
+                    continue
+                if not (0 <= nr < H and 0 <= nc < W):
+                    break  # ray exits the grid
+                # Hit the river bank: drop terminator, reflect off "/" mirror.
+                painted[(nr, nc)] = term
+                ndr, ndc = -dc, -dr
+                if not in_region(r + ndr, c + ndc, region):
+                    break  # cannot reflect -> ray ends
+                dr, dc = ndr, ndc
+                r, c, idx = r + dr, c + dc, idx + 1
+
+            for cell, colour in painted.items():
+                T[cell] = colour
+
     return T
 
 
 def apply_T(input_grid, T):
     out = [row[:] for row in input_grid]
-    for (r, c), col in T.items():
-        out[r][c] = col
+    for (r, c), v in T.items():
+        if v is not None:
+            out[r][c] = v
     return out
 
 
