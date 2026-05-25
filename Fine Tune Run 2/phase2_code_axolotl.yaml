@@ -1,0 +1,81 @@
+# Phase 2 — CODE stage (same-size sprint) — Axolotl trainer config
+#
+# Teaches T-conditioned code synthesis: given demo pairs (INPUT + compact T)
+# the model writes ONE invariant `def solve(input_grid)`. The Code Solver
+# contract + all formatting live in the dataset's system/user messages
+# (phase2_code_train.jsonl.gz), so chat_template just uses the model's own
+# template (train == eval).
+#
+# Continues the substrate chain from same_rule (carries pixel + facts literacy).
+# Saves to a NEW adapter dir (outputs/phase2_code) — never overwrites Phase 1.
+#
+# On a fresh pod, restore the base adapter first:
+#   hf download Omnisensai/arc-lora-run2 --include "same_rule/*" --local-dir outputs
+# then:  bash "Fine Tune Run 2/run_stage.sh" phase2_code
+
+base_model: Qwen/Qwen2.5-7B-Instruct
+model_type: AutoModelForCausalLM
+tokenizer_type: AutoTokenizer
+trust_remote_code: true
+
+# Continue from the same_rule adapter (restored from HF to outputs/same_rule).
+lora_model_dir: outputs/same_rule
+
+datasets:
+  - path: Fine Tune Run 2/data_sft/phase2_code_train.jsonl.gz
+    type: chat_template
+    chat_template: tokenizer_default
+
+val_set_size: 0.02
+
+dataset_prepared_path: Fine Tune Run 2/data_sft/prepared/phase2_code
+output_dir: outputs/phase2_code
+
+# Same-size compact records fit 8k (max ~7.3k tokens) — no 16k lane needed.
+sequence_len: 8192
+sample_packing: true
+pad_to_sequence_len: true
+
+bf16: true
+fp16: false
+tf32: true
+load_in_8bit: false
+load_in_4bit: false
+
+adapter: lora
+lora_r: 32
+lora_alpha: 64
+lora_dropout: 0.05
+lora_target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
+
+num_epochs: 3
+micro_batch_size: 2
+gradient_accumulation_steps: 4
+
+learning_rate: 0.00012
+lr_scheduler: cosine
+warmup_ratio: 0.03
+weight_decay: 0.01
+optimizer: adamw_torch_fused
+
+gradient_checkpointing: true
+flash_attention: true
+
+train_on_inputs: false
+group_by_length: false
+
+logging_steps: 10
+eval_steps: 100
+save_steps: 100
+save_total_limit: 2
+save_only_model: true  # adapter only (no optimizer dump) — disk-safe
+
+seed: 42
+strict: false

@@ -26,11 +26,18 @@ STAGE="${1:?Usage: run_stage.sh <stage>   e.g. diff_lit}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-CFG="Fine Tune Run 2/phase1_${STAGE}_axolotl.yaml"
+# Phase-1 configs are named phase1_<stage>_axolotl.yaml; later phases (e.g.
+# phase2_code) carry their phase in the stage name itself. Try the phase1_
+# prefix first, then fall back to the bare <stage>_axolotl.yaml.
 LOG="outputs/${STAGE}_run.log"
+CFG="Fine Tune Run 2/phase1_${STAGE}_axolotl.yaml"
+if [ ! -f "$CFG" ]; then
+  CFG="Fine Tune Run 2/${STAGE}_axolotl.yaml"
+fi
 
 if [ ! -f "$CFG" ]; then
-  echo "ERROR: no config at '$CFG' (stage typo? must be one of: same_lit diff_lit same_rule diff_rule mixed)" >&2
+  echo "ERROR: no config for stage '$STAGE' (tried phase1_${STAGE}_axolotl.yaml and ${STAGE}_axolotl.yaml)." >&2
+  echo "       Phase-1 stages: same_lit diff_lit same_rule diff_rule mixed. Phase-2: phase2_code" >&2
   exit 1
 fi
 

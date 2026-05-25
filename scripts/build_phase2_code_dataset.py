@@ -90,11 +90,14 @@ def demos_block(pairs, idxs, compact):
                          f"T:\n{t_text(p['input'], p['output'])}")
     return "\n\n".join(parts)
 
-def make_record(pairs, demo_idxs, code, prov, compact):
-    # No TEST INPUT: the code is the invariant rule derived from the shown pairs;
-    # the test input is runtime machinery, not needed to write the rule, and
-    # showing it invites tailoring the code to one input (false-positive risk).
-    user = demos_block(pairs, demo_idxs, compact) + "\n\nWrite def solve(input_grid):"
+def make_record(pairs, demo_idxs, code, prov, compact, test_input=None):
+    # No TEST OUTPUT ever. all_pairs/subset variants show no test input (pure
+    # invariant). pseudo_test shows a held-out pair's INPUT only (matches the
+    # competition inference shape: "write code for this unseen input").
+    user = demos_block(pairs, demo_idxs, compact)
+    if test_input is not None:
+        user += f"\n\nTEST INPUT:\n{grid_str(test_input)}"
+    user += "\n\nWrite def solve(input_grid):"
     return {"messages": [{"role": "system", "content": SYSTEM},
                          {"role": "user", "content": user},
                          {"role": "assistant", "content": code}],
@@ -126,10 +129,13 @@ def main():
         path, pz = resolve(pid, code)
         if not pz:
             stats["skipped_nofile"] += 1; continue
-        tr = pz["train"]
-        n = len(tr)
+        # All KNOWN pairs (train + test) are evidence — we have every output in
+        # the corpus, and the validated code passes all of them. More pairs = a
+        # stronger invariant the one code must satisfy.
+        pairs = pz["train"] + pz["test"]
+        n = len(pairs)
         same = all(len(p["input"]) == len(p["output"]) and len(p["input"][0]) == len(p["output"][0])
-                   for p in tr)
+                   for p in pairs)
         if args.same_only and not same:
             stats["skipped_diff"] += 1; continue
         if n < 2:  # one pair underdetermines the rule
@@ -138,23 +144,44 @@ def main():
         stats["same" if same else "diff"] += 1
         stats["puzzles_used"] += 1
         ctid = f"{pid}#0"
-        # all-pairs record (shows every train pair)
-        demo = list(range(n)); rng.shuffle(demo)
-        records.append(make_record(tr, demo, code, {
-            "puzzle_id": pid, "variant": "all", "visible_pair_indices": demo,
-            "substrate_type": "same" if same else "diff", "code_target_id": ctid,
-            "puzzle_file": os.path.basename(path)}, compact))
-        # leave-one-out subsets — only when the shown subset stays >=2 pairs (n>=3),
-        # so we never train on a single underdetermining pair.
+        base = {"puzzle_id": pid, "substrate_type": "same" if same else "diff",
+                "code_target_id": ctid, "puzzle_file": os.path.basename(path)}
+        # 2A all_pairs — show every pair, no test input (pure invariant). 2 shuffles.
+        for _ in range(4):
+            demo = list(range(n)); rng.shuffle(demo)
+            records.append(make_record(pairs, demo, code,
+                {**base, "variant": "all_pairs", "visible_pair_indices": demo}, compact))
+        # leave-one-out subsets — only when shown subset stays >=2 (n>=3).
         if n >= 3:
             for held in range(n):
                 demo = [i for i in range(n) if i != held]; rng.shuffle(demo)
-                records.append(make_record(tr, demo, code, {
-                    "puzzle_id": pid, "variant": "loo", "visible_pair_indices": demo,
-                    "held_out_pair_index": held, "substrate_type": "same" if same else "diff",
-                    "code_target_id": ctid, "puzzle_file": os.path.basename(path)}, compact))
+                # 2B subset_cycled — held pair simply absent.
+                records.append(make_record(pairs, demo, code,
+                    {**base, "variant": "subset_cycled", "visible_pair_indices": demo,
+                     "held_out_pair_index": held}, compact))
+                # 2C pseudo_test — held pair's INPUT shown as TEST INPUT (no output/T).
+                demo2 = demo[:]; rng.shuffle(demo2)
+                records.append(make_record(pairs, demo2, code,
+                    {**base, "variant": "pseudo_test", "visible_pair_indices": demo2,
+                     "held_out_pair_index": held}, compact,
+                    test_input=pairs[held]["input"]))
         if args.limit and stats["puzzles_used"] >= args.limit:
             break
+
+    # Rebalance toward GPT's 35/40/25 (all_pairs / subset_cycled / pseudo_test),
+    # anchored on subset_cycled (the core invariance variant) at 40%.
+    by_v = {"all_pairs": [], "subset_cycled": [], "pseudo_test": []}
+    for r in records:
+        by_v[r["provenance"]["variant"]].append(r)
+    anchor = len(by_v["subset_cycled"])
+    if anchor:
+        total = anchor / 0.40
+        tgt = {"all_pairs": int(round(0.35 * total)), "subset_cycled": anchor,
+               "pseudo_test": int(round(0.25 * total))}
+        records = []
+        for v, pool in by_v.items():
+            k = min(tgt[v], len(pool))
+            records.extend(rng.sample(pool, k) if k < len(pool) else pool)
 
     rng.shuffle(records)
     OUT.parent.mkdir(exist_ok=True)
