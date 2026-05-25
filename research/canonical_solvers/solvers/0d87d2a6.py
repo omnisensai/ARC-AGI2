@@ -1,113 +1,101 @@
-def _components(g):
-    """4-connected components of color-2 cells, as lists of (r, c)."""
-    H, W = len(g), len(g[0])
+"""Canonical solver for ARC puzzle 0d87d2a6.
+
+Rule:
+  Color-1 markers sit on the grid border in matched pairs. A pair on the top
+  and bottom edge sharing a column defines a vertical line down that column;
+  a pair on the left and right edge sharing a row defines a horizontal line
+  across that row. Each such line is the path of a ray.
+
+  The transformation draws every ray (all cells along its column / row) and
+  recolors any 2-block (4-connected component of color 2) the ray *touches*
+  -- i.e. that overlaps a line cell or is orthogonally adjacent to one --
+  entirely to color 1. Background cells lying on a ray path also become
+  color 1. Untouched 2-blocks are left unchanged.
+
+infer_T computes the latent mask of cells that must become 1; apply_T copies
+the input and overwrites only the masked cells.
+"""
+
+from collections import deque
+
+
+def _components(grid, color):
+    """4-connected components of `color` cells, as lists of (r, c)."""
+    H, W = len(grid), len(grid[0])
     seen = [[False] * W for _ in range(H)]
     comps = []
     for r in range(H):
         for c in range(W):
-            if g[r][c] == 2 and not seen[r][c]:
-                stack = [(r, c)]
+            if grid[r][c] == color and not seen[r][c]:
+                q = deque([(r, c)])
+                seen[r][c] = True
                 cells = []
-                while stack:
-                    a, b = stack.pop()
-                    if not (0 <= a < H and 0 <= b < W) or seen[a][b] or g[a][b] != 2:
-                        continue
-                    seen[a][b] = True
-                    cells.append((a, b))
+                while q:
+                    rr, cc = q.popleft()
+                    cells.append((rr, cc))
                     for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                        stack.append((a + dr, b + dc))
+                        nr, nc = rr + dr, cc + dc
+                        if (0 <= nr < H and 0 <= nc < W
+                                and grid[nr][nc] == color and not seen[nr][nc]):
+                            seen[nr][nc] = True
+                            q.append((nr, nc))
                 comps.append(cells)
     return comps
 
 
-def _contains(a_lo, a_hi, b_lo, b_hi):
-    """True if interval [a_lo,a_hi] contains [b_lo,b_hi] or vice-versa."""
-    return (a_lo >= b_lo and a_hi <= b_hi) or (b_lo >= a_lo and b_hi <= a_hi)
-
-
 def infer_T(input_grid):
-    """Border markers (color 1) define full-grid lines: a top/bottom marker at
-    column c draws a vertical line down column c; a left/right marker at row r
-    draws a horizontal line across row r. Every line cell becomes color 1.
-
-    A color-2 block that a line passes through is fully recolored to 1.
-    Additionally, when a HORIZONTAL line touches a block exactly at the block's
-    top or bottom edge, the block re-emits a vertical ray in the direction it
-    extends away from that line; that ray recolors the first aligned block it
-    reaches (a block whose column span is contained in / contains the source's),
-    without drawing a connecting line."""
     H, W = len(input_grid), len(input_grid[0])
 
-    vcols, hrows = set(), set()
-    for r in range(H):
-        for c in range(W):
-            if input_grid[r][c] == 1:
-                if r in (0, H - 1):
-                    vcols.add(c)
-                if c in (0, W - 1):
-                    hrows.add(r)
+    # Border markers (color 1), grouped into ray lines.
+    markers = [(r, c) for r in range(H) for c in range(W)
+               if input_grid[r][c] == 1]
+    top = {c for r, c in markers if r == 0}
+    bottom = {c for r, c in markers if r == H - 1}
+    left = {r for r, c in markers if c == 0}
+    right = {r for r, c in markers if c == W - 1}
+    vert_cols = top & bottom        # vertical rays (top<->bottom)
+    horiz_rows = left & right       # horizontal rays (left<->right)
 
-    blocks = []
-    for cells in _components(input_grid):
-        rs = [r for r, _ in cells]
-        cs = [c for _, c in cells]
-        blocks.append({
-            'rmin': min(rs), 'rmax': max(rs),
-            'cmin': min(cs), 'cmax': max(cs),
-            'cells': cells,
-        })
-
-    recolor = [False] * len(blocks)
-    emissions = []  # (clo, chi, direction, start_row)
-
-    for i, b in enumerate(blocks):
-        for hr in hrows:
-            if b['rmin'] <= hr <= b['rmax']:
-                recolor[i] = True
-                if hr == b['rmin']:          # line at top edge -> extend down
-                    emissions.append((b['cmin'], b['cmax'], 'DOWN', b['rmax']))
-                elif hr == b['rmax']:        # line at bottom edge -> extend up
-                    emissions.append((b['cmin'], b['cmax'], 'UP', b['rmin']))
-        for vc in vcols:
-            if b['cmin'] <= vc <= b['cmax']:
-                recolor[i] = True
-
-    for (clo, chi, direction, start) in emissions:
-        best, best_d = None, None
-        for i, b in enumerate(blocks):
-            if recolor[i]:
-                continue
-            if not _contains(b['cmin'], b['cmax'], clo, chi):
-                continue
-            if direction == 'UP' and b['rmax'] < start:
-                d = start - b['rmax']
-            elif direction == 'DOWN' and b['rmin'] > start:
-                d = b['rmin'] - start
-            else:
-                continue
-            if best_d is None or d < best_d:
-                best_d, best = d, i
-        if best is not None:
-            recolor[best] = True
-
-    T = {}
-    for c in vcols:
+    # All cells lying on a ray path.
+    line_cells = set()
+    for col in vert_cols:
         for r in range(H):
-            T[(r, c)] = 1
-    for r in hrows:
+            line_cells.add((r, col))
+    for row in horiz_rows:
         for c in range(W):
-            T[(r, c)] = 1
-    for i, b in enumerate(blocks):
-        if recolor[i]:
-            for (r, c) in b['cells']:
-                T[(r, c)] = 1
+            line_cells.add((row, c))
+
+    T = [[None] * W for _ in range(H)]
+
+    # 2-blocks the ray touches (overlap or orthogonal adjacency) become 1.
+    for cells in _components(input_grid, 2):
+        touched = False
+        for (r, c) in cells:
+            for dr, dc in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
+                if (r + dr, c + dc) in line_cells:
+                    touched = True
+                    break
+            if touched:
+                break
+        if touched:
+            for (r, c) in cells:
+                T[r][c] = 1
+
+    # Background cells on a ray path become 1.
+    for (r, c) in line_cells:
+        if input_grid[r][c] == 0:
+            T[r][c] = 1
+
     return T
 
 
 def apply_T(input_grid, T):
+    H, W = len(input_grid), len(input_grid[0])
     out = [row[:] for row in input_grid]
-    for (r, c), v in T.items():
-        out[r][c] = v
+    for r in range(H):
+        for c in range(W):
+            if T[r][c] is not None:
+                out[r][c] = T[r][c]
     return out
 
 
