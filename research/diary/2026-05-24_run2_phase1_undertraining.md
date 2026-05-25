@@ -504,7 +504,47 @@ save_only_model. 16,364 train records; max_input_len 9442 (ZERO dropped at
 ### Backup
 HF: Omnisensai/arc-lora-run2/same_rule (byte-verified, 323,014,168 bytes).
 
-### Held-out probe (run_probe.py, phase1_same_rule_probe.jsonl)
-PENDING — running. The KEY metric: test_substrate_prediction small-grid
-cell%/exact = does it reason ACROSS pairs (infer rule -> predict held-out T),
-not just transcribe. This is the verdict the whole same-size curriculum builds to.
+### Held-out probe (run_probe.py, phase1_same_rule_probe.jsonl, 302 records)
+
+    Overall: exact 64.6% | cell 95.6% (195/302)  <- MISLEADING; carried by literacy
+    format                         n    exact  cell%  chgR%   tests
+    substrate_to_output          102   89.2%  99.9%    -      decode T->output (literacy)
+    multi_pair_to_rule            26   88.5%  99.7%  99.5%    compute T GIVEN output (transcription)
+    pair_to_substrate            102   77.5%  99.4%  98.5%    transcribe T (literacy)
+    direct_output_grid            36    5.6%  85.3%    -      freehand full output (render ceiling)
+    test_substrate_prediction     36    0.0%  80.1%  34.3%   INFER rule -> predict held-out test T  <-- THE test
+    by size: small exact 77.6%/cell 96.8% ; large exact 57.4%/cell 94.9%
+
+### Reading — literacy ACED, true rule-induction FAILED
+- The model knows the T language cold: transcribe T (77.5%/99.4%), decode T->output
+  (89.2%/99.9%), compute T when the output is shown (multi_pair_to_rule 88.5%). The
+  64.6% overall is carried by these.
+- But test_substrate_prediction (infer the rule, predict the held-out TEST pair's T
+  with NO output given) = 0% exact, and its 80% cell is a MIRAGE: changed_cell_recall
+  is 34% -> the model defaults to a near-identity T (mostly '.') and misses 2/3 of the
+  actual changes. It is NOT inducing rules and applying them to unseen inputs.
+- Reading transformations != inferring them. More training didn't fix it
+  (test_substrate_prediction was 0% at 1 epoch too).
+- multi_pair_to_rule's 88.5% is transcription, not induction (the trailing OUTPUT is
+  shown). Don't mistake it for rule-induction success.
+
+### Why it's not fatal (and half-expected)
+The architecture does NOT rely on freehand one-shot T-induction (LLMs' weakest skill).
+Rule-application is routed through CODE + execution-validation (write a rule, check vs
+the train pairs whose outputs ARE known, repair from the diff) -> far more forgiving of
+weak one-shot induction. A weak test_substrate_prediction is consistent with the thesis;
+it's WHY Phase 2 exists.
+
+### Lever (the operator's idea, now clearly indicated)
+Leave-one-out cycling with the OUTPUT HIDDEN: predict each train pair's T from the
+others WITHOUT showing that pair's output (pure induction, N examples/puzzle vs the
+single test pair). Overweight this in a same_rule re-train and/or diff_rule/mixed. The
+current mix already had test_substrate_prediction at 0.40 yet it stayed 0% -> the
+output-bearing formats (multi_pair_to_rule, substrate_to_output) likely let the model
+minimize loss via transcription without learning induction.
+
+### Open decision
+(a) re-train same_rule with overweighted output-hidden induction cycling before
+continuing, vs (b) proceed (diff_rule -> mixed -> Phase 2 code) and let the
+code+execution-validation loop enforce rule-application. Leaning: do BOTH — add the
+cycling AND smoke-test Phase-2 code to see if validation rescues induction.
