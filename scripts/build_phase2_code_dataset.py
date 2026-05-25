@@ -24,7 +24,7 @@ Usage:
   python3 scripts/build_phase2_code_dataset.py --limit 8   # sample
   python3 scripts/build_phase2_code_dataset.py             # full
 """
-import argparse, json, glob, os, random, sys
+import argparse, json, glob, os, random, re, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -116,7 +116,8 @@ def main():
     files = sorted(glob.glob(str(CORPUS / "*.json")))
     records = []
     stats = {"puzzles_used": 0, "skipped_forbidden": 0, "skipped_nofile": 0,
-             "skipped_nocode": 0, "skipped_diff": 0, "skipped_1pair": 0, "same": 0, "diff": 0}
+             "skipped_nocode": 0, "skipped_diff": 0, "skipped_1pair": 0,
+             "skipped_memorizer": 0, "same": 0, "diff": 0}
     for cf in files:
         pid = os.path.splitext(os.path.basename(cf))[0]
         if pid in forbidden:
@@ -126,6 +127,14 @@ def main():
         if not rcs:
             stats["skipped_nocode"] += 1; continue
         code = rcs[0]["code"]
+        # Drop fingerprint-lookup "solvers" that memorize grids instead of the
+        # rule: a dict keyed by a frozenset of cell/block positions, returning
+        # hardcoded outputs (e.g. 817e6c09). These pass all visible pairs by
+        # identity and learn nothing — exactly the anti-generalization pattern we
+        # must not teach. Signature validated to match 1/637 with no false hits.
+        if "frozenset(" in code and re.search(r"=\s*\{", code) \
+                and re.search(r"\b(known_cases|known answer|uniquely identif|hardcod)", code, re.I):
+            stats["skipped_memorizer"] += 1; continue
         path, pz = resolve(pid, code)
         if not pz:
             stats["skipped_nofile"] += 1; continue
