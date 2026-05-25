@@ -10,8 +10,8 @@ recolored from 3 to 8.
 A copy may appear under any of the polyomino's rotations or (for chiral
 shapes) reflections. Rotated placements take priority: a reflected placement is
 only accepted when it does not overlap a placement already accepted from the
-rotation orientations. This resolves the rare case where a rotated copy and a
-reflected copy share cells -- the rotated (un-flipped) reading wins.
+rotation orientations. This resolves the rare situation where a rotated copy
+and a reflected copy share cells -- the rotated (un-flipped) reading wins.
 
 The latent transformation T is the dict {(r, c): 8} of all cells belonging to
 accepted copies; apply_T overwrites only those cells.
