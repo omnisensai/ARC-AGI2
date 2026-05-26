@@ -1,111 +1,101 @@
-"""Canonical latent-T solver for ARC puzzle 85fa5666.
+"""Canonical solver for ARC puzzle 85fa5666.
 
-Rule (inferred from input structure alone):
-  The grid contains one or more "gadgets": a 2x2 block of color 2, surrounded by
-  four single-cell corner markers placed one cell diagonally outside each corner
-  of the block (the marker colors come from the set {3,6,7,8}).
+Rule
+----
+The grid contains one or more 2x2 blocks of colour 2.  Each block is
+surrounded by four single-cell "corner markers" sitting just outside its
+diagonal corners (one cell up-left, up-right, down-left, down-right of the
+2x2).  The transformation:
 
-  For every gadget the transformation does two things:
-    1. The four corner markers are rotated one step clockwise around the block:
-         new TL = old BL,  new TR = old TL,  new BR = old TR,  new BL = old BR.
-    2. From each corner, a diagonal ray of that corner's NEW color is shot
-       outward (away from the block). A ray travels until it reaches the grid
-       edge, or until it would step onto another gadget's 2x2 block. As a single
-       extra terminator, a ray also stops when it reaches a cell orthogonally
-       adjacent to ANOTHER gadget's (post-rotation) corner marker of the SAME
-       color as the ray -- i.e. it connects to a like-colored corner -- unless
-       the ray is about to reach the grid boundary anyway (edge wins).
+  1. Rotate the four corner markers one quarter-turn clockwise: each corner
+     position takes the colour of its counter-clockwise neighbour
+     (TL<-BL, TR<-TL, BR<-TR, BL<-BR).
 
-  The 2x2 blocks themselves are never modified; only marker corners and the
-  diagonal ray cells are overwritten.
+  2. From every (rotated) corner marker draw a diagonal ray outward, away
+     from the block, using the marker's new colour.  The ray fills
+     background cells until it leaves the grid or meets a non-background
+     cell.
 
-infer_T returns the latent mask as a dict {(r,c): new_color}; apply_T copies the
-input and overwrites only the masked cells.
+  3. A ray that is rounding the corner of *another* block is blocked: when
+     the next diagonal step is pinched between two occupied cells (the
+     other block's 2x2 cell and one of its corner markers) and that marker
+     has the same colour as the ray, the ray stops -- unless there is no
+     room to penetrate further (the step is at the grid border), in which
+     case the terminal cell is still drawn.
+
+Everything is expressed as a latent mask T (dict {(r,c): colour}) computed
+from the input alone; apply_T overlays it on a copy of the input.
 """
 
 
-def _find_blocks(g):
-    """Top-left coordinates of every 2x2 block of color 2."""
-    H, W = len(g), len(g[0])
+def _find_blocks(grid):
+    """Top-left coordinates of every 2x2 block of colour 2."""
+    H, W = len(grid), len(grid[0])
     blocks = []
     for r in range(H - 1):
         for c in range(W - 1):
-            if (g[r][c] == 2 and g[r][c + 1] == 2
-                    and g[r + 1][c] == 2 and g[r + 1][c + 1] == 2):
+            if (grid[r][c] == 2 and grid[r][c + 1] == 2 and
+                    grid[r + 1][c] == 2 and grid[r + 1][c + 1] == 2):
                 blocks.append((r, c))
     return blocks
 
 
 def infer_T(input_grid):
-    g = input_grid
-    H, W = len(g), len(g[0])
+    H, W = len(input_grid), len(input_grid[0])
 
-    def val(r, c):
-        return g[r][c] if 0 <= r < H and 0 <= c < W else 0
+    def occ(r, c):
+        return 0 <= r < H and 0 <= c < W and input_grid[r][c] != 0
 
-    blocks = _find_blocks(g)
+    # corner order is clockwise: TL, TR, BR, BL ; outward diagonal per corner
+    dirs = [(-1, -1), (-1, 1), (1, 1), (1, -1)]
 
-    # All 2x2 block cells (rays must not overrun a block).
-    block_cells = set()
-    for (r, c) in blocks:
-        for a in (0, 1):
-            for b in (0, 1):
-                block_cells.add((r + a, c + b))
-
-    # Post-rotation color sitting at each marker-corner position, for all blocks.
-    # clockwise rotation: new TL=old BL, new TR=old TL, new BR=old TR, new BL=old BR
-    post_corner = {}
-    for (r, c) in blocks:
-        TL = (r - 1, c - 1); TR = (r - 1, c + 2)
-        BL = (r + 2, c - 1); BR = (r + 2, c + 2)
-        post_corner[TL] = val(*BL)
-        post_corner[TR] = val(*TL)
-        post_corner[BR] = val(*TR)
-        post_corner[BL] = val(*BR)
+    # gather corner markers / their rotated (new) colours for every block
+    new_color = {}          # marker position -> rotated colour
+    block_corners = []      # list of (corners, new_colors)
+    for (tr, lc) in _find_blocks(input_grid):
+        br, rc = tr + 1, lc + 1
+        corners = [(tr - 1, lc - 1), (tr - 1, rc + 1),
+                   (br + 1, rc + 1), (br + 1, lc - 1)]
+        old = [input_grid[r][c] if 0 <= r < H and 0 <= c < W else 0
+               for (r, c) in corners]
+        new = [old[(i - 1) % 4] for i in range(4)]   # clockwise rotation
+        for pos, col in zip(corners, new):
+            new_color[pos] = col
+        block_corners.append((corners, new))
 
     T = {}
-    for (r, c) in blocks:
-        TL = (r - 1, c - 1); TR = (r - 1, c + 2)
-        BL = (r + 2, c - 1); BR = (r + 2, c + 2)
-        own_corners = {TL, TR, BL, BR}
-        # (corner, new_color, outward diagonal direction)
-        rays = [
-            (TL, val(*BL), (-1, -1)),
-            (TR, val(*TL), (-1, 1)),
-            (BR, val(*TR), (1, 1)),
-            (BL, val(*BR), (1, -1)),
-        ]
-        for corner, col, (dr, dc) in rays:
-            rr, cc = corner
-            while 0 <= rr < H and 0 <= cc < W:
-                # never overwrite another gadget's 2x2 block
-                if (rr, cc) in block_cells and (rr, cc) != corner:
+    for corners, new in block_corners:
+        for i, (cr, cc) in enumerate(corners):
+            if not (0 <= cr < H and 0 <= cc < W):
+                continue
+            color = new[i]
+            T[(cr, cc)] = color                       # recoloured marker
+            dr, dc = dirs[i]
+            rr, cc2 = cr, cc
+            while True:
+                nr, nc = rr + dr, cc2 + dc
+                if not (0 <= nr < H and 0 <= nc < W):
                     break
-                T[(rr, cc)] = col
-
-                # decide whether to terminate after this cell
-                nr, nc = rr + dr, cc + dc
-                next_on_edge = (
-                    not (0 <= nr < H and 0 <= nc < W)
-                    or nr in (0, H - 1) or nc in (0, W - 1)
-                )
-                connects = False
-                for a, b in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                    nb = (rr + a, cc + b)
-                    if (nb in post_corner and nb not in own_corners
-                            and post_corner[nb] == col):
-                        connects = True
+                if input_grid[nr][nc] != 0:
+                    break
+                # diagonal pinch by another block's same-colour corner
+                f1 = (rr, cc2 + dc)
+                f2 = (rr + dr, cc2)
+                if (occ(*f1) and occ(*f2) and
+                        (new_color.get(f1) == color or
+                         new_color.get(f2) == color)):
+                    beyond = (nr + dr, nc + dc)
+                    if 0 <= beyond[0] < H and 0 <= beyond[1] < W:
                         break
-                if connects and not next_on_edge:
-                    break
-                rr, cc = nr, nc
+                T[(nr, nc)] = color
+                rr, cc2 = nr, nc
     return T
 
 
 def apply_T(input_grid, T):
     out = [row[:] for row in input_grid]
-    for (r, c), color in T.items():
-        out[r][c] = color
+    for (r, c), v in T.items():
+        out[r][c] = v
     return out
 
 
