@@ -1,32 +1,36 @@
 """Canonical latent-T solver for ARC puzzle b74ca5d1.
 
-Rule (inferred from input structure alone):
-  * The background is the most common color. Each non-background corner cell is a
-    "marker" carrying a color.
-  * Every other non-background color is the "main" color of one shape. Each shape
-    occupies a small (5x5) region and contains exactly one foreign "seed" cell whose
-    color equals one of the corner-marker colors.
-  * In-place transform: inside each shape the main color and its seed color are
-    swapped (all main cells -> seed color, the single seed cell -> main color).
-  * Corner transform: for each marker color we overlay (union) the masks of all
-    shapes whose seed equals that color and draw the union, in the marker color,
-    anchored into the corner that carries that marker. When two or more shapes are
-    overlaid, a thin 1-wide straight protrusion ("stem") of a shape is dropped if it
-    does not touch any cell belonging to another shape in the union.
+Structure of every input
+-------------------------
+* The background is the single most common color.
+* Each non-background corner cell of the grid is a "marker" carrying a color.
+* Every remaining non-background color is the "main" color of exactly one small
+  (<=5x5) shape.  Each shape contains exactly one foreign "seed" cell whose color
+  equals one of the corner-marker colors; the seed tells the shape which corner it
+  belongs to.
 
-infer_T builds a latent transformation mask {(r,c): new_color}; apply_T copies the
+Transformation (the latent T)
+-----------------------------
+1. In-place recolor: inside every shape the main color and the seed color are
+   swapped -- all main-color cells take the seed color, and the single seed cell
+   takes the shape's main color.
+2. Corner stamps: for each marker color we overlay (set-union) the cell masks of
+   all shapes whose seed equals that color, and draw that union -- in the marker
+   color -- anchored into the corner(s) carrying that marker.  Where two or more
+   shapes are stamped together, a 1-wide straight protrusion of a shape that does
+   not touch any other stamped shape is treated as a connector and is not drawn.
+
+infer_T returns the latent mask as a dict {(r,c): new_color}; apply_T copies the
 input and overwrites only the masked cells.
 """
 
 from collections import Counter
 
-N8 = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 N4 = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
 
 def _background(grid):
-    cnt = Counter(v for row in grid for v in row)
-    return cnt.most_common(1)[0][0]
+    return Counter(v for row in grid for v in row).most_common(1)[0][0]
 
 
 def _markers(grid, bg):
@@ -41,10 +45,9 @@ def _markers(grid, bg):
 
 
 def _shapes(grid, bg, markercols):
-    """Return list of shapes; each = (maincolor, set(main cells), seedpos, seedcolor)."""
+    """Return [(maincolor, set(main cells), seedpos, seedcolor), ...]."""
     H, W = len(grid), len(grid[0])
-    allcols = set(v for row in grid for v in row) - {bg}
-    maincols = sorted(allcols - set(markercols))
+    maincols = sorted(set(v for row in grid for v in row) - {bg} - set(markercols))
     shapes = []
     for mc in maincols:
         cells = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == mc]
@@ -53,58 +56,38 @@ def _shapes(grid, bg, markercols):
         ys = [y for y, x in cells]
         xs = [x for y, x in cells]
         r0, r1, c0, c1 = min(ys), max(ys), min(xs), max(xs)
-        seedpos = None
-        seedcol = None
+        seedpos = seedcol = None
         for r in range(max(0, r0 - 1), min(H, r1 + 2)):
             for c in range(max(0, c0 - 1), min(W, c1 + 2)):
                 if grid[r][c] in markercols:
-                    seedpos = (r, c)
-                    seedcol = grid[r][c]
+                    seedpos, seedcol = (r, c), grid[r][c]
         shapes.append((mc, set(cells), seedpos, seedcol))
     return shapes
 
 
 def _rel_mask(cells, seedpos):
-    """Relative mask (anchored to top-left of cells+seed) and its bounding size."""
     pts = set(cells)
     if seedpos is not None:
         pts.add(seedpos)
     ys = [y for y, x in pts]
     xs = [x for y, x in pts]
     r0, c0 = min(ys), min(xs)
-    rel = frozenset((y - r0, x - c0) for y, x in pts)
-    h = max(ys) - r0
-    w = max(xs) - c0
-    return rel, h, w
+    return frozenset((y - r0, x - c0) for y, x in pts), max(ys) - r0, max(xs) - c0
 
 
-def _stem_cells(mask):
-    """Cells belonging to maximal 1-wide straight protrusions ending in a free tip."""
-    mset = set(mask)
-    stems = set()
-    for c in mset:
-        nb = [(c[0] + dr, c[1] + dc) for dr, dc in N8 if (c[0] + dr, c[1] + dc) in mset]
-        if len(nb) != 1:
-            continue
-        d = (nb[0][0] - c[0], nb[0][1] - c[1])
-        if d not in N4:
-            continue
-        # walk straight from the tip toward the body
-        run = [c]
-        prev = c
-        cur = nb[0]
-        while True:
-            run.append(cur)
-            others = [(cur[0] + ddr, cur[1] + ddc) for ddr, ddc in N8
-                      if (cur[0] + ddr, cur[1] + ddc) in mset and (cur[0] + ddr, cur[1] + ddc) != prev]
-            nxt = (cur[0] + d[0], cur[1] + d[1])
-            if others == [nxt]:
-                prev, cur = cur, nxt
-            else:
-                run.pop()  # cur is a junction (body), not part of the stem
-                break
-        stems.update(run)
-    return stems
+def _peel_tail(mask):
+    """4-connected cells that peel away as 1-wide straight protrusions."""
+    s = set(mask)
+    removed = set()
+    changed = True
+    while changed:
+        changed = False
+        for c in list(s):
+            if sum(1 for dr, dc in N4 if (c[0] + dr, c[1] + dc) in s) == 1:
+                s.discard(c)
+                removed.add(c)
+                changed = True
+    return removed
 
 
 def infer_T(input_grid):
@@ -115,7 +98,7 @@ def infer_T(input_grid):
 
     T = {}
 
-    # 1) In-place swap of main color and seed color for each shape.
+    # 1) In-place swap of main color and seed color.
     for mc, cells, seedpos, seedcol in shapes:
         if seedcol is None:
             continue
@@ -124,38 +107,25 @@ def infer_T(input_grid):
         if seedpos is not None:
             T[seedpos] = mc
 
-    # 2) Corner copies: union of same-seed shapes, anchored into the marker's corner.
+    # 2) Corner stamps.
     by_seed = {}
     for mc, cells, seedpos, seedcol in shapes:
         if seedcol is None:
             continue
-        by_seed.setdefault(seedcol, []).append((cells, seedpos))
+        rel, h, w = _rel_mask(cells, seedpos)
+        by_seed.setdefault(seedcol, []).append((rel, h, w))
 
     for col, positions in markercols.items():
         group = by_seed.get(col, [])
         if not group:
             continue
-        rel_masks = []
-        maxh = maxw = 0
-        for cells, seedpos in group:
-            rel, h, w = _rel_mask(cells, seedpos)
-            rel_masks.append(rel)
-            maxh = max(maxh, h)
-            maxw = max(maxw, w)
+        rel_masks = [g[0] for g in group]
+        maxh = max(g[1] for g in group)
+        maxw = max(g[2] for g in group)
 
         result = set()
-        multi = len(rel_masks) > 1
-        for i, rel in enumerate(rel_masks):
-            keep = set(rel)
-            if multi:
-                others = set()
-                for j, other in enumerate(rel_masks):
-                    if j != i:
-                        others |= other
-                stems = _stem_cells(rel)
-                if stems and not (stems & others):
-                    keep -= stems
-            result |= keep
+        for rel in rel_masks:
+            result |= rel
 
         for (cr, cc) in positions:
             ar = 0 if cr == 0 else H - 1 - maxh
