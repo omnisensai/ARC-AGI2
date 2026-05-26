@@ -10,14 +10,6 @@ apply_T overwrites only those masked cells with 8.
 """
 
 
-def _most_common_color(grid):
-    counts = {}
-    for row in grid:
-        for v in row:
-            counts[v] = counts.get(v, 0) + 1
-    return max(counts, key=counts.get)
-
-
 def _largest_uniform_rect(grid, bg):
     """Return (r0, r1, c0, c1) of the maximal-area rectangle whose cells are
     all equal to bg, using the classic largest-rectangle-in-histogram method."""
@@ -45,12 +37,24 @@ def _largest_uniform_rect(grid, bg):
 
 def infer_T(input_grid):
     H, W = len(input_grid), len(input_grid[0])
-    bg = _most_common_color(input_grid)
     T = [[None] * W for _ in range(H)]
-    rect = _largest_uniform_rect(input_grid, bg)
-    if rect is None:
+    # Among all colors, find the one forming the largest solid rectangle:
+    # that is the single uniform "empty" block embedded in the noise.
+    colors = set(v for row in input_grid for v in row)
+    best = None
+    best_area = 0
+    for col in colors:
+        rect = _largest_uniform_rect(input_grid, col)
+        if rect is None:
+            continue
+        r0, r1, c0, c1 = rect
+        area = (r1 - r0 + 1) * (c1 - c0 + 1)
+        if area > best_area:
+            best_area = area
+            best = rect
+    if best is None:
         return T
-    r0, r1, c0, c1 = rect
+    r0, r1, c0, c1 = best
     # Fill the interior (exclude the one-cell border ring) with 8.
     for r in range(r0 + 1, r1):
         for c in range(c0 + 1, c1):
