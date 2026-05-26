@@ -55,13 +55,20 @@ def _blocks(grid, bg):
     return out
 
 
-def infer_T(grid):
-    """Infer the latent transformation: the set of cells to turn into 8."""
-    H, W = len(grid), len(grid[0])
-    bg = _background(grid)
-    blocks = _blocks(grid, bg)
-    mask = set()
+def _gap_clear(grid, bg, r0, r1, c0, c1):
+    """The rectangular gap between two facing blocks must be all background,
+    so the two blocks are nearest neighbors with nothing in between."""
+    for r in range(r0, r1 + 1):
+        for c in range(c0, c1 + 1):
+            if grid[r][c] != bg:
+                return False
+    return True
 
+
+def _candidates(grid, bg, blocks):
+    """All feasible same-color facing-pair bridges as
+    (gap_distance, color, i, j, frozenset_of_cells)."""
+    cands = []
     n = len(blocks)
     for i in range(n):
         ci, ri0, ri1, ci0, ci1 = blocks[i]
@@ -72,45 +79,60 @@ def infer_T(grid):
 
             # Horizontal bridge: blocks overlap in rows, gap in columns.
             ro0, ro1 = max(ri0, rj0), min(ri1, rj1)
-            if ro0 <= ro1:
+            if ro0 <= ro1 and ro1 - ro0 >= 2:
                 if ci1 < cj0:
                     g0, g1 = ci1 + 1, cj0 - 1
                 elif cj1 < ci0:
                     g0, g1 = cj1 + 1, ci0 - 1
                 else:
-                    g0, g1 = None, None
-                if g0 is not None and g0 <= g1:
-                    if ro1 - ro0 >= 2 and _gap_clear(grid, bg, ro0, ro1, g0, g1, axis='cols'):
-                        for r in range(ro0 + 1, ro1):
-                            for c in range(g0, g1 + 1):
-                                mask.add((r, c))
+                    g0 = None
+                if g0 is not None and g0 <= g1 and _gap_clear(grid, bg, ro0, ro1, g0, g1):
+                    cells = frozenset((r, c) for r in range(ro0 + 1, ro1)
+                                      for c in range(g0, g1 + 1))
+                    cands.append((g1 - g0 + 1, ci, i, j, cells))
 
             # Vertical bridge: blocks overlap in columns, gap in rows.
             co0, co1 = max(ci0, cj0), min(ci1, cj1)
-            if co0 <= co1:
+            if co0 <= co1 and co1 - co0 >= 2:
                 if ri1 < rj0:
                     g0, g1 = ri1 + 1, rj0 - 1
                 elif rj1 < ri0:
                     g0, g1 = rj1 + 1, ri0 - 1
                 else:
-                    g0, g1 = None, None
-                if g0 is not None and g0 <= g1:
-                    if co1 - co0 >= 2 and _gap_clear(grid, bg, g0, g1, co0, co1, axis='rows'):
-                        for r in range(g0, g1 + 1):
-                            for c in range(co0 + 1, co1):
-                                mask.add((r, c))
+                    g0 = None
+                if g0 is not None and g0 <= g1 and _gap_clear(grid, bg, g0, g1, co0, co1):
+                    cells = frozenset((r, c) for r in range(g0, g1 + 1)
+                                      for c in range(co0 + 1, co1))
+                    cands.append((g1 - g0 + 1, ci, i, j, cells))
+    return cands
 
+
+def infer_T(grid):
+    """Infer the latent transformation: the set of cells to turn into 8.
+
+    Builds a minimum spanning forest over the candidate bridges (Kruskal by gap
+    distance), so each connected group of same-color facing blocks is linked
+    without redundant cycle-closing bridges.
+    """
+    bg = _background(grid)
+    blocks = _blocks(grid, bg)
+    cands = _candidates(grid, bg, blocks)
+
+    parent = list(range(len(blocks)))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    mask = set()
+    for _w, _col, i, j, cells in sorted(cands, key=lambda t: t[0]):
+        a, b = find(i), find(j)
+        if a != b:
+            parent[a] = b
+            mask |= cells
     return mask
-
-
-def _gap_clear(grid, bg, r0, r1, c0, c1, axis):
-    """Check the rectangular gap between two facing blocks is all background,
-    so the two blocks are nearest neighbors with nothing in between."""
-    for r in range(r0, r1 + 1):
-        for c in range(c0, c1 + 1):
-            if grid[r][c] != bg:
-                return False
-    return True
 
 
 def apply_T(grid, T):

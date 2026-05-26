@@ -86,7 +86,7 @@ def infer_T(input_grid):
                 T[(r, c + 1)] = dot
     else:  # row wall
         r = idx
-        for c in range(lo, hi + 1):
+        for c in range(W):
             if input_grid[r][c] != 8:
                 continue
             # above
