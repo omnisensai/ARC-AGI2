@@ -9,6 +9,7 @@ retired to Legacy.
 ```
 Phase2_V2/
   Phase2_V2.md                 strategy doc (the plan: INPUT/T examples -> infer_T -> apply_T)
+  Phase2_PROMPTS.md            stage prompts + curriculum (pair-cycling, micro-primitives, diff-size, learning order)
   canonical/                   the verified training corpus
     solvers/                   739 verified ALL-PASS canonical solvers (one .py per golden_train id)
     ground_truth_puzzles/      740 original ARC puzzle files {puzzle_id, train[], test[]} —
