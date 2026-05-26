@@ -25,33 +25,71 @@ infer_T returns a latent mask {(r,c): color}; apply_T overwrites only those cell
 
 
 def _analyze(input_grid):
+    """Identify (marker_color, fg, bg).
+
+    The marker is the least frequent color. It is drawn ON the foreground, and
+    the transformation stamps the marker color onto BACKGROUND cells.  The two
+    main colors must be classified into foreground / background using only the
+    input structure:
+      * If the marker shape encloses any cells (e.g. a hollow ring/diamond),
+        those enclosed cells lie on the foreground -> their majority color = fg.
+      * Otherwise (solid / line markers) the marker is embedded in foreground,
+        so the majority color on the marker's orthogonal border = fg.
+    """
     H = len(input_grid)
     W = len(input_grid[0])
     counts = {}
     for row in input_grid:
         for v in row:
             counts[v] = counts.get(v, 0) + 1
-    # background = most frequent color
-    bg = max(counts, key=counts.get)
-    # marker color = the color forming the smallest contiguous "drawn" group;
-    # choose the least frequent color overall (the marker is small & distinct).
     marker_color = min(counts, key=counts.get)
-    return H, W, bg, marker_color
+    others = [k for k in counts if k != marker_color]
+    if len(others) < 2:
+        # Degenerate: only one main color; treat it as background.
+        bg = others[0] if others else marker_color
+        fg = bg
+        return H, W, fg, bg, marker_color
+
+    marker = set((r, c) for r in range(H) for c in range(W)
+                 if input_grid[r][c] == marker_color)
+    rs = [r for r, c in marker]
+    cs = [c for r, c in marker]
+    r0, c0 = min(rs), min(cs)
+    relset = set((r - r0, c - c0) for r, c in marker)
+    hh = max(r for r, c in marker) - r0 + 1
+    ww = max(c for r, c in marker) - c0 + 1
+    enclosed = [(r0 + dr, c0 + dc)
+                for dr in range(hh) for dc in range(ww)
+                if (dr, dc) not in relset
+                and all((dr + a, dc + b) in relset
+                        for a, b in ((1, 0), (-1, 0), (0, 1), (0, -1)))]
+
+    score = {k: 0 for k in others}
+    if enclosed:
+        for r, c in enclosed:
+            v = input_grid[r][c]
+            if v in score:
+                score[v] += 1
+    else:
+        for r, c in marker:
+            for a, b in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nr, nc = r + a, c + b
+                if 0 <= nr < H and 0 <= nc < W and (nr, nc) not in marker:
+                    v = input_grid[nr][nc]
+                    if v in score:
+                        score[v] += 1
+    fg = max(score, key=score.get)
+    bg = others[0] if others[1] == fg else others[1]
+    return H, W, fg, bg, marker_color
 
 
 def infer_T(input_grid):
-    H, W, bg, marker_color = _analyze(input_grid)
+    H, W, fg, bg, marker_color = _analyze(input_grid)
 
     marker = [(r, c) for r in range(H) for c in range(W)
               if input_grid[r][c] == marker_color]
     if not marker:
         return {}
-
-    # Foreground = anything that is neither background nor marker color, plus
-    # the marker cells themselves (they sit on foreground in the base grid).
-    base = [[input_grid[r][c] for c in range(W)] for r in range(H)]
-    for r, c in marker:
-        base[r][c] = -1  # provisional foreground sentinel
 
     def is_bg(r, c):
         return 0 <= r < H and 0 <= c < W and input_grid[r][c] == bg

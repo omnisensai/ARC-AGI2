@@ -141,22 +141,43 @@ def infer_T(input_grid):
     markers = set((r, c) for r in range(H) for c in range(W)
                   if grid[r][c] == marker)
 
+    # connected marker clusters (8-connected) and whether they touch the frame
+    cluster_size = {}
+    cluster_border = {}
+    visited = set()
+    for s in markers:
+        if s in visited:
+            continue
+        comp = []
+        stack = [s]
+        touch = False
+        while stack:
+            x = stack.pop()
+            if x in visited or x not in markers:
+                continue
+            visited.add(x)
+            comp.append(x)
+            if x[0] in (0, H - 1) or x[1] in (0, W - 1):
+                touch = True
+            for dr in (-1, 0, 1):
+                for dc in (-1, 0, 1):
+                    stack.append((x[0] + dr, x[1] + dc))
+        for x in comp:
+            cluster_size[x] = len(comp)
+            cluster_border[x] = touch
+
+    # the maze region the box can reach (only walls block)
     leaky = _flood(grid, centre, {wall})
 
-    walls = [(r, c) for r in range(H) for c in range(W) if grid[r][c] == wall]
-    if walls:
-        wr0 = min(r for r, c in walls)
-        wr1 = max(r for r, c in walls)
-        wc0 = min(c for r, c in walls)
-        wc1 = max(c for r, c in walls)
-    else:
-        wr0, wc0, wr1, wc1 = 0, 0, H - 1, W - 1
-
+    # the maze interior the box can reach without crossing markers or the frame
     interior = _flood(grid, centre, {wall, marker}, border_wall=True)
 
     collected = set()
     for (r, c) in markers:
-        if (r, c) in leaky and wr0 <= r <= wr1 and wc0 <= c <= wc1:
+        # large marker clusters resting on the outer frame are decorations: keep
+        if cluster_size[(r, c)] >= 3 and cluster_border[(r, c)]:
+            continue
+        if (r, c) in leaky:
             collected.add((r, c))
             continue
         if any((r + dr, c + dc) in interior
