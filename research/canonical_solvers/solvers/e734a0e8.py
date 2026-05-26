@@ -41,7 +41,7 @@ def infer_T(input_grid):
     bg = _background(input_grid)
 
     template = None       # list of (dr, dc, color) relative to cell origin
-    marker_cells = []     # list of (r0, c0) cell origins containing a marker dot
+    marker_cells = []     # list of (r0, c0, [(dr,dc)...]) cells with marker dots
 
     for (r0, r1) in row_blocks:
         for (c0, c1) in col_blocks:
@@ -57,12 +57,16 @@ def infer_T(input_grid):
             if len(colored) >= 2:
                 template = colored
             if len(zeros) == 1 and not colored:
-                marker_cells.append((r0, c0))
+                marker_cells.append((r0, c0, zeros))
 
     T = {}
     if template is None:
         return T
-    for (r0, c0) in marker_cells:
+    for (r0, c0, zeros) in marker_cells:
+        # erase the marker dot to background first
+        for (dr, dc) in zeros:
+            T[(r0 + dr, c0 + dc)] = bg
+        # then stamp the template
         for (dr, dc, color) in template:
             T[(r0 + dr, c0 + dc)] = color
     return T
