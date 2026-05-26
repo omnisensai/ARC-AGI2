@@ -61,9 +61,9 @@ def _detect_roles(grid):
 
     others = [col for col in counts if col not in (centre_color, box_border)]
 
-    def largest_component(color):
+    def singleton_components(color):
         seen = set()
-        best = 0
+        singles = 0
         for r in range(H):
             for c in range(W):
                 if grid[r][c] != color or (r, c) in seen:
@@ -80,18 +80,29 @@ def _detect_roles(grid):
                     size += 1
                     for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
                         stack.append((rr + dr, cc + dc))
-                best = max(best, size)
-        return best
+                if size == 1:
+                    singles += 1
+        return singles
 
-    wall_color = None
+    def border_presence(color):
+        n = 0
+        for r in range(H):
+            for c in range(W):
+                if (r in (0, H - 1) or c in (0, W - 1)) and grid[r][c] == color:
+                    n += 1
+        return n
+
+    # marker: the scattered colour (the most single-cell components).
+    marker_color = None
     if others:
-        wall_color = max(others, key=lambda col: (largest_component(col), counts[col]))
+        marker_color = max(others, key=lambda col: (singleton_components(col), -counts[col]))
 
-    rest = [col for col in others if col != wall_color]
-    bg = max(rest, key=lambda col: counts[col]) if rest else 0
-    marker_candidates = [col for col in rest if col != bg]
-    marker_color = max(marker_candidates, key=lambda col: counts[col]) \
-        if marker_candidates else None
+    rest = [col for col in others if col != marker_color]
+    # background: of the remaining colours, the one filling the grid frame.
+    bg = max(rest, key=lambda col: (border_presence(col), counts[col])) if rest else 0
+    # wall: the last remaining structural colour.
+    wall_rest = [col for col in rest if col != bg]
+    wall_color = max(wall_rest, key=lambda col: counts[col]) if wall_rest else None
 
     return bg, wall_color, box_border, centre_color, centre, marker_color
 
