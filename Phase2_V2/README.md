@@ -11,7 +11,8 @@ Phase2_V2/
   Phase2_V2.md                 strategy doc (the plan: INPUT/T examples -> infer_T -> apply_T)
   canonical/                   the verified training corpus
     solvers/                   739 verified ALL-PASS canonical solvers (one .py per golden_train id)
-    _tasks/                    740 per-puzzle data files {puzzle_id, train[], test[]}
+    ground_truth_puzzles/      740 original ARC puzzle files {puzzle_id, train[], test[]} —
+                               the input/output pairs every solver is validated against
     _validation.json           per-solver verdict (status / pass X/Y / audit flags)
     _anomaly/                  quarantined puzzles NOT in the corpus (1b8318e3, see NOTE.txt)
     _AGENT_SPEC.md             the canonical-solver contract agents followed

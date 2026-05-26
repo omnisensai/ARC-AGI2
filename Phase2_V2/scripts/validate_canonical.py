@@ -11,7 +11,7 @@ import argparse, ast, glob, json, os, subprocess, sys
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent  # = Phase2_V2/
 SOLV = ROOT / "canonical/solvers"
-TASKS = ROOT / "canonical/_tasks"
+TASKS = ROOT / "canonical/ground_truth_puzzles"
 REPORT = ROOT / "canonical/_validation.json"
 IDS = ROOT / "splits/golden_train_ids.txt"
 
