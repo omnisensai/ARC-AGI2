@@ -1,0 +1,54 @@
+PUZZLE DATABASE — single ground-truth source for Phase2_V2.
+
+This folder is an immutable mirror of the public ARC-AGI-1 and ARC-AGI-2 puzzle
+JSONs (compact form; see README.md for the file format). NOTHING is generated
+into this folder. All splits, corpora, and SFT records are derived FROM it by
+selecting ids — never by copying or moving puzzle files out. Held-out / eval
+isolation is enforced by id-lists (Phase2_V2/splits/ + Locked_Eval/), NOT by
+physically separating files. That physical-separation habit is what caused the
+count drift this manifest exists to end.
+
+=========================================================================
+AUTHORITATIVE COUNTS  (derived directly from the files in this folder)
+=========================================================================
+  total files ............ 1920
+  by source .............. A2T 1000 | A1T 400 | A1E 400 | A2E 120
+                           (A1=ARC-AGI-1, A2=ARC-AGI-2; T=training, E=evaluation)
+  content-unique tasks ... 1147   <-- THE puzzle count. Use this number.
+                           (ARC-2 re-releases many ARC-1 puzzles with reshuffled
+                            pair order; two files are the same task when their
+                            train+test pairs match as sets.)
+
+  per-unique shape class:  same-size 783 | diff-size 351 | mixed 13
+                           (mixed = some pairs same-size, some diff within one task)
+
+=========================================================================
+WHY EARLIER NUMBERS DRIFTED  (all real, all different scopes)
+=========================================================================
+  1920  = raw file count (4 sources, ARC-1<->ARC-2 duplicates kept)
+  1147  = content-unique tasks  <-- the honest "how many puzzles"
+  1027  = training_universe.json scope (ARC-1 train+eval + ARC-2 train,
+          minus A2E, minus 10 locked baseline) — a SUBSET, not the whole
+   983  = base ids in the old puzzles/ folder ALONE, after 240 eval files had
+          been physically moved into puzzles_heldout/ + puzzles_frozen/.
+          (1680 + 206 + 34 = 1920; folding them back in fixed this.)
+   740  = golden_train: the same-size ARC-2 subset that has verified canonical
+          solvers (Phase2_V2/canonical/solvers/).
+
+=========================================================================
+DERIVED ARTIFACTS  (selected from this DB by id-list; live elsewhere)
+=========================================================================
+  golden_train (740, same-size) ....... DONE -> canonical/solvers/ (739 + 1 anomaly)
+  locked eval (64 unique) ............. Locked_Eval/ id-lists; NEVER train on these
+  diff-size TRAINABLE ................. 343  (364 diff/mixed unique - 21 locked - 0 golden)
+  micro-primitive universe ............ synthetic, not in this DB
+
+=========================================================================
+EVAL-LEAKAGE CALLOUT (from README.md)
+=========================================================================
+  6 of the 120 A2E puzzles also exist in A1. If any A1 split is trained and you
+  eval on raw A2E, those 6 are not truly held out. Policy #1 (drop the 6 -> clean
+  114) is adopted in SFT_Strategy.md. Keep this in mind for any A2E eval claim.
+
+Authoritative reclassification any time:
+  python3 -c "see Phase2_V2 corpus tooling"   (count from THIS folder, nothing else)
