@@ -33,10 +33,22 @@ def infer_T(input_grid):
     if not cols:
         return {}
 
-    # Tallest mountain = highest peak = smallest top row index -> color 4.
-    # Lowest mountain  = lowest  peak = largest  top row index -> color 9.
-    col_high = min(cols, key=lambda c: tops[c])   # tallest -> 4
-    col_low = max(cols, key=lambda c: tops[c])    # lowest  -> 9
+    # Highest peak  = smallest top row index -> color 4.
+    # Lowest skyline = largest  top row index -> color 9.
+    min_top = min(tops[c] for c in cols)
+    max_top = max(tops[c] for c in cols)
+    high_cands = [c for c in cols if tops[c] == min_top]  # tallest -> 4
+    low_cands = [c for c in cols if tops[c] == max_top]    # lowest  -> 9
+
+    # When ties exist, choose the pair of marked columns that are farthest
+    # apart (the two most extreme mountains stand on opposite sides).
+    best = None
+    for ch in high_cands:
+        for cl in low_cands:
+            d = abs(ch - cl)
+            if best is None or d > best[0]:
+                best = (d, ch, cl)
+    _, col_high, col_low = best
 
     T = {}
 
