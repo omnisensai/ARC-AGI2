@@ -4,9 +4,16 @@ def infer_T(input_grid):
     panel 3 = source rotated 180."""
     H, W = len(input_grid), len(input_grid[0])
 
-    # Find separator columns (uniform single color, distinct from panel content).
-    sep_cols = [c for c in range(W)
-                if len(set(input_grid[r][c] for r in range(H))) == 1]
+    # Find separator columns: uniform columns. The separator color is the most
+    # common single-value among such columns (distinct from blank-panel fill 0).
+    uniform = {c: input_grid[0][c] for c in range(W)
+               if len(set(input_grid[r][c] for r in range(H))) == 1}
+    if uniform:
+        from collections import Counter
+        sep_color = Counter(uniform.values()).most_common(1)[0][0]
+    else:
+        sep_color = None
+    sep_cols = [c for c, v in uniform.items() if v == sep_color]
     # Choose the separator color = the value of the most common uniform col value.
     # Identify panels as maximal runs of columns between/around separators.
     panels = []
