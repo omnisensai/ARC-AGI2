@@ -10,7 +10,10 @@ Rule (single transformation):
 
   For every spiral shape:
     - Background cells OUTSIDE (reachable from the grid border by 4-connectivity)
-      that are 8-adjacent to the shape's wall are painted 2.
+      that are 8-adjacent to the shape's wall are painted 2 (the outline). The
+      outline is then closed at concave corners: an outside cell whose only
+      outline neighbours are exactly an L (two perpendicular orthogonal outline
+      cells plus the single diagonal outline cell between them) is also painted 2.
     - Background cells INSIDE (not reachable from the border by 4-connectivity)
       are painted 3 if they are 8-adjacent to any wall cell, otherwise they are
       left as 0 (the dead-end pocket at the spiral's core).
@@ -78,6 +81,7 @@ def infer_T(input_grid):
                 if dr or dc:
                     yield r + dr, c + dc
 
+    outline = set()
     for cells in _components(input_grid):
         rs = [r for r, _ in cells]
         cs = [c for _, c in cells]
@@ -95,11 +99,11 @@ def infer_T(input_grid):
             # open shape: leave untouched
             continue
 
-        # outside cells 8-adjacent to this wall -> 2
+        # outside cells 8-adjacent to this wall -> 2 (outline)
         for r, c in cells:
             for nr, nc in neighbors8(r, c):
                 if 0 <= nr < H and 0 <= nc < W and (nr, nc) in outside:
-                    T[(nr, nc)] = 2
+                    outline.add((nr, nc))
 
         # interior cells -> 3 if 8-adjacent to a wall, else stay 0
         for r, c in interior:
@@ -108,6 +112,26 @@ def infer_T(input_grid):
             )
             if touches_wall:
                 T[(r, c)] = 3
+
+    # close concave corners of the outline: an outside cell whose outline
+    # neighbours form exactly an L (two perpendicular orthogonal cells plus the
+    # single diagonal cell between them) is filled in.
+    for r, c in list(outside):
+        if (r, c) in outline:
+            continue
+        b8 = [(dr, dc) for dr in (-1, 0, 1) for dc in (-1, 0, 1)
+              if (dr or dc) and (r + dr, c + dc) in outline]
+        if len(b8) != 3:
+            continue
+        diags = [(dr, dc) for dr, dc in b8 if dr and dc]
+        orths = [(dr, dc) for dr, dc in b8 if not (dr and dc)]
+        if len(diags) == 1 and len(orths) == 2:
+            d = diags[0]
+            if set(orths) == {(d[0], 0), (0, d[1])}:
+                outline.add((r, c))
+
+    for r, c in outline:
+        T[(r, c)] = 2
 
     return T
 

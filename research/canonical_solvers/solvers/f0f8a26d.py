@@ -45,7 +45,8 @@ def infer_T(input_grid):
     """Compute the latent transformation mask as {(r,c): new_color}."""
     H, W = len(input_grid), len(input_grid[0])
     bg = _background(input_grid)
-    T = {}
+    clears = set()
+    sets = {}
     for cells in _components(input_grid, bg):
         color = input_grid[cells[0][0]][cells[0][1]]
         rows = [c[0] for c in cells]
@@ -53,15 +54,21 @@ def infer_T(input_grid):
         # center of the segment's bounding box (its midpoint)
         cr = (min(rows) + max(rows)) / 2.0
         cc = (min(cols) + max(cols)) / 2.0
-        # clear the original cells to background
+        # original cells are candidates to be cleared to background
         for r, c in cells:
-            T[(r, c)] = bg
+            clears.add((r, c))
         # rotate 90 degrees about the center: (r,c) -> (cr + (c-cc), cc - (r-cr))
         for r, c in cells:
             nr = int(round(cr + (c - cc)))
             nc = int(round(cc - (r - cr)))
             if 0 <= nr < H and 0 <= nc < W:
-                T[(nr, nc)] = color
+                sets[(nr, nc)] = color
+    # build the mask: clears first, then rotated colors win on overlap
+    T = {}
+    for cell in clears:
+        T[cell] = bg
+    for cell, color in sets.items():
+        T[cell] = color
     return T
 
 
