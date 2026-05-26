@@ -30,12 +30,23 @@ def infer_T(input_grid):
     for row in input_grid:
         for v in row:
             counts[v] = counts.get(v, 0) + 1
-    # background = the cell color (0 here), line color = the separator.
-    # Use the value at the corner if it is not the line color; otherwise pick
-    # the most common non-line color. Lines are the most frequent color.
-    line = max(counts, key=counts.get)
-    bg_candidates = [v for v in counts if v != line]
-    bg = max(bg_candidates, key=counts.get) if bg_candidates else line
+    # The line color is the separator: it forms complete rows and/or columns
+    # spanning the whole grid. Detect colors that occupy a full row or column;
+    # the background is then the most common remaining color.
+    line_colors = set()
+    for r in range(H):
+        s = set(input_grid[r])
+        if len(s) == 1:
+            line_colors.add(next(iter(s)))
+    for c in range(W):
+        s = set(input_grid[r][c] for r in range(H))
+        if len(s) == 1:
+            line_colors.add(input_grid[0][c])
+    bg_candidates = [v for v in counts if v not in line_colors]
+    if bg_candidates:
+        bg = max(bg_candidates, key=counts.get)
+    else:
+        bg = max(counts, key=counts.get)
 
     regs = _regions(input_grid, bg)
     T = [[None] * W for _ in range(H)]
