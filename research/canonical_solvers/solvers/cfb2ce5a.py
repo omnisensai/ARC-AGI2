@@ -22,31 +22,6 @@ reflected, recoloured quadrants).  apply_T copies the input and writes them.
 """
 
 
-def _components(grid, bg):
-    """Return list of (cells, colors-set) for orthogonal connected blobs of
-    non-bg cells, grouping by adjacency regardless of colour."""
-    H, W = len(grid), len(grid[0])
-    seen = [[False] * W for _ in range(H)]
-    comps = []
-    for r in range(H):
-        for c in range(W):
-            if grid[r][c] == bg or seen[r][c]:
-                continue
-            stack = [(r, c)]
-            seen[r][c] = True
-            cells = []
-            while stack:
-                cr, cc = stack.pop()
-                cells.append((cr, cc))
-                for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                    nr, nc = cr + dr, cc + dc
-                    if 0 <= nr < H and 0 <= nc < W and not seen[nr][nc] and grid[nr][nc] != bg:
-                        seen[nr][nc] = True
-                        stack.append((nr, nc))
-            comps.append(cells)
-    return comps
-
-
 def infer_T(input_grid):
     H, W = len(input_grid), len(input_grid[0])
 
@@ -57,31 +32,29 @@ def infer_T(input_grid):
             counts[v] = counts.get(v, 0) + 1
     bg = max(counts, key=counts.get)
 
-    # Identify the two block colours: the two most frequent non-bg colours
-    # that actually form the big rectangular block (the largest component).
-    comps = _components(input_grid, bg)
-    if not comps:
+    # The block is built from the two most frequent NON-background colours.
+    # (Single-cell markers are all other colours, so this separates them even
+    # when a marker happens to sit right against the block.)
+    non_bg = {v: n for v, n in counts.items() if v != bg}
+    if len(non_bg) < 2:
         return {}
-    block = max(comps, key=len)
-    block_set = set(block)
-    r0 = min(r for r, c in block)
-    r1 = max(r for r, c in block)
-    c0 = min(c for r, c in block)
-    c1 = max(c for r, c in block)
+    block_colors = sorted(non_bg, key=lambda v: (-non_bg[v], v))
+    M, S = block_colors[0], block_colors[1]
+
+    # Block bounding box = bbox of all M / S cells.
+    block_set = set()
+    for r in range(H):
+        for c in range(W):
+            if input_grid[r][c] in (M, S):
+                block_set.add((r, c))
+    if not block_set:
+        return {}
+    r0 = min(r for r, c in block_set)
+    r1 = max(r for r, c in block_set)
+    c0 = min(c for r, c in block_set)
+    c1 = max(c for r, c in block_set)
     bh = r1 - r0 + 1
     bw = c1 - c0 + 1
-
-    # Colour role counts inside the block bounding box.
-    col_count = {}
-    for r in range(r0, r1 + 1):
-        for c in range(c0, c1 + 1):
-            v = input_grid[r][c]
-            if v != bg:
-                col_count[v] = col_count.get(v, 0) + 1
-    block_colors = sorted(col_count, key=lambda v: -col_count[v])
-    if len(block_colors) < 2:
-        return {}
-    M, S = block_colors[0], block_colors[1]
 
     # Role grid of the original pattern (within the bounding box).
     role = [[None] * bw for _ in range(bh)]
