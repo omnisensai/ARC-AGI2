@@ -1,125 +1,113 @@
 """Canonical latent-T solver for ARC puzzle b942fd60.
 
-Rule (ray / line tracing):
-  A single seed cell of color 2 sits on a grid edge.  It emits a ray of 2s
-  travelling into the grid (perpendicular to that edge).  A ray advances over
-  background cells until the next cell ahead is a colored marker (3/6/7/8) or
-  the grid edge:
-    * if the next cell is a marker, the ray stops on the cell just before it;
-      that stop cell is a "turn point" that emits two fresh rays in the two
-      perpendicular directions (a growing tree of 2-lines);
-    * if the ray runs off the grid edge it simply terminates (no turn).
-  Markers and edges block rays.  Rays pass over crossings of already-drawn
-  lines, but a perpendicular branch is NOT spawned into a direction whose first
-  step is already painted (a crossing is traversed, not re-split).
-  The latent mask is the set of background cells the trace covers, painted 2.
+Rule (bouncing-beam / mirror-lattice tracing):
+  A single seed cell of color 2 sits on the grid border.  It emits a horizontal
+  beam to the right.  Colored markers (3, 6, 7, 8) act as mirrors.  When a beam
+  reaches a mirror it stops on the cell just before it; that prior cell emits a
+  perpendicular "cross" (two beams in the two perpendicular directions).  Each
+  beam travels over background cells until it hits another mirror or the grid
+  edge, where (at a mirror) it in turn emits a cross, and so on.  Every
+  background cell a beam covers is overwritten with color 2; the mirror cells
+  themselves are preserved.
+
+  Bookkeeping that keeps the lattice finite and consistent with the data:
+    * markers of color 8 and 3 emit a cross only the FIRST time they are hit
+      (once per cell, regardless of the incoming beam axis);
+    * markers of color 6 and 7 may emit once per incoming axis (horizontal vs
+      vertical), so a single mirror can turn both a vertical and a horizontal
+      beam;
+    * a color-7 marker additionally only emits when the perpendicular cross it
+      would create reaches a grid edge in at least one direction; otherwise the
+      beam is simply absorbed.
+
+  infer_T returns the latent transformation mask (the set of covered cells);
+  apply_T copies the input and paints only those cells.
 """
 
-MARKERS = (3, 6, 7, 8)
-PERP = {(0, 1): ((1, 0), (-1, 0)), (0, -1): ((1, 0), (-1, 0)),
-        (1, 0): ((0, 1), (0, -1)), (-1, 0): ((0, 1), (0, -1))}
+from collections import deque
+
+MIRRORS = (3, 6, 7, 8)
+PAINT = 2
 
 
-def _background(grid):
-    counts = {}
-    for row in grid:
-        for v in row:
-            counts[v] = counts.get(v, 0) + 1
-    return max(counts, key=counts.get)
-
-
-def _seed(grid):
-    H, W = len(grid), len(grid[0])
-    found = None
+def _seed(grid, H, W):
     for r in range(H):
         for c in range(W):
-            if grid[r][c] == 2:
-                found = (r, c)
-    return found
+            if grid[r][c] == PAINT:
+                return (r, c)
+    return None
 
 
-def _seed_dir(seed, H, W):
-    r, c = seed
-    if c == 0:
-        return (0, 1)
-    if c == W - 1:
-        return (0, -1)
-    if r == 0:
-        return (1, 0)
-    if r == H - 1:
-        return (-1, 0)
-    # interior seed: emit toward the nearest edge horizontally as a fallback.
-    return (0, 1)
-
-
-def _run_ray(grid, H, W, r, c, dr, dc):
-    """Trace a ray from (r,c) in direction (dr,dc).
-
-    Returns (cells_covered, end_type, turn_point) where end_type is
-    'marker' or 'edge' and turn_point is the last cell before the blocker.
-    """
-    cells = [(r, c)]
-    cr, cc = r, c
-    while True:
-        nr, nc = cr + dr, cc + dc
-        if not (0 <= nr < H and 0 <= nc < W):
-            return cells, 'edge', (cr, cc)
-        if grid[nr][nc] in MARKERS:
-            return cells, 'marker', (cr, cc)
-        cr, cc = nr, nc
-        cells.append((cr, cc))
+def _reaches_edge(grid, r, c, dr, dc, H, W):
+    """True if a ray from (r,c) heading (dr,dc) reaches the grid edge without
+    first hitting a mirror cell."""
+    cr, cc = r + dr, c + dc
+    while 0 <= cr < H and 0 <= cc < W:
+        if grid[cr][cc] in MIRRORS:
+            return False
+        cr += dr
+        cc += dc
+    return True
 
 
 def infer_T(input_grid):
-    """Infer the latent transformation mask (set of cells to paint 2)."""
-    H, W = len(input_grid), len(input_grid[0])
-    bg = _background(input_grid)
-    seed = _seed(input_grid)
-    mask = set()
+    H = len(input_grid)
+    W = len(input_grid[0]) if H else 0
+    mask = {}
+
+    seed = _seed(input_grid, H, W)
     if seed is None:
         return mask
+    sr, sc = seed
 
-    d0 = _seed_dir(seed, H, W)
-    queue = [(seed[0], seed[1], d0[0], d0[1])]
-    processed = set()
-    painted = set()
+    seen = set()      # beam states already expanded: (r, c, dr, dc)
+    used = {}         # mirror cell -> set of incoming axes that have emitted
+    q = deque()
+    q.append((sr, sc, 0, 1))   # initial beam: rightward from the seed
 
-    while queue:
-        r, c, dr, dc = queue.pop(0)
-        key = (r, c, dr, dc)
-        if key in processed:
+    while q:
+        r, c, dr, dc = q.popleft()
+        if (r, c, dr, dc) in seen:
             continue
-        processed.add(key)
+        seen.add((r, c, dr, dc))
 
-        cells, end_type, tp = _run_ray(input_grid, H, W, r, c, dr, dc)
-        for cell in cells:
-            painted.add(cell)
+        cr, cc = r + dr, c + dc
+        while 0 <= cr < H and 0 <= cc < W:
+            v = input_grid[cr][cc]
+            if v in MIRRORS:
+                axis = 'h' if dr == 0 else 'v'
+                axes = used.get((cr, cc), set())
+                if v in (8, 3):
+                    can = len(axes) == 0
+                else:
+                    can = axis not in axes
 
-        # Only marker-blocked stops spawn perpendicular rays.
-        if end_type != 'marker':
-            continue
-        tr, tc = tp
-        for pdr, pdc in PERP[(dr, dc)]:
-            nxt = (tr + pdr, tc + pdc)
-            # Do not re-split into a direction that immediately enters an
-            # already-painted line (rays pass over crossings, they do not
-            # spawn a new branch at a crossing).
-            if 0 <= nxt[0] < H and 0 <= nxt[1] < W and nxt in painted:
-                continue
-            queue.append((tr, tc, pdr, pdc))
+                br, bc = cr - dr, cc - dc
+                perp = [(1, 0), (-1, 0)] if dr == 0 else [(0, 1), (0, -1)]
 
-    # The mask paints only background cells that the trace covers.
-    for (r, c) in painted:
-        if input_grid[r][c] == bg:
-            mask.add((r, c))
+                if can and v == 7:
+                    if not any(_reaches_edge(input_grid, br, bc, pdr, pdc, H, W)
+                               for pdr, pdc in perp):
+                        can = False
+
+                used.setdefault((cr, cc), set()).add(axis)
+                if can:
+                    for pdr, pdc in perp:
+                        q.append((br, bc, pdr, pdc))
+                break
+            # background cell: the beam paints it and continues
+            mask[(cr, cc)] = PAINT
+            cr += dr
+            cc += dc
+
     return mask
 
 
 def apply_T(input_grid, T):
-    """Copy the input and overwrite only the masked cells with color 2."""
+    """Copy the input and overwrite only the masked cells."""
     out = [row[:] for row in input_grid]
-    for (r, c) in T:
-        out[r][c] = 2
+    for (r, c), color in T.items():
+        out[r][c] = color
     return out
 
 
