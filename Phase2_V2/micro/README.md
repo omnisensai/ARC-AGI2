@@ -62,16 +62,21 @@ SFT **prompt carries only ARC-shaped evidence** — never that metadata.
 ## Family roster & curriculum order
 
 ```
-DONE (9 families, each 60/60 across tiers 0-2, 240 records):
+DONE (11 families, each 60/60 across tiers 0-2, 240 records):
   ray_to_edge ✅  complete_line ✅  fill_enclosed ✅  component_recolor ✅
   component_4conn ✅  component_8conn ✅  (matched pair — teaches 4- vs 8-connectivity)
   sandwich_fill ✅  (H / V / diagonal)
   ray_until_blocker ✅  mirror ✅
+  ray_diag_to_edge ✅  ray_diag_until_blocker ✅  (corner marker -> diagonal ray)
 
 TODO:
   u_cup_fill  boundary_mask  periodic_extension  periodic_repair
   gravity_water  rotate_translate
 ```
+
+Ray mechanic is covered in both forms: edge marker -> perpendicular ray
+(ray_to_edge / ray_until_blocker), corner marker -> diagonal ray
+(ray_diag_to_edge / ray_diag_until_blocker).
 
 component_4conn/8conn share one construction (diagonal staircase + solid block)
 so they give DIFFERENT outputs on look-alike inputs — the pairs reveal which
