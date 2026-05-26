@@ -9,6 +9,7 @@ retired to Legacy.
 ```
 Phase2_V2/
   Phase2_V2.md                 strategy doc (the plan: INPUT/T examples -> infer_T -> apply_T)
+  Phase2_PROMPTS.md            stage prompts + curriculum (pair-cycling, micro-primitives, diff-size, learning order)
   canonical/                   the verified training corpus
     solvers/                   739 verified ALL-PASS canonical solvers (one .py per golden_train id)
     ground_truth_puzzles/      740 original ARC puzzle files {puzzle_id, train[], test[]} —
@@ -21,7 +22,11 @@ Phase2_V2/
                                ground-truth output for every train+test pair + AST audit
     build_canonical_solvers.py corpus/data builder (regeneration tool; raw puzzle pool is in Legacy)
   splits/                      id-lists (golden_train + the 3 clean held-out + canonical_build)
-  Locked_Eval/                 clean held-out eval puzzles — NEVER train on these (see MANIFEST.txt)
+  Puzzle_Database/             SINGLE ground-truth source: 1920 files / 1147 content-unique
+                               ARC-1+ARC-2 puzzles. Everything is selected FROM here by id-list;
+                               nothing is generated into it. See MANIFEST.txt for authoritative counts.
+  Locked_Eval/                 id-lists for the 64 clean held-out tasks — NEVER train on these;
+                               data is read from Puzzle_Database (see MANIFEST.txt)
 ```
 
 ## Corpus status
