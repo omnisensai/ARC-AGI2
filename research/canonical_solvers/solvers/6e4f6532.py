@@ -1,177 +1,144 @@
+"""Canonical solver for ARC task 6e4f6532.
+
+Rule (inferred from all pairs):
+  The grid is split into rectangular regions by 2-wide colored frame bands
+  (outer borders + internal dividers); each region's four walls carry colors.
+  Floating in the regions are:
+    * "objects": connected clumps of color-8 cells that contain one or more
+      embedded 9 cells, plus a few "marker" cells whose colors equal a frame
+      band color (each marker indicates which wall that edge should face).
+    * "targets": small isolated groups of 9 cells (no 8 adjacent).
+  Each object is matched to the target whose 9-shape is congruent (same number
+  of 9 cells, mappable by a rotation/reflection).  The object is rotated /
+  reflected so its embedded-9 cells coincide with the target's 9 cells AND its
+  marker cells lie as close as possible to the frame bands of matching color.
+  The object is erased from its original spot (filled with background) and
+  redrawn, oriented, on top of the target.
+
+infer_T builds a latent overwrite mask {(r,c): new_color}: original object
+cells -> background, destination cells -> object colors.
+"""
+
 from collections import Counter, deque
 
-def get_bg(g): return Counter(v for row in g for v in row).most_common(1)[0][0]
 
-def frame_mask(gi,bg):
-    H=len(gi);W=len(gi[0]);mask=[[False]*W for _ in range(H)]
-    rowband,colband,_=band_lines(gi,bg)
-    for r in rowband:
-        for c in range(W): mask[r][c]=True
-    for c in colband:
-        for r in range(H): mask[r][c]=True
-    return mask
+# the 8 dihedral transforms of a point (r, c) about the origin
+def _tf(p, t):
+    r, c = p
+    return [(r, c), (c, -r), (-r, -c), (-c, r),
+            (r, -c), (-r, c), (c, r), (-c, -r)][t]
 
-def comps(gi, bg, fm):
-    H=len(gi);W=len(gi[0]);seen=[[False]*W for _ in range(H)];res=[]
-    dirs=[(dy,dx) for dy in(-1,0,1) for dx in(-1,0,1) if (dy,dx)!=(0,0)]
+
+def _detect_bands(inp):
+    """Return (bg, vbands{col:color}, hbands{row:color}) describing the frame."""
+    H, W = len(inp), len(inp[0])
+    bg = Counter(v for row in inp for v in row).most_common(1)[0][0]
+    vb, hb = {}, {}
+    for c in range(W):
+        col = [inp[r][c] for r in range(H)]
+        mc, n = Counter(col).most_common(1)[0]
+        if mc != bg and n >= 0.8 * H:
+            vb[c] = mc
+    for r in range(H):
+        mc, n = Counter(inp[r]).most_common(1)[0]
+        if mc != bg and n >= 0.8 * W:
+            hb[r] = mc
+    return bg, vb, hb
+
+
+def _components(inp, pred):
+    """8-connected components of cells satisfying pred(r, c)."""
+    H, W = len(inp), len(inp[0])
+    seen = [[False] * W for _ in range(H)]
+    res = []
     for r in range(H):
         for c in range(W):
-            if seen[r][c] or gi[r][c]==bg or fm[r][c]: continue
-            q=deque([(r,c)]);seen[r][c]=True;cur=[]
-            while q:
-                y,x=q.popleft();cur.append((y,x,gi[y][x]))
-                for dy,dx in dirs:
-                    ny,nx=y+dy,x+dx
-                    if 0<=ny<H and 0<=nx<W and not seen[ny][nx] and gi[ny][nx]!=bg and not fm[ny][nx]:
-                        seen[ny][nx]=True;q.append((ny,nx))
-            res.append(cur)
+            if pred(r, c) and not seen[r][c]:
+                q = deque([(r, c)])
+                seen[r][c] = True
+                cells = []
+                while q:
+                    rr, cc = q.popleft()
+                    cells.append((rr, cc))
+                    for dr in (-1, 0, 1):
+                        for dc in (-1, 0, 1):
+                            nr, nc = rr + dr, cc + dc
+                            if (0 <= nr < H and 0 <= nc < W
+                                    and not seen[nr][nc] and pred(nr, nc)):
+                                seen[nr][nc] = True
+                                q.append((nr, nc))
+                res.append(cells)
     return res
 
-def is_creature(cur): return any(v==8 for y,x,v in cur)
-def is_marker(cur): return all(v==9 for y,x,v in cur)
-
-def band_lines(gi,bg):
-    # return rowbands: dict row->color, colbands: dict col->color, and dir map color->set(dirs)
-    H=len(gi);W=len(gi[0])
-    rowband={};colband={};dirs={}
-    for r in range(H):
-        cnt=Counter(gi[r]);mc,n=cnt.most_common(1)[0]
-        if mc!=bg and n>=W-8:
-            rowband[r]=mc
-            dirs.setdefault(mc,set()).add('top' if r<H/2 else 'bottom')
-    for c in range(W):
-        col=[gi[r][c] for r in range(H)];cnt=Counter(col);mc,n=cnt.most_common(1)[0]
-        if mc!=bg and n>=H-8:
-            colband[c]=mc
-            dirs.setdefault(mc,set()).add('left' if c<W/2 else 'right')
-    return rowband,colband,dirs
-
-def band_positions(gi,bg):
-    # color -> list of ('row',index) or ('col',index)
-    H=len(gi);W=len(gi[0]);res={}
-    for r in range(H):
-        cnt=Counter(gi[r]);mc,n=cnt.most_common(1)[0]
-        if mc!=bg and n>=W-8: res.setdefault(mc,[]).append(('row',r))
-    for c in range(W):
-        col=[gi[r][c] for r in range(H)];cnt=Counter(col);mc,n=cnt.most_common(1)[0]
-        if mc!=bg and n>=H-8: res.setdefault(mc,[]).append(('col',c))
-    return res
-
-def band_dirs_at(bp,pr,pc):
-    # color -> set of directions of that band relative to destination point (pr,pc)
-    out={}
-    for col,lst in bp.items():
-        s=set()
-        for orient,idx in lst:
-            if orient=='row': s.add('top' if idx<pr else 'bottom')
-            else: s.add('left' if idx<pc else 'right')
-        out[col]=s
-    return out
-
-def grid_of(cur):
-    rs=[y for y,x,v in cur];cs=[x for y,x,v in cur]
-    r0,r1=min(rs),max(rs);c0,c1=min(cs),max(cs)
-    g=[['.']*(c1-c0+1) for _ in range(r1-r0+1)]
-    for y,x,v in cur: g[y-r0][x-c0]=v
-    return g,r0,c0
-
-def rot90(g): return [list(r) for r in zip(*g[::-1])]
-def fliph(g): return [row[::-1] for row in g]
-def variants(g):
-    res=[];cur=[row[:] for row in g]
-    for k in range(4):
-        res.append((k,0,[row[:] for row in cur]));res.append((k,1,fliph(cur)));cur=rot90(cur)
-    return res
-
-def marker_dirs(g):
-    H=len(g);W=len(g[0])
-    body=[(r,c) for r in range(H) for c in range(W) if g[r][c]==8]
-    br=[r for r,c in body];bc=[c for r,c in body]
-    rmin,rmax,cmin,cmax=min(br),max(br),min(bc),max(bc)
-    res={}
-    for r in range(H):
-        for c in range(W):
-            v=g[r][c]
-            if v in ('.',8,9): continue
-            d=set()
-            if r<rmin: d.add('top')
-            if r>rmax: d.add('bottom')
-            if c<cmin: d.add('left')
-            if c>cmax: d.add('right')
-            res.setdefault(v,set()).update(d)
-    return res
-
-def pupil_pts(g):
-    return [(r,c) for r in range(len(g)) for c in range(len(g[0])) if g[r][c]==9]
-
-def normset(pts):
-    r0=min(r for r,c in pts);c0=min(c for r,c in pts)
-    return frozenset((r-r0,c-c0) for r,c in pts)
 
 def infer_T(input_grid):
-    gi=input_grid
-    H=len(gi);W=len(gi[0])
-    bg=get_bg(gi);fm=frame_mask(gi,bg)
-    rowband,colband,_=band_lines(gi,bg)
-    bp=band_positions(gi,bg)
-    cs=comps(gi,bg,fm)
-    creatures=[c for c in cs if is_creature(c)]
-    markers=[c for c in cs if is_marker(c)]
-    place={}
-    clear=set()
-    used=set()
-    for cr in creatures:
-        for y,x,v in cr: clear.add((y,x))
-    for cr in creatures:
-        g,_,_=grid_of(cr)
-        # try every dihedral transform; keep those where:
-        #  (a) the transformed pupil (9s) matches an unused marker's 9-shape exactly,
-        #  (b) each colored marker faces its band as seen from the destination (marker centroid).
-        valid=[]
-        for k,f,vg in variants(g):
-            vp=pupil_pts(vg)
-            vpn=normset(vp)
-            for m in markers:
-                if id(m) in used: continue
-                mpts=[(y,x) for y,x,v in m]
-                if normset(mpts)!=vpn: continue
-                pr=sum(y for y,x in mpts)/len(mpts)
-                pc=sum(x for y,x in mpts)/len(mpts)
-                bdir=band_dirs_at(bp,pr,pc)
-                md=marker_dirs(vg)
-                if all(col in bdir and (d & bdir[col]) for col,d in md.items()):
-                    valid.append((f,k,vg,m,vp,mpts))
-        if not valid: continue
-        # tie-break: prefer a pure rotation (f=0) over a reflection (f=1)
-        valid.sort(key=lambda t:(t[0],t[1]))
-        f,k,vg,m,vp,mpts=valid[0]
-        chosen=(k,f,vg,m,vp,mpts)
-        k,f,vg,m,vp,mpts=chosen
-        used.add(id(m))
-        mr0=min(r for r,c in mpts);mc0=min(c for r,c in mpts)
-        vpr0=min(r for r,c in vp);vpc0=min(c for r,c in vp)
-        dr=mr0-vpr0;dc=mc0-vpc0
-        for y,x,v in m: clear.add((y,x))
-        for r in range(len(vg)):
-            for c in range(len(vg[0])):
-                v=vg[r][c]
-                if v=='.': continue
-                place[(r+dr,c+dc)]=v
-    return (place, clear, bg, rowband, colband)
+    inp = input_grid
+    H, W = len(inp), len(inp[0])
+    bg, vb, hb = _detect_bands(inp)
+
+    def is_frame(r, c):
+        return (c in vb) or (r in hb)
+
+    # foreground (non-bg, non-frame) connected components
+    comps = _components(inp, lambda r, c: inp[r][c] != bg and not is_frame(r, c))
+    objects = [o for o in comps if any(inp[r][c] == 8 for r, c in o)]
+    targets = [o for o in comps if all(inp[r][c] == 9 for r, c in o)]
+
+    T = {}
+    used = set()
+    for o in objects:
+        odict = {(r, c): inp[r][c] for r, c in o}
+        keys = list(odict)
+        nines = [(r, c) for r, c in o if inp[r][c] == 9]
+        best = None  # (score, target_index, placed_dict)
+        for ti, t in enumerate(targets):
+            if ti in used or len(t) != len(nines) or not nines:
+                continue
+            tg = sorted(t)
+            for tr in range(8):
+                tn = [_tf(p, tr) for p in nines]
+                tn_s = sorted(tn)
+                dr = tg[0][0] - tn_s[0][0]
+                dc = tg[0][1] - tn_s[0][1]
+                if set((r + dr, c + dc) for r, c in tn) != set(t):
+                    continue
+                placed = {}
+                for k in keys:
+                    a, b = _tf(k, tr)
+                    placed[(a + dr, b + dc)] = odict[k]
+                # orientation score: total distance from each marker to the
+                # nearest frame band of the same color (lower = better)
+                score = 0
+                for (mr, mc), v in placed.items():
+                    if v in (8, 9):
+                        continue
+                    d = [abs(mc - cc) for cc, col in vb.items() if col == v]
+                    d += [abs(mr - rr) for rr, col in hb.items() if col == v]
+                    if d:
+                        score += min(d)
+                if best is None or score < best[0]:
+                    best = (score, ti, placed)
+        if best is None:
+            continue
+        _, ti, placed = best
+        used.add(ti)
+        # erase original object cells -> background
+        for (r, c) in o:
+            T[(r, c)] = bg
+        # draw oriented object at the destination
+        for (r, c), v in placed.items():
+            if 0 <= r < H and 0 <= c < W:
+                T[(r, c)] = v
+    return T
+
 
 def apply_T(input_grid, T):
-    place, clear, bg, rowband, colband = T
-    out=[row[:] for row in input_grid]
-    H=len(out);W=len(out[0])
-    for (r,c) in clear:
-        if r in rowband: out[r][c]=rowband[r]
-        elif c in colband: out[r][c]=colband[c]
-        else: out[r][c]=bg
-    for (r,c),v in place.items():
-        if 0<=r<H and 0<=c<W:
-            out[r][c]=v
+    out = [row[:] for row in input_grid]
+    for (r, c), v in T.items():
+        out[r][c] = v
     return out
 
+
 def solve(input_grid):
-    T=infer_T(input_grid)
-    return apply_T(input_grid,T)
+    T = infer_T(input_grid)
+    return apply_T(input_grid, T)
