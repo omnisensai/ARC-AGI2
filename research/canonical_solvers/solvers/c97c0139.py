@@ -1,12 +1,11 @@
 """Canonical solver for ARC puzzle c97c0139.
 
 Rule: the grid contains straight bars of color 2 (each either a horizontal or a
-vertical run). Every bar has odd length L; let R=(L-1)/2 be its radius and let
-the bar's center cell be O. A diamond (L1 ball) of radius R centered at O is
-drawn in color 8, but only on the cells that lie OFF the bar's own line
-(perpendicular distance p>=1). A cell of the diamond is filled when p+|j|<=R,
-where p is the perpendicular distance from the bar line and j is the offset
-along the bar direction from the center. Only background (0) cells are painted.
+vertical run) spanning positions a..b along its axis. On BOTH sides of the bar
+(perpendicular distance p = 1, 2, ...) color 8 is drawn, with the along-axis
+extent shrinking by p from each end: at distance p the 8s cover the along-axis
+range [a+p, b-p]. This produces a symmetric double-triangle (diamond) fan.
+Only background cells are painted.
 """
 
 
@@ -19,7 +18,11 @@ def _bg_color(grid):
 
 
 def _find_bars(grid, bg):
-    """Return list of bars as (cells, orientation, center, radius)."""
+    """Return list of bars as (orientation, fixed_coord, a, b).
+
+    For 'h' bars fixed_coord is the row, a..b the column span.
+    For 'v' bars fixed_coord is the col, a..b the row span.
+    """
     H, W = len(grid), len(grid[0])
     seen = set()
     bars = []
@@ -28,30 +31,18 @@ def _find_bars(grid, bg):
             if grid[r][c] == bg or (r, c) in seen:
                 continue
             color = grid[r][c]
-            # try horizontal run
-            if c + 1 < W and grid[r][c + 1] == color:
-                cells = [(r, c)]
-                cc = c + 1
+            if c + 1 < W and grid[r][c + 1] == color:  # horizontal run
+                cc = c
                 while cc < W and grid[r][cc] == color:
-                    cells.append((r, cc))
+                    seen.add((r, cc))
                     cc += 1
-                for cell in cells:
-                    seen.add(cell)
-                L = len(cells)
-                center = (r, c + (L - 1) // 2)
-                bars.append((cells, 'h', center, (L - 1) // 2, color))
-            # try vertical run
-            elif r + 1 < H and grid[r + 1][c] == color:
-                cells = [(r, c)]
-                rr = r + 1
+                bars.append(('h', r, c, cc - 1))
+            elif r + 1 < H and grid[r + 1][c] == color:  # vertical run
+                rr = r
                 while rr < H and grid[rr][c] == color:
-                    cells.append((rr, c))
+                    seen.add((rr, c))
                     rr += 1
-                for cell in cells:
-                    seen.add(cell)
-                L = len(cells)
-                center = (r + (L - 1) // 2, c)
-                bars.append((cells, 'v', center, (L - 1) // 2, color))
+                bars.append(('v', c, r, rr - 1))
             else:
                 seen.add((r, c))
     return bars
@@ -63,22 +54,18 @@ def infer_T(input_grid):
     bg = _bg_color(input_grid)
     bars = _find_bars(input_grid, bg)
     T = {}
-    for cells, orient, center, R, color in bars:
-        cr, cc = center
-        for dr in range(-R, R + 1):
-            for dc in range(-R, R + 1):
-                if abs(dr) + abs(dc) > R:
-                    continue
-                # perpendicular distance p relative to bar line
-                if orient == 'h':
-                    p = abs(dr)   # rows are perpendicular
-                else:
-                    p = abs(dc)   # cols are perpendicular
-                if p < 1:
-                    continue  # on the bar's own line
-                r, c = cr + dr, cc + dc
-                if 0 <= r < H and 0 <= c < W and input_grid[r][c] == bg:
-                    T[(r, c)] = 8
+    for orient, fixed, a, b in bars:
+        p = 1
+        while a + p <= b - p:
+            for t in range(a + p, b - p + 1):
+                for sign in (-1, 1):
+                    if orient == 'h':
+                        r, c = fixed + sign * p, t
+                    else:
+                        r, c = t, fixed + sign * p
+                    if 0 <= r < H and 0 <= c < W and input_grid[r][c] == bg:
+                        T[(r, c)] = 8
+            p += 1
     return T
 
 

@@ -1,120 +1,82 @@
-def _components(grid, target):
-    """8-connected components of cells equal to `target`."""
+def _components(grid, color):
     H, W = len(grid), len(grid[0])
-    seen = [[False] * W for _ in range(H)]
+    seen = set()
     comps = []
-    for r0 in range(H):
-        for c0 in range(W):
-            if grid[r0][c0] == target and not seen[r0][c0]:
-                stack = [(r0, c0)]
-                seen[r0][c0] = True
+    for sr in range(H):
+        for sc in range(W):
+            if grid[sr][sc] == color and (sr, sc) not in seen:
+                stack = [(sr, sc)]
                 cells = []
                 while stack:
                     r, c = stack.pop()
+                    if (r, c) in seen or not (0 <= r < H and 0 <= c < W):
+                        continue
+                    if grid[r][c] != color:
+                        continue
+                    seen.add((r, c))
                     cells.append((r, c))
-                    for dr in (-1, 0, 1):
-                        for dc in (-1, 0, 1):
-                            if dr == 0 and dc == 0:
-                                continue
-                            nr, nc = r + dr, c + dc
-                            if 0 <= nr < H and 0 <= nc < W and grid[nr][nc] == target and not seen[nr][nc]:
-                                seen[nr][nc] = True
-                                stack.append((nr, nc))
-                comps.append(cells)
+                    for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        stack.append((r + dr, c + dc))
+                comps.append(set(cells))
     return comps
 
 
-def _find_key(grid):
-    """The color legend: a horizontal run (length >= 2) of distinct
-    non-zero, non-5 colors. Returns the ordered list of colors."""
+def _palette(grid):
+    """The marker key: a row (or column) holding >=2 distinct non-background,
+    non-shape (non-5) colors. These define the cyclic color sequence used to
+    paint the ribbons, ordered as they appear."""
     H, W = len(grid), len(grid[0])
     for r in range(H):
-        run = []
-        for c in range(W):
-            v = grid[r][c]
-            if v != 0 and v != 5:
-                run.append(v)
-            else:
-                if len(run) >= 2:
-                    return run
-                run = []
-        if len(run) >= 2:
-            return run
+        seg = [grid[r][c] for c in range(W) if grid[r][c] not in (0, 5)]
+        if len(seg) >= 2:
+            return seg
+    for c in range(W):
+        seg = [grid[r][c] for r in range(H) if grid[r][c] not in (0, 5)]
+        if len(seg) >= 2:
+            return seg
     return None
 
 
-def _corner_dist(comp, corner):
-    """For each cell in comp, s = min(distance-from-corner along the two axes)."""
-    minr = min(r for r, c in comp)
-    maxr = max(r for r, c in comp)
-    minc = min(c for r, c in comp)
-    maxc = max(c for r, c in comp)
-    out = {}
-    for r, c in comp:
-        if corner == 'tl':
-            a, b = r - minr, c - minc
-        elif corner == 'tr':
-            a, b = r - minr, maxc - c
-        elif corner == 'bl':
-            a, b = maxr - r, c - minc
-        else:  # 'br'
-            a, b = maxr - r, maxc - c
-        out[(r, c)] = min(a, b)
-    return out
-
-
-def _reference_corner(comp):
-    """The recoloring grows out of one corner of the parallelogram.
-
-    A staircase parallelogram touches exactly two opposite corners of its
-    bounding box. The reference (growing-tip) corner is the upper one
-    (smaller row)."""
-    cset = set(comp)
-    minr = min(r for r, c in comp)
-    maxr = max(r for r, c in comp)
-    minc = min(c for r, c in comp)
-    maxc = max(c for r, c in comp)
-    candidates = []
-    if (minr, minc) in cset:
-        candidates.append(('tl', minr, minc))
-    if (minr, maxc) in cset:
-        candidates.append(('tr', minr, maxc))
-    if (maxr, minc) in cset:
-        candidates.append(('bl', maxr, minc))
-    if (maxr, maxc) in cset:
-        candidates.append(('br', maxr, maxc))
-    if not candidates:
-        return 'tl'
-    # upper-most (smallest row); tie-break smallest col.
-    candidates.sort(key=lambda x: (x[1], x[2]))
-    return candidates[0][0]
-
-
-def _infer_T(input_grid):
-    """Latent mask: {(r,c): new_color} for every 5-cell, recolored by legend.
-
-    Each 5-shape is a diagonal staircase band growing from its top corner.
-    Indexing concentric corner-layers s = min(da, db) from that corner, the
-    band is painted cycling through the legend `key` (key[s % K]); the trailing
-    layers (the shrinking tail, s >= maxS - (K-1)) clamp to the last legend
-    color."""
-    key = _find_key(input_grid)
+def infer_T(input_grid):
+    """Each 5-colored object is a diagonal ribbon with a right-angle 'start'
+    corner (the topmost occupied bounding-box corner). Colors fill as nested
+    L-shaped bands emanating from that corner:
+        band(r,c) = min(distance along the two corner axes)
+        color     = palette[band % len(palette)]
+    Once a band index exceeds the ribbon's fold depth it clamps, so the deep
+    interior becomes a solid band color. Fold depth = bbox_span - (thin_run-1)."""
+    palette = _palette(input_grid)
     T = {}
-    if key is None:
+    if not palette:
         return T
-    K = len(key)
-    for comp in _components(input_grid, 5):
-        corner = _reference_corner(comp)
-        sval = _corner_dist(comp, corner)
-        maxS = max(sval.values())
-        thr = maxS - (K - 1)
-        for (r, c), s in sval.items():
-            idx = (K - 1) if s >= thr else (s % K)
-            T[(r, c)] = key[idx]
+    L = len(palette)
+    for cells in _components(input_grid, 5):
+        rs = [r for r, c in cells]
+        cs = [c for r, c in cells]
+        rmin, rmax, cmin, cmax = min(rs), max(rs), min(cs), max(cs)
+        # The two thin ends of the ribbon sit on opposite bbox corners.
+        corners = [(rmin, cmin), (rmin, cmax), (rmax, cmin), (rmax, cmax)]
+        occ = [rc for rc in corners if rc in cells]
+        # Start corner = the topmost (then leftmost) occupied corner.
+        cr, cc = min(occ, key=lambda rc: (rc[0], rc[1]))
+        sr = 1 if cr == rmin else -1
+        sc = 1 if cc == cmin else -1
+        # Ribbon thickness = narrowest row run (the thin-end / band run width).
+        rowcols = {}
+        for r, c in cells:
+            rowcols.setdefault(r, []).append(c)
+        minw = min(len(v) for v in rowcols.values())
+        # Bands deeper than this clamp (the ribbon folds back on itself).
+        maxband = (cmax - cmin) - (minw - 1)
+        for (r, c) in cells:
+            band = min(sr * (r - cr), sc * (c - cc))
+            if band > maxband:
+                band = maxband
+            T[(r, c)] = palette[band % L]
     return T
 
 
-def _apply_T(input_grid, T):
+def apply_T(input_grid, T):
     out = [row[:] for row in input_grid]
     for (r, c), v in T.items():
         out[r][c] = v
@@ -122,5 +84,5 @@ def _apply_T(input_grid, T):
 
 
 def solve(input_grid):
-    T = _infer_T(input_grid)
-    return _apply_T(input_grid, T)
+    T = infer_T(input_grid)
+    return apply_T(input_grid, T)
