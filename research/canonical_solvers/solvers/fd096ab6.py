@@ -60,11 +60,35 @@ def infer_T(input_grid):
     # Template = the color with the most cells; it is left unchanged.
     tcolor = max(by_color, key=lambda k: len(by_color[k]))
     tset = set(by_color[tcolor])
+    trs = [r for r, _ in tset]
+    tcs = [c for _, c in tset]
+    th = max(trs) - min(trs) + 1
+    tw = max(tcs) - min(tcs) + 1
 
-    T = {}
+    # A fragment fits inside the template's bounding box, so two same-colored
+    # cells belong to the same fragment only if they are within that extent.
+    # Cluster each color's cells by single-linkage on Chebyshev proximity.
+    fragments = []
     for color, cells in by_color.items():
         if color == tcolor:
             continue
+        remaining = list(cells)
+        while remaining:
+            cluster = [remaining.pop()]
+            changed = True
+            while changed:
+                changed = False
+                for cell in list(remaining):
+                    r, c = cell
+                    if any(abs(r - er) < th and abs(c - ec) < tw
+                           for er, ec in cluster):
+                        cluster.append(cell)
+                        remaining.remove(cell)
+                        changed = True
+            fragments.append((color, cluster))
+
+    T = {}
+    for color, cells in fragments:
         cset = set(cells)
         # Find translations (dr, dc) so that fragment+offset lies inside template.
         translations = set()
