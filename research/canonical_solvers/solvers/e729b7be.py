@@ -44,7 +44,7 @@ def infer_T(input_grid):
     """Latent mask: dict {(r,c): new_color} for cells to overwrite."""
     H, W = len(input_grid), len(input_grid[0])
     bg = _background(input_grid)
-    axis_info = _find_axis(input_grid)
+    axis_info = _find_axis(input_grid, bg)
     T = {}
     if axis_info is None:
         return T
