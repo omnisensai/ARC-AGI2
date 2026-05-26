@@ -78,12 +78,12 @@ def infer_T(input_grid):
     quad_BR = (r1 + 1, c1 + 1, rot180(role))
     quadrants = [quad_TR, quad_BL, quad_BR]
 
-    # Markers: all non-bg cells not in the block.
+    # Markers: every cell whose colour is neither background nor a block colour.
     markers = []
     for r in range(H):
         for c in range(W):
             v = input_grid[r][c]
-            if v != bg and (r, c) not in block_set:
+            if v not in (bg, M, S):
                 markers.append((r, c, v))
 
     # For each quadrant, figure out which marker colour replaces M and which
