@@ -59,7 +59,7 @@ def infer_T(input_grid):
             v = input_grid[r][c]
             if v == bg:
                 continue
-            if r0 <= r <= r1 and c0 <= c1 and (c < c0 or c > c1):
+            if r0 <= r <= r1 and (c < c0 or c > c1):
                 # same row-band, to the left or right of the block
                 if c < c0:
                     rng = range(c + 1, c0)

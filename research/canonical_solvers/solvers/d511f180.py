@@ -1,35 +1,20 @@
 def infer_T(input_grid):
     """Infer a latent transformation mask.
 
-    Structure: the grid contains two distinguished colors that are mutually
-    swapped.  We detect this swap pair as the two colors A,B such that mapping
-    A<->B (and leaving everything else fixed) is a consistent involution over
-    the cells.  Concretely, ARC tasks of this family swap the two non-unique
-    colors that interleave; here we detect them as the pair whose counts allow
-    a clean swap.  We pick the swap pair as the two most frequent colors that
-    are distinct, which form the mobile/background interplay of this puzzle.
+    The transformation is a color involution: the two distinguished colors
+    5 (gray) and 8 (azure) are mutually exchanged everywhere they occur,
+    while all other cells stay fixed.  The mask marks exactly those cells
+    holding one of the two swapped colors and records its swapped value.
     """
     H, W = len(input_grid), len(input_grid[0])
-
-    counts = {}
-    for row in input_grid:
-        for v in row:
-            counts[v] = counts.get(v, 0) + 1
-
-    # The two colors involved in the swap are the two most frequent colors.
-    ordered = sorted(counts, key=lambda c: (-counts[c], c))
-    if len(ordered) < 2:
-        return {}
-    a, b = ordered[0], ordered[1]
+    SWAP = {5: 8, 8: 5}
 
     T = {}
     for r in range(H):
         for c in range(W):
             v = input_grid[r][c]
-            if v == a:
-                T[(r, c)] = b
-            elif v == b:
-                T[(r, c)] = a
+            if v in SWAP:
+                T[(r, c)] = SWAP[v]
     return T
 
 
