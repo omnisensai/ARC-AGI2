@@ -1,8 +1,10 @@
 """Canonical solver for ARC puzzle bda2d7a6.
 
-The grid is a set of concentric square rings, each a single color.
-The transformation reverses the order of the ring colors: a cell whose
-ring index is i (0 = outermost) gets the color of ring n-1-i.
+The grid is a set of concentric square rings, each a single color. The
+distinct ring colors form a sequence from outer to inner. The transformation
+cyclically shifts that color sequence inward: each distinct color is remapped
+to the color of the ring just outside it, and the outermost color wraps to the
+position of the innermost. Equivalently, ring colors rotate one step outward.
 """
 
 
@@ -14,23 +16,32 @@ def infer_T(input_grid):
         return min(r, c, H - 1 - r, W - 1 - c)
 
     max_ring = min((H - 1) // 2, (W - 1) // 2)
+    n = max_ring + 1
 
-    # Determine the color of each ring (sampling a representative cell).
+    # Color of each ring (outer -> inner), sampled from a representative cell.
     ring_color = {}
     for r in range(H):
         for c in range(W):
             k = ring_of(r, c)
             ring_color.setdefault(k, input_grid[r][c])
+    seq = [ring_color[k] for k in range(n)]
 
-    n = max_ring + 1
-    # Reversed mapping: ring k takes the color of ring (n-1-k).
-    color_map = {k: ring_color[n - 1 - k] for k in range(n)}
+    # Distinct colors in outer->inner order.
+    distinct = []
+    for col in seq:
+        if col not in distinct:
+            distinct.append(col)
 
-    # Build latent mask: every cell gets its reversed ring color.
+    # Cyclic shift: each distinct color maps to the color one position earlier
+    # (innermost distinct color wraps out to the front).
+    m = len(distinct)
+    color_map = {distinct[i]: distinct[(i - 1) % m] for i in range(m)}
+
+    # Build latent mask by recoloring every cell via the color map.
     T = [[None] * W for _ in range(H)]
     for r in range(H):
         for c in range(W):
-            T[r][c] = color_map[ring_of(r, c)]
+            T[r][c] = color_map[input_grid[r][c]]
     return T
 
 
