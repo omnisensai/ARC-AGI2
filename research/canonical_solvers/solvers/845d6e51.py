@@ -1,112 +1,87 @@
-def _components(cells):
-    cells = set(cells)
+def _components(grid, H, W, colors):
+    """8-connected, same-color connected components for the given color set."""
     seen = set()
-    out = []
-    for s in cells:
-        if s in seen:
-            continue
-        stack = [s]
-        comp = []
-        while stack:
-            cur = stack.pop()
-            if cur in seen or cur not in cells:
-                continue
-            seen.add(cur)
-            comp.append(cur)
-            r, c = cur
-            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                stack.append((r + dr, c + dc))
-        out.append(comp)
-    return out
+    comps = []
+    nb = [(dr, dc) for dr in (-1, 0, 1) for dc in (-1, 0, 1) if (dr, dc) != (0, 0)]
+    for r in range(H):
+        for c in range(W):
+            if grid[r][c] in colors and (r, c) not in seen:
+                col = grid[r][c]
+                stack = [(r, c)]
+                cells = []
+                while stack:
+                    a, b = stack.pop()
+                    if (a, b) in seen or not (0 <= a < H and 0 <= b < W):
+                        continue
+                    if grid[a][b] != col:
+                        continue
+                    seen.add((a, b))
+                    cells.append((a, b))
+                    for dr, dc in nb:
+                        stack.append((a + dr, b + dc))
+                comps.append((col, cells))
+    return comps
 
 
-def _normalize(cells):
+def _norm(cells):
     mr = min(r for r, c in cells)
     mc = min(c for r, c in cells)
     return frozenset((r - mr, c - mc) for r, c in cells)
 
 
-def _variants(shape):
-    cur = set(shape)
+def _orientations(cells):
+    """All 8 rotations/reflections of a shape, each normalized to top-left."""
     res = set()
+    cur = set(cells)
+    res.add(_norm(cur))
     for _ in range(4):
         cur = {(c, -r) for r, c in cur}
-        res.add(_normalize(cur))
-        res.add(_normalize({(r, -c) for r, c in cur}))
+        res.add(_norm(cur))
+        res.add(_norm({(r, -c) for r, c in cur}))
     return res
 
 
 def infer_T(input_grid):
-    """Infer a latent recolor mask {(r,c): new_color}.
+    """Infer the latent recolor mask {(r,c): new_color}.
 
-    Structure: a legend box sits in the top-left, closed below by a horizontal
-    line of 5s and on the right by a vertical 5 wall. Inside it are small
-    colored template shapes. Elsewhere on the grid are gray (3) shapes. Each
-    gray shape is recolored to the legend color whose template it matches under
-    rotation/reflection. The legend's own gray template (if any) is just the
-    source-color key and is not used as a recolor target.
+    Structure: a legend box sits in the top region, separated from the field by
+    a horizontal line of 5s (and a vertical 5 wall). Inside the box are small
+    colored template shapes (colors other than 0/3/5). The field below holds
+    gray (3) shapes. Each gray shape is recolored to the legend color whose
+    template shape is congruent to it under the dihedral group (rotations and
+    reflections). Each gray component is matched independently.
     """
     H = len(input_grid)
     W = len(input_grid[0])
 
-    # Horizontal divider: a row starting with 5, made only of 0/5, with several
-    # 5s -- it closes the legend box from below.
-    hrow = None
-    for r in range(H):
-        row = input_grid[r]
-        if row[0] == 5 and row.count(5) >= 4 and all(v in (0, 5) for v in row):
-            hrow = r
-            break
+    # Legend templates: any non-background, non-gray, non-separator color.
+    legend_colors = set(range(1, 10)) - {3, 5}
+    legend = _components(input_grid, H, W, legend_colors)
+    leg = {}
+    for col, cells in legend:
+        leg.setdefault(col, set()).update(_orientations(cells))
+
+    body = _components(input_grid, H, W, {3})
 
     T = {}
-    if hrow is None:
-        return T
-
-    # The divider's leading run of 5s gives the legend box width; its last
-    # column is the vertical 5 wall closing the box on the right.
-    ext = 0
-    for c in range(W):
-        if input_grid[hrow][c] == 5:
-            ext = c
-        else:
-            break
-
-    # Legend templates: colored cells inside the box (rows above the divider,
-    # columns within its span), grouped by color. The gray source color (3) is
-    # excluded as a recolor target.
-    by_color = {}
-    for r in range(hrow):
-        for c in range(ext + 1):
-            v = input_grid[r][c]
-            if v not in (0, 5):
-                by_color.setdefault(v, []).append((r, c))
-
-    legend = {}
-    for col, cells in by_color.items():
-        if col == 3:
-            continue
-        legend[col] = _variants(_normalize(cells))
-
-    # Gray (3) field shapes are those outside the legend box.
-    box_cells = {(r, c) for r in range(hrow) for c in range(ext + 1)}
-    gray = [(r, c) for r in range(H) for c in range(W)
-            if input_grid[r][c] == 3 and (r, c) not in box_cells]
-
-    for comp in _components(gray):
-        shape = _normalize(comp)
-        for col, vs in legend.items():
-            if shape in vs:
-                for cell in comp:
-                    T[cell] = col
+    for _col, cells in body:
+        shp = _norm(cells)
+        matched = None
+        for lc, oris in leg.items():
+            if shp in oris:
+                matched = lc
                 break
-
+        if matched is None:
+            continue
+        for (r, c) in cells:
+            T[(r, c)] = matched
     return T
 
 
 def apply_T(input_grid, T):
     out = [row[:] for row in input_grid]
-    for (r, c), color in T.items():
-        out[r][c] = color
+    for (r, c), v in T.items():
+        out[r][c] = v
     return out
 
 
