@@ -81,10 +81,9 @@ def infer_T(input_grid):
     for cells in blocks.values():
         for (r, c) in cells:
             fg[input_grid[r][c]] += 1
-    # Sorting key color: any foreground color. With binary foreground content the
-    # ascending order by one color equals descending order by the other, so the
-    # ordering is well defined whenever block counts are distinct.
-    key_color = min(fg, key=lambda v: fg[v]) if fg else None
+    # Sorting key color: the highest-valued foreground color. Blocks are ordered
+    # ascending by how many cells of that color they contain.
+    key_color = max(fg) if fg else None
 
     def block_count(cells):
         return sum(1 for (r, c) in cells if input_grid[r][c] == key_color)
