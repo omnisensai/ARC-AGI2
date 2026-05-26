@@ -1,12 +1,16 @@
 """Canonical solver for ARC puzzle f3b10344.
 
 Rule: the grid contains solid rectangular blocks of various colors on a
-background of 0. For every pair of SAME-COLOR blocks that overlap along one
-axis (rows or columns) and are separated only by background along the other
-axis (i.e. they directly face each other with nothing in between), a bridge of
-color 8 is drawn in the connecting gap. The bridge spans the full width of the
-gap in the connecting direction, and the overlapping extent shrunk by one cell
-on each side in the perpendicular direction.
+background of 0. Same-color blocks that face each other (overlap along one axis
+and are separated only by background along the other) can be connected by a
+bridge of color 8 drawn in the connecting gap. The bridge spans the full width
+of the gap in the connecting direction, and the overlapping extent shrunk by
+one cell on each side in the perpendicular direction.
+
+When several same-color blocks face one another in a loop, only enough bridges
+are drawn to connect them all without redundancy: per color the bridges form a
+spanning forest (minimum spanning tree by gap distance), so the longest edge
+that would merely close a cycle is omitted.
 
 infer_T computes the set of cells to overwrite (the latent transformation mask)
 purely from the block structure of the input. apply_T copies the input and

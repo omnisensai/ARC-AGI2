@@ -15,45 +15,28 @@ cell that changes; apply_T copies the input and overwrites only those cells.
 
 
 def _find_wall(grid):
-    """Return ('col', index, r0, r1) or ('row', index, c0, c1) for the 8-wall.
+    """Return ('col', index) or ('row', index) for the 8-wall line.
 
-    The wall is the longest contiguous run of 8s within a single column or
-    single row.
+    The wall is the single row or column that contains the most 8 cells. The
+    line may contain internal gaps; those gaps are handled by the projection
+    loop, which only acts on cells that actually hold an 8.
     """
     H, W = len(grid), len(grid[0])
-    best = None  # (length, orient, idx, lo, hi)
+    best = None  # (count, orient, idx)
 
-    # vertical runs
     for c in range(W):
-        r = 0
-        while r < H:
-            if grid[r][c] == 8:
-                r0 = r
-                while r < H and grid[r][c] == 8:
-                    r += 1
-                length = r - r0
-                cand = (length, 'col', c, r0, r - 1)
-                if best is None or cand[0] > best[0]:
-                    best = cand
-            else:
-                r += 1
+        cnt = sum(1 for r in range(H) if grid[r][c] == 8)
+        if cnt and (best is None or cnt > best[0]):
+            best = (cnt, 'col', c)
 
-    # horizontal runs
     for r in range(H):
-        c = 0
-        while c < W:
-            if grid[r][c] == 8:
-                c0 = c
-                while c < W and grid[r][c] == 8:
-                    c += 1
-                length = c - c0
-                cand = (length, 'row', r, c0, c - 1)
-                if best is None or cand[0] > best[0]:
-                    best = cand
-            else:
-                c += 1
+        cnt = sum(1 for c in range(W) if grid[r][c] == 8)
+        if cnt and (best is None or cnt > best[0]):
+            best = (cnt, 'row', r)
 
-    return best
+    if best is None:
+        return None
+    return best[1], best[2]
 
 
 def _dot_color(grid):
@@ -76,7 +59,7 @@ def infer_T(input_grid):
     wall = _find_wall(input_grid)
     if wall is None:
         return T
-    _, orient, idx, lo, hi = wall
+    orient, idx = wall
 
     dot, bg = _dot_color(input_grid)
     if dot is None:
@@ -92,7 +75,7 @@ def infer_T(input_grid):
     #    each side that has at least one dot along that line position.
     if orient == 'col':
         c = idx
-        for r in range(lo, hi + 1):
+        for r in range(H):
             if input_grid[r][c] != 8:
                 continue
             # left side

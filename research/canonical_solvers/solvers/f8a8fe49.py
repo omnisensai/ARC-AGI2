@@ -19,15 +19,12 @@ def _find_box(g):
     rs = [r for r, _ in twos]
     cs = [c for _, c in twos]
     r0, r1, c0, c1 = min(rs), max(rs), min(cs), max(cs)
-    bh, bw = r1 - r0 + 1, c1 - c0 + 1
+    bh = r1 - r0 + 1
     left = sum(1 for r, c in twos if c == c0)
-    top = sum(1 for r, c in twos if r == r0)
     # A wall is "complete" when its straight line of 2s spans the whole box side.
-    vertical = (left == bh)   # full vertical (left/right) walls -> reflect on columns
-    if not vertical:
-        # sanity: ensure horizontal walls are the complete ones
-        vertical = (left == bh and not (top == bw))
-    return r0, r1, c0, c1, (left == bh)
+    # Full-height left wall => vertical orientation (reflect across columns).
+    vertical = (left == bh)
+    return r0, r1, c0, c1, vertical
 
 
 def infer_T(input_grid):
