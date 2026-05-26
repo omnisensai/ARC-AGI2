@@ -13,7 +13,12 @@ model_type: AutoModelForCausalLM
 tokenizer_type: AutoTokenizer
 trust_remote_code: true
 
-# Continue the adapter from the previous stage.
+# Continue from the stage-1 (same_lit) adapter. On a fresh pod, restore it from
+# HF FIRST (it was backed up there, probe-verified epoch-2.69 weights):
+#   hf download Omnisensai/arc-lora-run2 --include "phase1_same_lit/*" --local-dir outputs
+# That writes the adapter to outputs/phase1_same_lit/, matching this path.
+# (The original same_lit run was killed by disk quota before its top-level
+# save, so HF — not a local checkpoint — is the canonical stage-1 source now.)
 lora_model_dir: outputs/phase1_same_lit
 
 datasets:
@@ -68,7 +73,16 @@ group_by_length: false
 logging_steps: 10
 eval_steps: 100
 save_steps: 100
-save_total_limit: 5
+# Keep only 2 checkpoints — the disk quota (not RAM) killed the same_lit run
+# at a checkpoint save. Fewer retained checkpoints = lower peak quota use.
+save_total_limit: 2
+# Save ONLY the adapter weights, not the optimizer/scheduler/rng state. The
+# 20 GB volume can't hold the ~646 MB optimizer dumps (that write is exactly
+# what hit the quota and SIGKILLed same_lit). We never resume mid-stage — each
+# stage loads the previous stage's adapter via lora_model_dir and starts a
+# fresh optimizer — so optimizer state is dead weight here. Checkpoint shrinks
+# from ~1 GB to ~330 MB.
+save_only_model: true
 
 seed: 42
 strict: false

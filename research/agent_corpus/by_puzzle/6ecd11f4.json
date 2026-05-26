@@ -1,0 +1,47 @@
+{
+  "puzzle_id": "6ecd11f4",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import Counter\n\n\ndef solve(input_grid):\n    g = input_grid\n    R, C = len(g), len(g[0])\n    out_h = len(input_grid)  # placeholder, set below\n\n    # Find the key: a fully-nonzero rectangular block. Try sizes from small up.\n    # The output size equals the key size. Detect key by scanning for the\n    # smallest dense rectangle of nonzero cells that is surrounded by zeros.\n    best_key = None\n    for H in range(2, 7):\n        for W in range(2, 7):\n            for r in range(R - H + 1):\n                for c in range(C - W + 1):\n                    block = [g[r + a][c + b] for a in range(H) for b in range(W)]\n                    if all(v != 0 for v in block):\n                        # surrounded by zeros (isolated block)\n                        ok = True\n                        for a in range(-1, H + 1):\n                            for b in range(-1, W + 1):\n                                if 0 <= a < H and 0 <= b < W:\n                                    continue\n                                rr, cc = r + a, c + b\n                                if 0 <= rr < R and 0 <= cc < C and g[rr][cc] != 0:\n                                    ok = False\n                        if ok and len(set(block)) >= 2:\n                            if best_key is None or H * W < best_key[0]:\n                                best_key = (H * W, r, c, H, W)\n    _, kr, kc, H, W = best_key\n    key = [[g[kr + a][kc + b] for b in range(W)] for a in range(H)]\n    key_cells = set((kr + a, kc + b) for a in range(H) for b in range(W))\n\n    # shape: nonzero cells outside key\n    cnt = Counter(g[r][c] for r in range(R) for c in range(C)\n                  if g[r][c] != 0 and (r, c) not in key_cells)\n    shapecol = cnt.most_common(1)[0][0]\n    pts = [(r, c) for r in range(R) for c in range(C)\n           if g[r][c] == shapecol and (r, c) not in key_cells]\n    r0 = min(r for r, _ in pts)\n    r1 = max(r for r, _ in pts)\n    c0 = min(c for _, c in pts)\n    c1 = max(c for _, c in pts)\n    bh = r1 - r0 + 1\n    bw = c1 - c0 + 1\n    pset = set(pts)\n\n    out = []\n    for gr in range(H):\n        rr0 = r0 + gr * bh // H\n        rr1 = r0 + (gr + 1) * bh // H\n        row = []\n        for gc in range(W):\n            cc0 = c0 + gc * bw // W\n            cc1 = c0 + (gc + 1) * bw // W\n            filled = any((r, c) in pset for r in range(rr0, rr1) for c in range(cc0, cc1))\n            row.append(key[gr][gc] if filled else 0)\n        out.append(row)\n    return out\n",
+      "source": "claude_agent_diffsolve_R1",
+      "puzzle_file": "6ecd11f4_A2T.json",
+      "approach": "subdivide shape bbox into key-sized grid; keep key digit where subcell filled"
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {}
+}

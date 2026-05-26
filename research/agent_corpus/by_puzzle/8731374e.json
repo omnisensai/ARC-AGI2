@@ -1,0 +1,47 @@
+{
+  "puzzle_id": "8731374e",
+  "source": "arc1_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import Counter, deque\n\ndef solve(input_grid):\n    g = input_grid\n    h = len(g); w = len(g[0])\n    best = None\n    for col in set(v for row in g for v in row):\n        seen = [[False]*w for _ in range(h)]\n        for i in range(h):\n            for j in range(w):\n                if g[i][j]==col and not seen[i][j]:\n                    q=deque([(i,j)]); seen[i][j]=True; cells=[(i,j)]\n                    while q:\n                        a,b=q.popleft()\n                        for da,db in ((1,0),(-1,0),(0,1),(0,-1)):\n                            na,nb=a+da,b+db\n                            if 0<=na<h and 0<=nb<w and not seen[na][nb] and g[na][nb]==col:\n                                seen[na][nb]=True; q.append((na,nb)); cells.append((na,nb))\n                    if len(cells) < 6: continue\n                    r0=min(c[0] for c in cells); r1=max(c[0] for c in cells)\n                    c0=min(c[1] for c in cells); c1=max(c[1] for c in cells)\n                    area=(r1-r0+1)*(c1-c0+1)\n                    fill=len(cells)/area\n                    score = len(cells)\n                    if fill >= 0.6:\n                        if best is None or score > best[0]:\n                            best = (score, col, r0, r1, c0, c1)\n    _, fillcol, r0, r1, c0, c1 = best\n    def rowfrac(i): return sum(1 for j in range(c0,c1+1) if g[i][j]==fillcol)/(c1-c0+1)\n    def colfrac(j): return sum(1 for i in range(r0,r1+1) if g[i][j]==fillcol)/(r1-r0+1)\n    while r0<=r1 and rowfrac(r0)<0.5: r0+=1\n    while r1>=r0 and rowfrac(r1)<0.5: r1-=1\n    while c0<=c1 and colfrac(c0)<0.5: c0+=1\n    while c1>=c0 and colfrac(c1)<0.5: c1-=1\n    oh = r1-r0+1; ow = c1-c0+1\n    block = [[g[r0+i][c0+j] for j in range(ow)] for i in range(oh)]\n    marker_rows = set(); marker_cols = set(); mcolor = fillcol\n    for i in range(oh):\n        for j in range(ow):\n            if block[i][j] != fillcol:\n                marker_rows.add(i); marker_cols.add(j); mcolor = block[i][j]\n    out = [[fillcol]*ow for _ in range(oh)]\n    for i in range(oh):\n        for j in range(ow):\n            if i in marker_rows or j in marker_cols:\n                out[i][j] = mcolor\n    return out\n",
+      "source": "claude_agent_diffsolve_R1",
+      "puzzle_file": "8731374e_A1T.json",
+      "approach": "Find dense solid color rectangle in noise; extend each marker cell to full row+column lines."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {}
+}

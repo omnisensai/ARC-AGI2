@@ -242,3 +242,85 @@ source file (`phase1_prompts.py`) holding these exact bytes, wire
 `build_phase1_dataset.py` and `verify_records.py` to import from it, and add a
 check asserting this doc matches that file. Until then, these blocks are the
 authority.
+
+---
+
+# Phase 2 — code-solver  *(LOCKED)*
+
+**Teaches:** given the visible training pairs as INPUT+T evidence, write one
+Python `def solve(input_grid):` that implements the single rule shared by all
+pairs. This is a different target from Phase 1 (executable code, not a T or an
+output grid). Continues the substrate chain from the `same_rule` adapter.
+
+**Canonical source:** the exact bytes live inline as `SYSTEM` in
+`scripts/build_phase2_code_dataset.py`. This block must match it verbatim.
+
+**System prompt:**
+
+```
+Code Solver.
+You are given ARC training pairs. For each pair, T marks what changed from INPUT to OUTPUT (same-size: per-cell, '.'=unchanged, 0-9=new color; diff-size: an aggregate facts block). T is evidence of the rule, not the answer.
+Write one Python function `def solve(input_grid):` that implements the single rule shared by all pairs and returns the OUTPUT for any input of this puzzle.
+Return ONLY Python. Exactly one function `solve(input_grid)`. Return a non-empty rectangular list[list[int]] with cells 0-9. Deterministic; no I/O, no prints, no imports beyond math, collections, itertools, functools, copy, operator, statistics, heapq, bisect, re. If the output shape differs from the input, compute the output dimensions first and allocate a new grid; do not start from a copy.
+```
+
+**User prompt shape** — same-size puzzles use the compact INPUT+T encoding
+(OUTPUT is recoverable from INPUT+T, so it is dropped to save ~1/3 of tokens);
+diff-size puzzles keep the OUTPUT block (facts-T is lossy). Every user message
+ends on the trailing `Write def solve(input_grid):` cue.
+
+Compact (same-size), one or more pairs:
+```
+INPUT:
+<grid>
+
+T:
+<pixel grid>
+
+INPUT:
+<grid>
+
+T:
+<pixel grid>
+
+Write def solve(input_grid):
+```
+
+`pseudo_test` variant — appends a bare test input (no OUTPUT, no T) after the
+demonstration pairs, matching the competition inference shape:
+```
+INPUT:
+<grid>
+
+T:
+<pixel grid>
+
+TEST INPUT:
+<grid>
+
+Write def solve(input_grid):
+```
+
+**Assistant target:** the `solve()` function only.
+```
+def solve(input_grid):
+    ...
+    return out
+```
+
+**Three user-message variants** (system prompt + assistant target identical
+across all three; only the demonstrated pairs differ):
+
+| Variant | Mix | User message shows |
+|---|---|---|
+| `all_pairs` | 35% | every known pair as INPUT+T |
+| `subset_cycled` | 40% | a rotating subset of pairs |
+| `pseudo_test` | 25% | some pairs with T, then a bare `TEST INPUT:` (no T) |
+
+**Training/masking contract:** `type: chat_template`,
+`chat_template: tokenizer_default` (the model's own Qwen template),
+`train_on_inputs: false` — loss is computed **only on the assistant turn** (the
+`solve()` code plus the trailing `<|im_end|>` stop token). System + user are
+masked context. Records whose estimated token length exceeds the 8192 window
+are dropped at build time so trainer truncation can never eat the code target
+or its stop token.

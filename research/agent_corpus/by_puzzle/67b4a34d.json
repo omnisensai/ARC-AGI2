@@ -1,0 +1,47 @@
+{
+  "puzzle_id": "67b4a34d",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    g = input_grid\n    R, C = len(g), len(g[0])\n    cells = [(r, c) for r in range(R) for c in range(C) if g[r][c] == 3]\n    minr = min(r for r, _ in cells)\n    maxr = max(r for r, _ in cells)\n    minc = min(c for _, c in cells)\n    maxc = max(c for _, c in cells)\n    hole = set(cells)\n\n    syms = {\n        'h': lambda r, c: (r, C - 1 - c),\n        'v': lambda r, c: (R - 1 - r, c),\n        'r180': lambda r, c: (R - 1 - r, C - 1 - c),\n        't': lambda r, c: (c, r),\n        'at': lambda r, c: (C - 1 - c, R - 1 - r),\n    }\n\n    def consistent(fn):\n        # check symmetry holds on all non-hole cells\n        for r in range(R):\n            for c in range(C):\n                nr, nc = fn(r, c)\n                if not (0 <= nr < R and 0 <= nc < C):\n                    return False\n                if (r, c) in hole or (nr, nc) in hole:\n                    continue\n                if g[r][c] != g[nr][nc]:\n                    return False\n        return True\n\n    def recovers(fn):\n        for r in range(minr, maxr + 1):\n            for c in range(minc, maxc + 1):\n                nr, nc = fn(r, c)\n                if (nr, nc) in hole:\n                    return False\n        return True\n\n    chosen = None\n    for name, fn in syms.items():\n        if recovers(fn) and consistent(fn):\n            chosen = fn\n            break\n    if chosen is None:\n        for name, fn in syms.items():\n            if recovers(fn):\n                chosen = fn\n                break\n\n    out = []\n    for r in range(minr, maxr + 1):\n        row = []\n        for c in range(minc, maxc + 1):\n            nr, nc = chosen(r, c)\n            row.append(g[nr][nc])\n        out.append(row)\n    return out\n",
+      "source": "claude_agent_diffsolve_R1",
+      "puzzle_file": "67b4a34d_A1E.json",
+      "approach": "recover 3-block hole using a grid symmetry that maps it outside the hole"
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {}
+}

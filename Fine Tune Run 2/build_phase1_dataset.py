@@ -45,6 +45,24 @@ from phase1_prompts import PROMPT_BY_STAGE  # noqa: E402
 
 
 PUZZLES_DIR = ROOT / "puzzles"
+# Held-out puzzles (probe / api_eval / a2e_dev_hard) are quarantined out of
+# puzzles/ into puzzles_heldout/ so the Phase-2 diff-solver pipeline physically
+# cannot touch them; a2e_final_hard lives in puzzles_frozen/. Regeneration must
+# still find them, so resolve a puzzle file across all three dirs.
+PUZZLE_SEARCH_DIRS = [PUZZLES_DIR, ROOT / "puzzles_heldout", ROOT / "puzzles_frozen"]
+
+
+def resolve_puzzle_path(filename: str):
+    """Find a puzzle file across the working + quarantined puzzle dirs.
+    Returns the first existing path, or PUZZLES_DIR/filename if none (so the
+    caller's existence check still fires)."""
+    for d in PUZZLE_SEARCH_DIRS:
+        p = d / filename
+        if p.exists():
+            return p
+    return PUZZLES_DIR / filename
+
+
 SPLITS_FILE = ROOT / "splits" / "phase1_splits.json"
 PROBE_IDS_FILE = ROOT / "splits" / "phase1_probe_ids.txt"
 API_EVAL_IDS_FILE = ROOT / "splits" / "api_eval_ids.txt"
@@ -534,7 +552,7 @@ def generate_for_bucket(bucket_name, cluster_list, aug_cfg, stage_cfg,
     for cluster in cluster_list:
         rep_pid = cluster["rep_pid"]
         sources = cluster["sources"]
-        path = PUZZLES_DIR / cluster["files"][0]
+        path = resolve_puzzle_path(cluster["files"][0])
         if not path.exists():
             skip_counter["file_missing"] += 1
             continue
@@ -633,7 +651,7 @@ def generate_probe_records(probe_clusters, stage_cfg, master_seed):
     for cluster in probe_clusters:
         rep_pid = cluster["rep_pid"]
         sources = cluster["sources"]
-        path = PUZZLES_DIR / cluster["files"][0]
+        path = resolve_puzzle_path(cluster["files"][0])
         if not path.exists():
             skip_counter["file_missing"] += 1
             continue

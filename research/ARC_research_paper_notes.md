@@ -100,6 +100,27 @@ Three independent causes — important to separate, because they have different 
    low-information filler, so a content letter might get more deliberate
    emission — unproven, secondary.)
 
+4. **Counting/magnitude slips in the diff-size facts block** (Run 2 stage 2,
+   diff_lit, 3-epoch, held-out probe). On the aggregate facts-T (SIZE/BG/PALETTE/
+   ROWS/COLS/BBOX), held-out **cell-accuracy 95.7% but exact-match only 21%**.
+   Pulling the per-failure diffs: **every miss is a counting/arithmetic slip, none
+   structural.** The model nails SIZE, BG, field structure, dominant colors, and
+   mostly the ×/÷/Δ relation tags — but miscounts magnitudes (e.g. a color present
+   165× → it emits 169; a per-row non-bg count 8 → 9), and a wrong count flips the
+   derived relation tag. This is the **facts-block analogue of positional drift**:
+   the LLM grasps the transformation structure but cannot *count* exactly,
+   especially on large/dense grids (failures cluster on the biggest puzzles).
+   Notably the model's emitted facts can be internally inconsistent (count + tag
+   disagree), confirming it pattern-completes the format rather than computing.
+   **Why it's benign here:** facts-T is a lossy reasoning *scaffold*, not the
+   answer — code execution is the Phase-2 truth, so an off-by-4 count doesn't
+   break the solve. **Fix is NOT more SFT** (can't teach an LLM to count 165 cells
+   exactly, same ceiling as freehand rendering); the lever is to design the
+   substrate around what the model gets right (relations/structure) and
+   de-emphasize raw exact counts. General lesson: **a substrate that asks the
+   model to reproduce exact counts is asking for its single weakest skill** —
+   prefer relational/structural facts the model can produce reliably.
+
 ---
 
 ## 5. Measurement insights (these matter for any ARC SFT paper)

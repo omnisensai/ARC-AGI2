@@ -1,0 +1,47 @@
+{
+  "puzzle_id": "469497ad",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    g = input_grid\n    # content = top-left 4x4\n    content = [[g[r][c] for c in range(4)] for r in range(4)]\n    lastcol = [g[r][4] for r in range(5)]\n    lastrow = [g[4][c] for c in range(5)]\n    scale = len(set(lastcol)) + 1\n    M = 4 * scale\n    N = 5 * scale\n    out = [[0] * N for _ in range(N)]\n\n    # 1. shape block (non-zero cells in content, scaled)\n    shape_color = None\n    cells = [(r, c) for r in range(4) for c in range(4) if content[r][c] != 0]\n    if cells:\n        shape_color = content[cells[0][0]][cells[0][1]]\n        for (r, c) in cells:\n            for a in range(scale):\n                for b in range(scale):\n                    out[r * scale + a][c * scale + b] = content[r][c]\n        rs = [r for r, c in cells]\n        cs = [c for r, c in cells]\n        r0, r1 = min(rs), max(rs)\n        c0, c1 = min(cs), max(cs)\n        sr0 = r0 * scale\n        sr1 = (r1 + 1) * scale - 1\n        sc0 = c0 * scale\n        sc1 = (c1 + 1) * scale - 1\n        corners = [(sr0, sc0, -1, -1), (sr0, sc1, -1, 1),\n                   (sr1, sc0, 1, -1), (sr1, sc1, 1, 1)]\n        for (cr, cc, dr, dc) in corners:\n            for k in range(1, scale + 1):\n                nr = cr + dr * k\n                nc = cc + dc * k\n                if 0 <= nr < M and 0 <= nc < M:\n                    out[nr][nc] = 2\n\n    # 2. border bands\n    for i in range(4):\n        col = lastcol[i]\n        for a in range(scale):\n            for b in range(scale):\n                out[i * scale + a][M + b] = col\n    for j in range(4):\n        col = lastrow[j]\n        for a in range(scale):\n            for b in range(scale):\n                out[M + a][j * scale + b] = col\n    # corner\n    corner_color = lastcol[4]\n    for a in range(scale):\n        for b in range(scale):\n            out[M + a][M + b] = corner_color\n    return out\n",
+      "source": "claude_agent_diffsolve_R1",
+      "puzzle_file": "469497ad_A2T.json",
+      "approach": "scale=distinct(lastcol)+1; scale shape block, diagonal 2-beams from corners, border bands from last row/col."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {}
+}

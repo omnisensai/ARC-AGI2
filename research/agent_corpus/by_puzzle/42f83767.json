@@ -1,0 +1,54 @@
+{
+  "puzzle_id": "42f83767",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "def solve(input_grid):\n    g = input_grid\n    h = len(g)\n    w = len(g[0])\n\n    # 1. Determine glyph size gs: the stamp uses color 5. Find rows/cols containing 5.\n    rows5 = [r for r in range(h) if 5 in g[r]]\n    cols5 = [c for c in range(w) if any(g[r][c] == 5 for r in range(h))]\n    # stamp occupies top band rows rows5\n    r_top = min(rows5)\n    r_bot = max(rows5)\n    gs = r_bot - r_top + 1\n\n    # stamp columns: contiguous groups of cols (each glyph gs wide, separated by a col)\n    c_start = min(cols5)\n    c_end = max(cols5)\n    # glyphs: split cols5 into groups separated by gaps\n    groups = []\n    cur = [cols5[0]]\n    for c in cols5[1:]:\n        if c == cur[-1] + 1:\n            cur.append(c)\n        else:\n            groups.append(cur)\n            cur = [c]\n    groups.append(cur)\n    glyphs = []\n    for grp in groups:\n        gc0 = grp[0]\n        gc1 = grp[-1]\n        gw = gc1 - gc0 + 1\n        glyph = [[1 if g[r_top + i][gc0 + j] == 5 else 0 for j in range(gw)] for i in range(gs)]\n        glyphs.append(glyph)\n\n    # 2. Legend: leftmost color bars in the top rows (left of stamp).\n    # legend colors appear in row0 to the left of c_start.\n    legend = []\n    seen_run = []\n    prev = 0\n    for c in range(0, c_start):\n        v = g[0][c]\n        if v != 0:\n            if not legend or legend[-1] != v:\n                legend.append(v)\n    # legend may have repeated adjacent; collapse handled above\n    # but adjacent different colors: collapse consecutive duplicates only\n    legend2 = []\n    for c in range(0, c_start):\n        v = g[0][c]\n        if v != 0 and (not legend2 or legend2[-1] != v):\n            legend2.append(v)\n    legend = legend2\n\n    # 3. Layout grid: the block of cells below the top band (rows after the stamp/blank).\n    # find rows that are below r_bot and contain nonzero\n    layout_rows = [r for r in range(r_bot + 1, h) if any(g[r][c] != 0 for c in range(w))]\n    lr0 = min(layout_rows)\n    lr1 = max(layout_rows)\n    layout_cols = [c for c in range(w) if any(g[r][c] != 0 for r in range(lr0, lr1 + 1))]\n    lc0 = min(layout_cols)\n    lc1 = max(layout_cols)\n    layout = [[g[r][c] for c in range(lc0, lc1 + 1)] for r in range(lr0, lr1 + 1)]\n\n    L = len(layout)\n    Lw = len(layout[0])\n    gw = len(glyphs[0][0])\n    out = [[0] * (Lw * gw) for _ in range(L * gs)]\n    for i in range(L):\n        for j in range(Lw):\n            v = layout[i][j]\n            if v == 0:\n                continue\n            gi = legend.index(v) if v in legend else None\n            if gi is None or gi >= len(glyphs):\n                continue\n            glyph = glyphs[gi]\n            for a in range(gs):\n                for b in range(gw):\n                    if glyph[a][b]:\n                        out[i * gs + a][j * gw + b] = v\n    return out\n",
+      "source": "claude_agent_diffsolve_R1",
+      "puzzle_file": "42f83767_A2T.json",
+      "approach": "Legend colors map to stamp glyphs; expand layout grid cells to colored glyphs."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {}
+}

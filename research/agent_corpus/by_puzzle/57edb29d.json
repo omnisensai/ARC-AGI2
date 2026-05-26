@@ -1,0 +1,47 @@
+{
+  "puzzle_id": "57edb29d",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import deque, Counter\ndef solve(input_grid):\n    g=input_grid; H=len(g); W=len(g[0])\n    seen=[[False]*W for _ in range(H)]\n    boxes=[]\n    for r in range(H):\n        for c in range(W):\n            if g[r][c]!=4 and not seen[r][c]:\n                q=deque([(r,c)]);seen[r][c]=True;pts=[]\n                while q:\n                    y,x=q.popleft();pts.append((y,x))\n                    for dy,dx in((1,0),(-1,0),(0,1),(0,-1)):\n                        ny,nx=y+dy,x+dx\n                        if 0<=ny<H and 0<=nx<W and g[ny][nx]!=4 and not seen[ny][nx]:\n                            seen[ny][nx]=True;q.append((ny,nx))\n                boxes.append(pts)\n    info=[]\n    for pts in boxes:\n        cnt=Counter(g[y][x] for y,x in pts)\n        base=cnt.most_common(1)[0][0]\n        rs=[a for a,b in pts];cs=[b for a,b in pts]\n        r0,r1,c0,c1=min(rs),max(rs),min(cs),max(cs)\n        markers={k for k in cnt if k!=base}\n        info.append((pts,base,r0,r1,c0,c1,markers))\n    target=next(b for b in info if not b[6])\n    sources=[b for b in info if b[6]]\n    mcolor=list(sources[0][6])[0]\n    dset=set()\n    for spts,sbase,sr0,sr1,sc0,sc1,smk in sources:\n        sh=sr1-sr0+1; sw=sc1-sc0+1\n        for (y,x) in spts:\n            if g[y][x]==mcolor:\n                ry=y-sr0; rx=x-sc0\n                dset.add((min(ry,sh-1-ry), min(rx,sw-1-rx)))\n    tpts,tbase,tr0,tr1,tc0,tc1,_=target\n    th=tr1-tr0+1; tw=tc1-tc0+1\n    out=[[tbase]*tw for _ in range(th)]\n    for ry in range(th):\n        for rx in range(tw):\n            if (min(ry,th-1-ry),min(rx,tw-1-rx)) in dset:\n                out[ry][rx]=mcolor\n    return out\n",
+      "source": "claude_agent_diffsolve_R1",
+      "puzzle_file": "57edb29d_A2T.json",
+      "approach": "Find empty (markerless) box; reconstruct marker pattern via edge-distance signature unioned over all source boxes."
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {}
+}

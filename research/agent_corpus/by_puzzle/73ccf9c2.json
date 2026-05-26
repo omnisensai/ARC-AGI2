@@ -1,0 +1,47 @@
+{
+  "puzzle_id": "73ccf9c2",
+  "source": "arc1_eval",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "from collections import deque\n\n\ndef solve(input_grid):\n    g = input_grid\n    R, C = len(g), len(g[0])\n    seen = [[0] * C for _ in range(R)]\n    comps = []\n    for r in range(R):\n        for c in range(C):\n            if g[r][c] and not seen[r][c]:\n                col = g[r][c]\n                q = deque([(r, c)])\n                seen[r][c] = 1\n                cells = [(r, c)]\n                while q:\n                    x, y = q.popleft()\n                    for dx in (-1, 0, 1):\n                        for dy in (-1, 0, 1):\n                            nx, ny = x + dx, y + dy\n                            if 0 <= nx < R and 0 <= ny < C and g[nx][ny] == col and not seen[nx][ny]:\n                                seen[nx][ny] = 1\n                                q.append((nx, ny))\n                                cells.append((nx, ny))\n                comps.append((col, cells))\n\n    def build(col, cells):\n        cs = set(cells)\n        r0 = min(r for r, _ in cells)\n        r1 = max(r for r, _ in cells)\n        c0 = min(c for _, c in cells)\n        c1 = max(c for _, c in cells)\n        return [[col if (r, c) in cs else 0\n                 for c in range(c0, c1 + 1)] for r in range(r0, r1 + 1)]\n\n    def hsym(m):\n        return m == [row[::-1] for row in m]\n\n    def vsym(m):\n        return m == m[::-1]\n\n    # pick the shape that lacks both horizontal and vertical mirror symmetry\n    for col, cells in comps:\n        m = build(col, cells)\n        if not hsym(m) and not vsym(m):\n            return m\n    # fallback: lacks horizontal symmetry\n    for col, cells in comps:\n        m = build(col, cells)\n        if not hsym(m):\n            return m\n    return build(*comps[0])\n",
+      "source": "claude_agent_diffsolve_R1",
+      "puzzle_file": "73ccf9c2_A1E.json",
+      "approach": "pick the shape lacking mirror symmetry, output its bbox"
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {}
+}

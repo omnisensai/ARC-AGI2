@@ -128,13 +128,19 @@ def grid_diagnostics(generated: str, target: str):
                              '.' = unchanged, '0' = changed-to-black; the model
                              conflates them.
 
-    Returns (changed_cell_recall, zero_dot_confusion); either may be None when
-    not applicable (e.g. aggregate facts block, or no such cells)."""
+    Also returns changed_cell_precision — of cells the MODEL marked changed
+    (a digit), how many were correct. Recall catches dropped edits; precision
+    catches spurious/hallucinated edits.
+
+    Returns (changed_cell_recall, changed_cell_precision, zero_dot_confusion);
+    any may be None when not applicable (aggregate facts block, or no such
+    cells)."""
     if target[:6].startswith("SIZE "):
-        return None, None
+        return None, None, None
     g_rows = generated.strip().split("\n")
     t_rows = target.strip().split("\n")
-    changed_total = changed_hit = 0
+    changed_total = changed_hit = 0      # recall: target's changed cells
+    model_changed = 0                    # precision denom: model's changed cells
     confusable = confused = 0
     for ri, trow in enumerate(t_rows):
         grow = g_rows[ri] if ri < len(g_rows) else ""
@@ -144,13 +150,16 @@ def grid_diagnostics(generated: str, target: str):
                 changed_total += 1
                 if gch == tch:
                     changed_hit += 1
+            if gch.isdigit():
+                model_changed += 1
             if tch in ".0":
                 confusable += 1
                 if (tch == "." and gch == "0") or (tch == "0" and gch == "."):
                     confused += 1
-    cr = changed_hit / changed_total if changed_total else None
+    cr = changed_hit / changed_total if changed_total else None      # recall
+    cp = changed_hit / model_changed if model_changed else None      # precision
     zdc = confused / confusable if confusable else None
-    return cr, zdc
+    return cr, cp, zdc
 
 
 def grid_size_bucket(target: str) -> str:
@@ -219,10 +228,19 @@ def main():
     results_by_format = defaultdict(list)
     cell_by_format = defaultdict(list)
     chgrecall_by_format = defaultdict(list)
+    chgprec_by_format = defaultdict(list)
     zerodot_by_format = defaultdict(list)
+    # Per grid-size bucket (small/large/aggregate) — full metric set.
+    exact_by_bucket = defaultdict(list)
     cellacc_by_bucket = defaultdict(list)
     chgrecall_by_bucket = defaultdict(list)
+    chgprec_by_bucket = defaultdict(list)
+    zerodot_by_bucket = defaultdict(list)
     failures = []
+    # Full per-record log (EVERY record, not just misses) — for close-miss
+    # analysis ("almost right, needs more steps?"). Written first so it survives
+    # even if a later write fails.
+    per_record = []
 
     t0 = time.time()
     for i, record in enumerate(records):
@@ -249,15 +267,36 @@ def main():
         results_by_format[key].append(ok)
         _ca = cell_accuracy(generated, target)
         cell_by_format[key].append(_ca)
-        _cr, _zdc = grid_diagnostics(generated, target)
+        _cr, _cp, _zdc = grid_diagnostics(generated, target)
         if _cr is not None:
             chgrecall_by_format[key].append(_cr)
+        if _cp is not None:
+            chgprec_by_format[key].append(_cp)
         if _zdc is not None:
             zerodot_by_format[key].append(_zdc)
         _bucket = grid_size_bucket(target)
+        exact_by_bucket[_bucket].append(1.0 if ok else 0.0)
         cellacc_by_bucket[_bucket].append(_ca)
         if _cr is not None:
             chgrecall_by_bucket[_bucket].append(_cr)
+        if _cp is not None:
+            chgprec_by_bucket[_bucket].append(_cp)
+        if _zdc is not None:
+            zerodot_by_bucket[_bucket].append(_zdc)
+
+        per_record.append({
+            "puzzle_id":   record["provenance"].get("puzzle_id"),
+            "format":      fmt,
+            "size_kind":   size_kind,
+            "bucket":      _bucket,
+            "exact":       ok,
+            "cell_accuracy":          _ca,
+            "changed_cell_recall":    _cr,
+            "changed_cell_precision": _cp,
+            "zero_dot_confusion":     _zdc,
+            "expected":    target,
+            "got":         generated,
+        })
 
         if not ok:
             failures.append({
@@ -289,6 +328,8 @@ def main():
         cell_acc = sum(cells) / len(cells) if cells else 0.0
         chg = chgrecall_by_format[key]
         chg_recall = sum(chg) / len(chg) if chg else None
+        chgp = chgprec_by_format[key]
+        chg_prec = sum(chgp) / len(chgp) if chgp else None
         zd = zerodot_by_format[key]
         zero_dot = sum(zd) / len(zd) if zd else None
         overall_correct += c
@@ -299,6 +340,7 @@ def main():
             "n": n, "correct": c, "exact_match": acc,
             "cell_accuracy": cell_acc,
             "changed_cell_recall": chg_recall,
+            "changed_cell_precision": chg_prec,
             "zero_dot_confusion": zero_dot,
             "threshold": threshold, "passed": passed,
         }
@@ -322,7 +364,7 @@ def main():
     def _pct(x):
         return f"{x*100:5.1f}%" if x is not None else "   — "
     print(f"{'format|size':40s} {'n':>5s} {'exact':>7s} {'cell%':>6s} "
-          f"{'chgR%':>6s} {'.0cf%':>6s} {'pass':>5s}")
+          f"{'chgR%':>6s} {'chgP%':>6s} {'.0cf%':>6s} {'pass':>5s}")
     for key, oks in sorted(results_by_format.items()):
         fmt, size_kind = key
         n = len(oks)
@@ -332,6 +374,8 @@ def main():
         cell_acc = sum(cells) / len(cells) if cells else 0.0
         chg = chgrecall_by_format[key]
         chg_recall = sum(chg) / len(chg) if chg else None
+        chgp = chgprec_by_format[key]
+        chg_prec = sum(chgp) / len(chgp) if chgp else None
         zd = zerodot_by_format[key]
         zero_dot = sum(zd) / len(zd) if zd else None
         threshold = THRESHOLDS.get(key) or THRESHOLDS.get((fmt, "any"))
@@ -339,28 +383,40 @@ def main():
         if threshold is not None:
             pass_str = "PASS" if acc >= threshold else "FAIL"
         print(f"{fmt+'|'+size_kind:40s} {n:5d} {acc*100:6.1f}% {_pct(cell_acc)} "
-              f"{_pct(chg_recall)} {_pct(zero_dot)} {pass_str:>5s}")
-    print("(chgR% = changed-cell recall, higher better; .0cf% = .<->0 confusion, lower better)")
+              f"{_pct(chg_recall)} {_pct(chg_prec)} {_pct(zero_dot)} {pass_str:>5s}")
+    print("(chgR% = changed-cell recall, chgP% = changed-cell precision, higher better; "
+          ".0cf% = .<->0 confusion, lower better)")
     print()
 
     # By grid size — separates UNDERSTANDING (small grids the model can render)
     # from rendering drift (large grids; handled by the code path, not a Phase-1
     # failure). small high + large low  =>  understanding is fine, move on.
     report["summary"]["by_grid_size"] = {}
-    print(f"{'grid size':18s} {'n':>5s} {'cell%':>7s} {'chgR%':>7s}")
+    print(f"{'grid size':18s} {'n':>5s} {'exact':>7s} {'cell%':>6s} "
+          f"{'chgR%':>6s} {'chgP%':>6s} {'.0cf%':>6s}")
     for b in ("small(<=10x10)", "large(>10x10)", "aggregate"):
         ca = cellacc_by_bucket.get(b, [])
         if not ca:
             continue
+        ex = exact_by_bucket.get(b, [])
         cr = chgrecall_by_bucket.get(b, [])
+        cp = chgprec_by_bucket.get(b, [])
+        zd = zerodot_by_bucket.get(b, [])
+        exact_m = (sum(ex) / len(ex)) if ex else None
         cell_m = sum(ca) / len(ca)
         cr_m = (sum(cr) / len(cr)) if cr else None
+        cp_m = (sum(cp) / len(cp)) if cp else None
+        zd_m = (sum(zd) / len(zd)) if zd else None
         report["summary"]["by_grid_size"][b] = {
-            "n": len(ca), "cell_accuracy": cell_m,
+            "n": len(ca),
+            "exact_match": exact_m,
+            "cell_accuracy": cell_m,
             "changed_cell_recall": cr_m,
+            "changed_cell_precision": cp_m,
+            "zero_dot_confusion": zd_m,
         }
-        cr_s = f"{cr_m*100:6.1f}%" if cr_m is not None else "   — "
-        print(f"{b:18s} {len(ca):5d} {cell_m*100:6.1f}% {cr_s}")
+        print(f"{b:18s} {len(ca):5d} {_pct(exact_m)} {_pct(cell_m)} "
+              f"{_pct(cr_m)} {_pct(cp_m)} {_pct(zd_m)}")
     print("(small-grid cell% ~ UNDERSTANDING gate; large-grid drift -> code's job)")
     print()
 
@@ -372,14 +428,22 @@ def main():
             failed = [k for k, v in pass_fail.items() if v is False]
             print(f"Verdict: FAIL on {len(failed)} format(s): {failed}")
 
-    # Persist.
+    # Persist. Write the full per-record log FIRST — it's the analysis artifact
+    # ("how close was each, what exactly did it get wrong"), and writing it
+    # before the report means a later failure can't cost us the per-line data
+    # (last time the report write crashed on disk-quota and we lost everything).
+    records_path = args.probe.with_name(args.probe.stem + "_probe_records.jsonl")
+    with records_path.open("w") as f:
+        for rec in per_record:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     report_path = args.probe.with_name(args.probe.stem + "_probe_report.json")
     failures_path = args.probe.with_name(args.probe.stem + "_probe_failures.jsonl")
     report_path.write_text(json.dumps(report, indent=2))
     with failures_path.open("w") as f:
         for fail in failures:
             f.write(json.dumps(fail, ensure_ascii=False) + "\n")
-    print(f"\nWrote {report_path.name} and {failures_path.name} "
+    print(f"\nWrote {records_path.name} ({len(per_record)} records), "
+          f"{report_path.name}, and {failures_path.name} "
           f"({len(failures)} failures)")
 
 

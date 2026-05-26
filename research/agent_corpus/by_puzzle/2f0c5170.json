@@ -1,0 +1,47 @@
+{
+  "puzzle_id": "2f0c5170",
+  "source": "arc2_train",
+  "consensus": null,
+  "right_codes": [
+    {
+      "bucket": "correct",
+      "exec_error": null,
+      "pairs": [
+        {
+          "type": "train",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 1,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "train",
+          "idx": 2,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        },
+        {
+          "type": "test",
+          "idx": 0,
+          "passed": true,
+          "cell_diff": 0,
+          "error": null
+        }
+      ],
+      "code": "import collections\ndef solve(input_grid):\n    g = input_grid\n    H, W = len(g), len(g[0])\n    bg = collections.Counter(v for row in g for v in row).most_common(1)[0][0]\n    seen = [[False]*W for _ in range(H)]\n    comps = []\n    for r in range(H):\n        for c in range(W):\n            if g[r][c] != bg and not seen[r][c]:\n                st = [(r, c)]; seen[r][c] = True; comp = [(r, c)]\n                while st:\n                    a, b = st.pop()\n                    for da in (-1, 0, 1):\n                        for db in (-1, 0, 1):\n                            x, y = a+da, b+db\n                            if 0 <= x < H and 0 <= y < W and g[x][y] != bg and not seen[x][y]:\n                                seen[x][y] = True; st.append((x, y)); comp.append((x, y))\n                comps.append(comp)\n    boxes = []\n    for comp in comps:\n        rs = [a for a, b in comp]; cs = [b for a, b in comp]\n        r0, r1, c0, c1 = min(rs), max(rs), min(cs), max(cs)\n        content = sum(1 for a, b in comp if g[a][b] != 0)\n        boxes.append((r0, r1, c0, c1, content, comp))\n    marker = min(boxes, key=lambda b: b[4])\n    pattern = max(boxes, key=lambda b: b[4])\n    mh = marker[1]-marker[0]+1; mw = marker[3]-marker[2]+1\n    # marker dot: the single nonzero cell\n    dot = [(a, b) for a, b in marker[5] if g[a][b] != 0][0]\n    mdr, mdc = dot[0]-marker[0], dot[1]-marker[2]\n    # pattern box\n    pr0, pc0 = pattern[0], pattern[2]\n    ph = pattern[1]-pattern[0]+1; pw = pattern[3]-pattern[2]+1\n    # special cell in pattern = minority nonzero color\n    nz = [g[a][b] for a, b in pattern[5] if g[a][b] != 0]\n    cnt = collections.Counter(nz)\n    special = min(cnt, key=lambda k: cnt[k])\n    spt = [(a, b) for a, b in pattern[5] if g[a][b] == special][0]\n    spr, spc = spt[0]-pr0, spt[1]-pc0\n    pgrid = [[0]*pw for _ in range(ph)]\n    for a, b in pattern[5]:\n        if g[a][b] != 0:\n            pgrid[a-pr0][b-pc0] = g[a][b]\n    out = [[0]*mw for _ in range(mh)]\n    off_r = mdr - spr; off_c = mdc - spc\n    for pr in range(ph):\n        for pc in range(pw):\n            orr = pr + off_r; occ = pc + off_c\n            if 0 <= orr < mh and 0 <= occ < mw:\n                out[orr][occ] = pgrid[pr][pc]\n    return out\n",
+      "source": "claude_agent_diffsolve_R1",
+      "puzzle_file": "2f0c5170_A2T.json",
+      "approach": "place detailed pattern into marker box, aligning its special cell to the marker dot"
+    }
+  ],
+  "wrong_codes": [],
+  "judging": {}
+}

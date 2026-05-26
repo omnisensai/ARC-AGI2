@@ -274,3 +274,277 @@ do NOT do it pre-emptively.** Reasons:
 - **Fresh-pod setup is now ONE command** (`bash "Fine Tune Run 2/train_preflight.sh"`)
   — ~15–25 min of *waiting* (axolotl install + flash-attn compile + Qwen
   download), **zero debugging**. The 2-hr saga was bug-discovery; that's done.
+
+---
+
+## RESOLUTION — 3-epoch same_lit run + held-out probe (2026-05-24)
+
+The more-epochs hypothesis is **confirmed**. Re-ran same_lit at 3 epochs / 444
+steps (vs the 1-epoch / ~37-step under-trained run). Trained from base Qwen,
+flash-attn, grad_accum 4. Run was SIGKILLed during the checkpoint-400 save by a
+**disk-quota-exceeded** condition (the provisioned Volume quota filled; the
+optimizer.pt truncated at 335/646 MB, no traceback). The adapter weights for
+checkpoint-400 (`adapter_model.safetensors`, 323 MB) were already flushed and
+are intact — checkpoint-400 is epoch 2.69, fully usable for inference. Did NOT
+reach the final step-444 save; checkpoint-300 (epoch 2.0) is the clean
+resume point.
+
+### In-flight eval_loss (leaky 2% carve — convergence signal, not generalization)
+    step 100 (ep 0.67): eval_loss 0.0363  ppl 1.037
+    step 200 (ep 1.34): eval_loss 0.0104  ppl 1.010
+    step 300 (ep 2.01): eval_loss 0.00429 ppl 1.004
+    step 400 (ep 2.69): eval_loss 0.00388 ppl 1.004   <- plateaued 300->400
+Baseline (step 0, untrained-this-stage): eval_loss 0.5987 ppl 1.82.
+
+### Held-out probe — checkpoint-400, 80 records, greedy, max_new_tokens 1500
+(run_probe.py; whole puzzles never trained, no augmentation = the honest metric)
+
+    Overall:  exact 97.5%  |  cell 99.9%   (78/80 exact)
+
+    format|size                     n   exact   cell%  chgR%  chgP%  .0cf%  pass
+    pair_to_substrate|same_size    40  100.0%  100.0% 100.0% 100.0%   0.0%  PASS
+    substrate_to_output|same_size  40   95.0%   99.8%  99.8%  99.8%   0.0%  PASS
+
+    grid size            n   exact   cell%  chgR%  chgP%  .0cf%
+    small(<=10x10)      36  100.0%  100.0% 100.0% 100.0%   0.0%
+    large(>10x10)       44   95.5%   99.9%  99.9%  99.9%   0.0%
+
+    Verdict: ALL THRESHOLDS PASSED.
+
+### Reading
+- **Memorization fear dismissed.** Held-out (no-augmentation, unseen puzzles)
+  generalization is ~perfect. It learned the skill, not a lookup table.
+- **Small-grid understanding gate = 100%** (exact + cell + recall). This is the
+  verdict metric per the rendering-ceiling framing.
+- **`.0cf` = 0.0%** across the board. The `.`-vs-`0` confusion that dominated the
+  1-epoch run is GONE. Confirms it was an under-training artifact, not a format
+  problem. => `.`->`K` change is NOT needed. Pending decision B is CLOSED (no K).
+- The under-training diagnosis (packing collapsing 1 epoch to ~37 steps) was
+  correct; 444 steps fixed both the loss and the held-out quality.
+- eval_loss plateaued 300->400, and held-out at ckpt-400 is ~ceiling, so ~2-2.7
+  epochs is sufficient for a literacy stage. Calibration for rule stages: start
+  at 2-3 epochs, watch held-out, don't over-bake.
+
+### Root-cause carry-forward: DISK QUOTA (not OOM)
+The kill was `[Errno 122] Disk quota exceeded`, NOT system-RAM OOM. The Volume's
+provisioned quota (separate from the 334T MooseFS cluster `df` reports) filled
+from accumulated checkpoints + HF cache. **This WILL kill the longer rule stages
+at their first checkpoint unless space is freed first.** Before diff_lit:
+free quota (delete superseded checkpoint-100/200 and the truncated
+checkpoint-400/optimizer.pt; consider lowering save_total_limit), and back up
+checkpoint-400's adapter (Run-1 LoRA-loss trauma). Use a NETWORK volume / larger
+quota next time.
+
+### Next
+1. Free pod disk quota (REQUIRED — else diff_lit dies the same way).
+2. Back up checkpoint-400 adapter.
+3. Wire checkpoint-400 as the diff_lit input (top-level outputs/phase1_same_lit
+   has only the 07:59 pre-save config, NOT the trained weights — point
+   diff_lit's lora_model_dir at checkpoint-400, or copy the adapter up).
+4. Launch diff_lit (stage 2).
+
+---
+
+## HARDENED LESSON — Stop/Pause is unreliable; back up per stage (2026-05-24)
+
+Confirmed TWICE in one session: a *stopped* pod refused to restart ("GPU no
+longer available" / "not enough free GPUs") because a pod (non-network) volume
+is tied to one host, and that host's A100 gets taken while you're stopped. So:
+
+- **Do NOT rely on Stop/Pause to save money mid-run.** Treat stopping as
+  "probably losing this pod."
+- **Durable safety = HF backup after EACH stage** (save_adapter_to_hf.sh,
+  byte-verified), NOT stop/resume. If the pod dies, restore the last completed
+  stage from HF onto a fresh pod; you lose only the in-progress stage.
+- **Operating rule: keep the pod running continuously through the whole chain**
+  (diff_lit -> same_rule -> diff_rule -> mixed), running stages back-to-back.
+- **Next-run fix: use a NETWORK volume** (host-independent; attaches to any free
+  GPU, so stop/restart actually works).
+
+Also discovered the disk-quota saga's real cause: TWO pods existed — work landed
+on a **20 GB** pod (constant quota kills) while an empty **100 GB** pod sat
+unused. Moving the run to a 100 GB box; restoring stage 1 from HF (the local
+same_lit top-level save never completed). Cost of a wrong-sized/duplicate pod:
+hours. Verify volume size + that there's only ONE pod before training.
+
+---
+
+## GUARDRAIL — protect passed LoRAs (immutable artifacts)
+
+phase1_same_lit is a precious passed artifact (97.5% exact / 99.9% cell / 0%
+dot-zero confusion, held-out parent-level probe, saved on HF). Rule for the rest
+of the run:
+
+- **Treat each passed LoRA as immutable.** Continue FROM it; never train INTO
+  its dir or overwrite its HF folder.
+- Each stage: own output_dir (outputs/phase1_<stage>), own HF subfolder
+  (arc-lora-run2/phase1_<stage>); chain via lora_model_dir from the prior stage.
+- Restoring an adapter from HF is read-only (hf download) — cannot overwrite it.
+- **train -> probe (held-out) -> back up to HF -> only then continue.** Don't
+  stack stages blindly; promote a stage only after its probe passes.
+- Watch optimizer STEPS, not just epochs (the good same_lit run was ~400 steps).
+- Disk: save_only_model + save_total_limit small (the crash was disk quota on a
+  20GB volume, not model failure). Now on a 200GB container disk.
+- If ever re-training a passed stage, version it (e.g. phase1_same_lit_rerun_v2)
+  — do NOT replace the known-good adapter in place.
+
+---
+
+## STAGE 2 — diff_lit training stats (2026-05-24)
+
+Diff-size literacy (facts-T alphabet: SIZE/BG/PALETTE/ROWS/COLS/BBOX). Chained
+from same_lit (restored from HF into outputs/phase1_same_lit). Ran on a fresh
+200GB pod, container disk /root (the 200GB volume was a glitched RunPod mount —
+reported 100% full while empty; preflight auto-fell back to /root).
+
+Config: seq_len 8192, micro_batch 2, grad_accum 4, 3 epochs, lr 1.2e-4 cosine,
+save_only_model, save_total_limit 2, flash-attn. 7394 train records (max input
+2217 tokens, ZERO dropped at 8192 — no truncation).
+
+### eval_loss curve (leaky 2% carve — convergence signal, not generalization)
+    step 100 (ep 1.01):  eval_loss 0.1479  ppl 1.159
+    step 200 (ep 2.02):  eval_loss 0.0862  ppl 1.090
+    step 294 (ep 2.98):  eval_loss 0.0700  ppl 1.073
+    final train_loss 0.1555 | train_runtime 5879s (~98 min) | 294 steps | ~20s/it
+
+### Reading
+- Converges cleanly but to a HIGHER floor than same_lit (0.07 vs 0.0038). This
+  is EXPECTED, not weakness: facts-T is NOT a 1:1 lossless copy-with-edits like
+  pixel-T. It requires COMPUTE-and-summarize (counts, ratios via relate(),
+  per-row/col dominants, bounding boxes) over the grid — many independent fields,
+  each must be exactly right. Counting/aggregation is intrinsically harder for an
+  LLM than copying a changed cell, so the loss floor is naturally higher. The two
+  numbers aren't comparable (different target type).
+- Pre-train data audit: recomputed the facts block from the raw INPUT/OUTPUT for
+  ALL 7394 train + 52 probe records and compared to the trained label — 100%
+  match, ZERO mismatches. The facts labels are correct (no corruption); the
+  encoder logic was also hand-verified field-by-field on a worked example.
+
+### Backup
+HF: Omnisensai/arc-lora-run2/diff_lit (byte-verified, 323,014,168 bytes).
+(NB folder naming: stage 1 is phase1_same_lit, stage 2 is diff_lit — passed
+different stage-name args; harmless.)
+
+### Held-out probe (run_probe.py, phase1_diff_lit_probe.jsonl, 52 records)
+
+    Overall:  exact 21.2%  |  cell 95.7%   (11/52 exact)
+    format|size                    n   exact   cell%   pass
+    pair_to_substrate|diff_size   52   21.2%   95.7%   FAIL(threshold artifact)
+    (all records bucket = "aggregate"; chgR/chgP/.0cf are N/A for facts blocks)
+
+### Reading — the "almost correct" signature, and it's BENIGN
+Low exact (21%) + high cell (95.7%) = strict-cliff vs slope. Pulled per-failure
+expected-vs-got line diffs (41 failures). **Every error is a COUNTING/ARITHMETIC
+slip. Not one is structural.** Concrete:
+  - PALETTE `0 4 -> 24 ×6` -> got `0 4 -> 28 Δ+24`  (input count right; MIScounted
+    output 24->28, so relation tag flipped)
+  - PALETTE `0 91 -> 0 dropped` -> `0 89 -> 0 dropped`  (off by 2; "dropped" right)
+  - PALETTE `4 15 -> 60 ×4` -> `4 14 -> 56 ×4`  (counts off by 1, ×4 STILL right)
+  - ROWS/COLS `...4 8 4...` -> `...4 9 4...`  (one per-row non-bg count off by 1)
+
+NEVER wrong: SIZE, BG, field structure, dominant colors, mostly the relations.
+The model learned the transformation STRUCTURE perfectly; it just can't COUNT
+exactly (165 cells -> says 169). Facts-block analogue of same_lit's positional
+drift: comprehension present, LLM-can't-count limit bites on magnitudes. Failures
+cluster on big/dense grids — ONE puzzle (2697da3f) = 4 of 6 sampled failures.
+
+### Verdict: diff_lit PASSES on the understanding interpretation. Proceed.
+- The 0.90 EXACT-MATCH threshold is the WRONG gate for facts blocks (set for the
+  pixel substrate). cell 95.7% + all-structural-correct is the real result;
+  "FAIL" is a threshold artifact, not a comprehension gap.
+- facts-T is a LOSSY scaffold, not the answer. "165 vs 169" doesn't break
+  reasoning about the transform; in Phase 2 CODE EXECUTION is the truth, not the
+  model's counts. Model-emitted facts can even be internally inconsistent (count
+  28 with tag Δ+24 when 4->28 is ×7) — fine for a scaffold, but DON'T trust
+  model-emitted facts as ground truth.
+- More SFT will NOT fix this — same limit as freehand-rendering huge grids.
+  Diminishing returns; alphabet learned. Don't over-train chasing exact counts.
+
+### TODO / design note (revisit, not now)
+facts-T asks for EXACT COUNTS (PALETTE, per-row/col NZ) — the LLM's weakest skill.
+Mild tension: we train on labels the model structurally can't reproduce
+token-perfectly. Tolerable (lossy + code-validated), but a future facts-T v2
+could de-emphasize raw counts in favor of relations/structure (which it gets
+right), or drop the longest per-cell count lines on big grids.
+
+---
+
+## STAGE 3 — same_rule training stats (2026-05-25)
+
+Multi-pair RULE INDUCTION on same-size pairs (test_substrate_prediction +
+multi_pair_to_rule + literacy carry). Chained from diff_lit. Ran on the 200GB
+pod (container disk /root). seq_len 16384, micro_batch 1, grad_accum 4, 3 epochs,
+save_only_model. 16,364 train records; max_input_len 9442 (ZERO dropped at
+16384 — the seq-len bump from 8192 was justified: longest example > 8192).
+
+### eval_loss curve (leaky 2% carve — convergence, not generalization)
+    baseline ep0:  0.8943  ppl 2.446   (untrained-this-stage: rule induction is NEW)
+    ep 0.25:       0.2126
+    ep 0.50:       0.1755
+    ep 1.00:       0.1421
+    ep 1.51:       0.1211
+    ep 2.01:       0.1073
+    ep 2.51:       0.1009
+    ep 2.76:       0.0999   <- min
+    ep 2.99:       0.1002   (flat; +0.0003 = noise, NOT a rise)
+    final train_loss 0.1329 | train_runtime ~25,070s (~6.96 h) | 1191 steps | ~21 s/it
+
+### Reading
+- Dropped ~9x from baseline (0.89 -> ~0.10) and PLATEAUED in the last epoch.
+  Converged; epoch 3 added little (same diminishing-returns pattern as same_lit).
+- The ~0.10 floor is HIGHER than same_lit (0.004) and diff_lit (0.07), and that's
+  EXPECTED: rule induction (infer the rule from pairs, predict a held-out T) is
+  intrinsically harder than literacy (transcribe a given pair). Higher floor !=
+  worse — different, harder task. The high baseline (0.89) confirms the model
+  started NOT knowing the task; the drop is the rule-learning signal.
+- ~2-2.5 epochs would likely have sufficed (plateau by ep 2.5). Calibration for
+  diff_rule/mixed: 2-3 epochs, watch for plateau.
+- This is the leaky carve; the held-out probe is the real verdict.
+
+### Backup
+HF: Omnisensai/arc-lora-run2/same_rule (byte-verified, 323,014,168 bytes).
+
+### Held-out probe (run_probe.py, phase1_same_rule_probe.jsonl, 302 records)
+
+    Overall: exact 64.6% | cell 95.6% (195/302)  <- MISLEADING; carried by literacy
+    format                         n    exact  cell%  chgR%   tests
+    substrate_to_output          102   89.2%  99.9%    -      decode T->output (literacy)
+    multi_pair_to_rule            26   88.5%  99.7%  99.5%    compute T GIVEN output (transcription)
+    pair_to_substrate            102   77.5%  99.4%  98.5%    transcribe T (literacy)
+    direct_output_grid            36    5.6%  85.3%    -      freehand full output (render ceiling)
+    test_substrate_prediction     36    0.0%  80.1%  34.3%   INFER rule -> predict held-out test T  <-- THE test
+    by size: small exact 77.6%/cell 96.8% ; large exact 57.4%/cell 94.9%
+
+### Reading — literacy ACED, true rule-induction FAILED
+- The model knows the T language cold: transcribe T (77.5%/99.4%), decode T->output
+  (89.2%/99.9%), compute T when the output is shown (multi_pair_to_rule 88.5%). The
+  64.6% overall is carried by these.
+- But test_substrate_prediction (infer the rule, predict the held-out TEST pair's T
+  with NO output given) = 0% exact, and its 80% cell is a MIRAGE: changed_cell_recall
+  is 34% -> the model defaults to a near-identity T (mostly '.') and misses 2/3 of the
+  actual changes. It is NOT inducing rules and applying them to unseen inputs.
+- Reading transformations != inferring them. More training didn't fix it
+  (test_substrate_prediction was 0% at 1 epoch too).
+- multi_pair_to_rule's 88.5% is transcription, not induction (the trailing OUTPUT is
+  shown). Don't mistake it for rule-induction success.
+
+### Why it's not fatal (and half-expected)
+The architecture does NOT rely on freehand one-shot T-induction (LLMs' weakest skill).
+Rule-application is routed through CODE + execution-validation (write a rule, check vs
+the train pairs whose outputs ARE known, repair from the diff) -> far more forgiving of
+weak one-shot induction. A weak test_substrate_prediction is consistent with the thesis;
+it's WHY Phase 2 exists.
+
+### Lever (the operator's idea, now clearly indicated)
+Leave-one-out cycling with the OUTPUT HIDDEN: predict each train pair's T from the
+others WITHOUT showing that pair's output (pure induction, N examples/puzzle vs the
+single test pair). Overweight this in a same_rule re-train and/or diff_rule/mixed. The
+current mix already had test_substrate_prediction at 0.40 yet it stayed 0% -> the
+output-bearing formats (multi_pair_to_rule, substrate_to_output) likely let the model
+minimize loss via transcription without learning induction.
+
+### Open decision
+(a) re-train same_rule with overweighted output-hidden induction cycling before
+continuing, vs (b) proceed (diff_rule -> mixed -> Phase 2 code) and let the
+code+execution-validation loop enforce rule-application. Leaning: do BOTH — add the
+cycling AND smoke-test Phase-2 code to see if validation rescues induction.
