@@ -62,21 +62,22 @@ SFT **prompt carries only ARC-shaped evidence** — never that metadata.
 ## Family roster & curriculum order
 
 ```
-DONE (11 families, each 60/60 across tiers 0-2, 240 records):
-  ray_to_edge ✅  complete_line ✅  fill_enclosed ✅  component_recolor ✅
-  component_4conn ✅  component_8conn ✅  (matched pair — teaches 4- vs 8-connectivity)
-  sandwich_fill ✅  (H / V / diagonal)
-  ray_until_blocker ✅  mirror ✅
-  ray_diag_to_edge ✅  ray_diag_until_blocker ✅  (corner marker -> diagonal ray)
+ALL 17 families DONE — each 60/60 across tiers 0-2, 240 records (4080 total):
 
-TODO:
-  u_cup_fill  boundary_mask  periodic_extension  periodic_repair
-  gravity_water  rotate_translate
+  rays:        ray_to_edge ✅  ray_until_blocker ✅
+               ray_diag_to_edge ✅  ray_diag_until_blocker ✅  (corner -> diagonal)
+  lines/fill:  complete_line ✅  sandwich_fill ✅ (H/V/diag)  fill_enclosed ✅  u_cup_fill ✅
+  components:  component_recolor ✅
+               component_4conn ✅  component_8conn ✅  (matched pair: 4- vs 8-connectivity)
+  contour:     boundary_mask ✅
+  symmetry:    mirror ✅
+  periodic:    periodic_extension ✅  periodic_repair ✅
+  simulation:  gravity_water ✅  rotate_translate ✅ (rigid drop)
 ```
 
-Ray mechanic is covered in both forms: edge marker -> perpendicular ray
-(ray_to_edge / ray_until_blocker), corner marker -> diagonal ray
-(ray_diag_to_edge / ray_diag_until_blocker).
+Ray mechanic covered in both forms (edge->perpendicular, corner->diagonal).
+Next: scale counts toward ~300/family (`--n 300`), enable tier-3 distractors,
+and/or fold the micro SFT into the training mix.
 
 component_4conn/8conn share one construction (diagonal staircase + solid block)
 so they give DIFFERENT outputs on look-alike inputs — the pairs reveal which
