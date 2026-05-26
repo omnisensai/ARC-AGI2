@@ -639,3 +639,1168 @@ def infer_T(input_grid):
 def apply_T(input_grid, T):
     out = [
 ```
+
+Yes. The strategy doc needs a **concrete training plan** now, not just the theory.
+
+Below is the missing section you can paste into the Phase 2 V2 doc.
+
+---
+
+# 5. Canonical Training Plan
+
+## 5.1 Training Objective
+
+Phase 2 V2 trains the model to generate **canonical latent-T solvers**.
+
+Not arbitrary ARC code.
+
+The target behavior is:
+
+```python
+def solve(input_grid):
+    T = infer_T(input_grid)
+    return apply_T(input_grid, T)
+```
+
+The model should learn:
+
+```text
+given INPUT/T examples
+→ infer the invariant transformation generator
+→ write code that generates latent T for a new input
+→ apply T mechanically
+```
+
+The training goal is not “memorize 700 solvers.”
+
+The training goal is:
+
+```text
+install the substrate execution habit:
+always solve by generating a transformation mask.
+```
+
+---
+
+# 5.2 Training Source Adapter
+
+Do **not** continue from the failed `same_rule → phase2_code` chain.
+
+Use the golden substrate-literacy adapter:
+
+```text
+base Qwen
+→ phase1_same_lit golden adapter
+→ phase2_latentT_code
+```
+
+Reason:
+
+```text
+same_lit proved T language generalization.
+same_rule failed hidden-T induction and may have polluted the adapter.
+```
+
+So the clean chain is:
+
+```text
+golden same_lit
+→ latent-T code
+→ repair
+```
+
+---
+
+# 5.3 Main Training Dataset
+
+Each accepted puzzle gets one verified canonical solver.
+
+For each puzzle:
+
+```text
+train pairs exist:
+INPUT_i
+OUTPUT_i
+```
+
+Compute:
+
+```text
+T_i = diff(INPUT_i, OUTPUT_i)
+```
+
+Then train:
+
+```text
+USER:
+PAIR 1:
+INPUT
+T
+
+PAIR 2:
+INPUT
+T
+
+PAIR 3:
+INPUT
+T
+
+Write def solve(input_grid).
+Use latent T internally:
+infer_T(input_grid) → apply_T(input_grid, T).
+Return code only.
+
+ASSISTANT:
+verified canonical solver
+```
+
+The assistant target must be canonical:
+
+```python
+def solve(input_grid):
+    T = infer_T(input_grid)
+    return apply_T(input_grid, T)
+```
+
+---
+
+# 5.4 Prompt Variants / Pair Cycling
+
+For each verified canonical solver, generate several prompt variants.
+
+The same solver is the target each time.
+
+## Variant A — All Train Pairs
+
+```text
+show all train pairs as INPUT + T
+target = same canonical solver
+```
+
+Purpose:
+
+```text
+maximum evidence
+strongest invariant constraint
+```
+
+## Variant B — 3-Pair Cycle
+
+```text
+show any 3 train pairs as INPUT + T
+target = same canonical solver
+```
+
+Purpose:
+
+```text
+teach that the same code must survive fewer examples
+```
+
+## Variant C — 2-Pair Cycle
+
+```text
+show any 2 train pairs as INPUT + T
+target = same canonical solver
+```
+
+Purpose:
+
+```text
+force abstraction from minimal evidence
+improve competition robustness
+```
+
+Use only when the puzzle has at least 2 train pairs.
+
+## Variant D — Competition-Shaped
+
+```text
+show all train pairs as INPUT + T
+show TEST INPUT only
+target = same canonical solver
+```
+
+No test output.
+No test T.
+
+Purpose:
+
+```text
+match real inference shape
+```
+
+## Variant E — Upper Bound Diagnostic Only
+
+```text
+show train + solved test INPUT/T
+target = same canonical solver
+```
+
+This is **not** used in main training.
+
+Purpose:
+
+```text
+diagnostic only
+tests whether all-evidence prompts make generation easier
+```
+
+---
+
+# 5.5 Dataset Mix
+
+Recommended first run:
+
+```text
+phase2_latentT_code_v1
+
+50% all_train_pairs
+20% 3_pair_cycle
+15% 2_pair_cycle
+15% competition_shaped
+```
+
+If repair data is ready:
+
+```text
+phase2_latentT_code_plus_repair_v1
+
+45% correct canonical code
+25% pair-cycled canonical code
+30% repair records
+```
+
+Do not mix upper-bound all-pairs-with-test-T into main training.
+
+---
+
+# 6. Micro Training / Primitive Curriculum
+
+## 6.1 Why Micro Training Exists
+
+The model must learn reusable `infer_T` primitives.
+
+Canonical shape alone teaches the skeleton:
+
+```text
+infer_T → apply_T
+```
+
+But the model also needs operators:
+
+```text
+components
+bbox
+fill
+ray
+period
+boundary
+gravity
+mirror
+copy
+repair
+erase
+```
+
+Micro training gives it those operators in clean, small, verified forms.
+
+The goal is not toy ARC.
+
+The goal is:
+
+```text
+teach exact boundary/extent/control primitives
+inside the latent-T interface.
+```
+
+---
+
+# 6.2 Micro Training Format
+
+Every micro task uses the same solver shape:
+
+```python
+def solve(input_grid):
+    T = infer_T(input_grid)
+    return apply_T(input_grid, T)
+```
+
+Each synthetic micro dataset should include:
+
+```text
+INPUT
+OUTPUT
+T
+canonical solver
+```
+
+The model sees:
+
+```text
+INPUT + T examples → canonical infer_T/apply_T solver
+```
+
+---
+
+# 6.3 Micro Primitive Families
+
+## Micro 1 — Ray to Edge
+
+Rule:
+
+```text
+marker emits ray until grid boundary
+```
+
+T:
+
+```text
+cells on ray become color X
+```
+
+Teaches:
+
+```text
+direction
+boundary stop
+include/exclude marker
+line extension
+```
+
+Solver shape:
+
+```python
+def infer_T(g):
+    find marker
+    walk direction until edge
+    T[(r,c)] = color
+```
+
+---
+
+## Micro 2 — Ray Until Blocker
+
+Rule:
+
+```text
+marker emits ray until obstacle color
+```
+
+Teaches:
+
+```text
+stop condition
+blocked extent
+boundary vs obstacle
+```
+
+Breakage caught:
+
+```text
+over-extension
+under-extension
+wrong endpoint
+```
+
+---
+
+## Micro 3 — Fill Enclosed Region
+
+Rule:
+
+```text
+fill inside closed boundary
+```
+
+Teaches:
+
+```text
+inside/outside
+flood fill
+boundary preservation
+holes
+```
+
+Canonical solver:
+
+```text
+flood outside background
+unreached background = inside
+T[inside] = fill_color
+```
+
+---
+
+## Micro 4 — U-Cup Fill
+
+Rule:
+
+```text
+open container / cup gets filled to a level
+```
+
+Teaches:
+
+```text
+container detection
+partial enclosure
+fill extent
+stop at rim
+```
+
+This targets the exact “where does fill stop?” failure.
+
+---
+
+## Micro 5 — Complete Line / Segment
+
+Rule:
+
+```text
+two same-colored endpoints define a line segment
+```
+
+Teaches:
+
+```text
+horizontal
+vertical
+diagonal
+between endpoints
+include endpoints
+```
+
+---
+
+## Micro 6 — Periodic Extension
+
+Rule:
+
+```text
+same-color markers define period/phase
+extend sequence along row/column
+```
+
+Teaches:
+
+```text
+period
+phase
+gcd spacing
+row vs column orientation
+override color
+```
+
+This matches the Gemini/Claude line-extension puzzle.
+
+---
+
+## Micro 7 — Boundary Mask
+
+Rule:
+
+```text
+draw boundary of reachable region
+```
+
+Teaches:
+
+```text
+connected region
+4-neighbor vs 8-neighbor
+outside contact
+contour mask
+```
+
+---
+
+## Micro 8 — Component Recolor
+
+Rule:
+
+```text
+select largest/smallest/isolated component and recolor
+```
+
+Teaches:
+
+```text
+connected components
+size
+bbox
+filtering
+selection
+```
+
+---
+
+## Micro 9 — Periodic Repair / Consensus Tile
+
+Rule:
+
+```text
+repeated noisy tile is repaired by consensus
+```
+
+Teaches:
+
+```text
+template inference
+majority vote
+noise removal
+phase repair
+```
+
+This matches the noisy repeated-tile examples.
+
+---
+
+## Micro 10 — Gravity / Water
+
+Rule:
+
+```text
+liquid cells move/fall/spread until stable
+```
+
+Teaches:
+
+```text
+state transition
+simulation
+conservation
+movement mask
+old cells become 0
+new cells become 1
+```
+
+Very important because it shows T can represent both erase and create.
+
+---
+
+## Micro 11 — Mirror / Reflection
+
+Rule:
+
+```text
+object mirrors across axis
+```
+
+Teaches:
+
+```text
+axis detection
+copy mask
+symmetry
+overwrite target side
+```
+
+---
+
+## Micro 12 — Rotate / Translate Object
+
+Rule:
+
+```text
+object moves or rotates relative to marker
+```
+
+Teaches:
+
+```text
+object extraction
+coordinate transform
+bbox normalization
+write mask
+```
+
+---
+
+# 6.4 Micro Dataset Generation
+
+For each primitive family generate many parameterized examples:
+
+```text
+different grid sizes
+different colors
+different marker positions
+different object sizes
+different orientations
+different background colors
+different distractors
+different number of train pairs
+```
+
+Each micro family should generate:
+
+```text
+500–2,000 records
+```
+
+But start small:
+
+```text
+100–300 records per family
+```
+
+Then evaluate.
+
+Recommended initial micro set:
+
+```text
+ray_to_edge:          300
+ray_until_blocker:    300
+fill_enclosed:        300
+complete_line:        300
+periodic_extension:   300
+boundary_mask:        300
+component_recolor:    300
+periodic_repair:      300
+gravity_water:        300
+```
+
+Total first micro run:
+
+```text
+~2,700 synthetic records
+```
+
+This is enough to teach the primitive grammar without drowning real puzzles.
+
+---
+
+# 6.5 Micro Target Style
+
+Every micro solver must be canonical.
+
+Example:
+
+```python
+def solve(input_grid):
+    T = infer_T(input_grid)
+    return apply_T(input_grid, T)
+
+
+def infer_T(input_grid):
+    H, W = len(input_grid), len(input_grid[0])
+    T = {}
+
+    # detect primitive-specific structure
+    # T[(r, c)] = new_color
+
+    return T
+
+
+def apply_T(input_grid, T):
+    out = [row[:] for row in input_grid]
+    for (r, c), v in T.items():
+        out[r][c] = v
+    return out
+```
+
+Reject synthetic solvers that directly build full output without explicit T/mask.
+
+---
+
+# 6.6 Micro-to-Real Curriculum Order
+
+Do **not** dump everything randomly from the start.
+
+Use curriculum:
+
+```text
+Stage M1: apply_T mechanics only
+Stage M2: simple primitives
+Stage M3: boundary/extent primitives
+Stage M4: repair/period/simulation primitives
+Stage M5: real canonical ARC solvers
+Stage M6: repair from wrong code
+```
+
+Recommended order:
+
+```text
+1. Micro primitives only
+2. Real canonical solvers only
+3. Mixed micro + real
+4. Repair
+```
+
+But if compute is tight:
+
+```text
+golden same_lit
+→ mixed micro + canonical real
+→ repair
+```
+
+---
+
+# 7. Wrong-Code Repair Training
+
+## 7.1 Why Repair Is Needed
+
+Correct-only training teaches:
+
+```text
+what accepted code looks like
+```
+
+Wrong-code repair teaches:
+
+```text
+what breaks acceptance
+```
+
+This is the missing sixth substrate question:
+
+```text
+What breaks acceptance?
+```
+
+The model needs to learn the cliff edges:
+
+```text
+wrong extent
+wrong component
+wrong boundary
+wrong period
+wrong color
+overpaint
+underpaint
+hardcode
+visible-pass hidden-fail
+```
+
+---
+
+## 7.2 Repair Record Format
+
+```text
+USER:
+PAIR 1:
+INPUT
+T
+
+PAIR 2:
+INPUT
+T
+
+WRONG CODE:
+...
+
+VALIDATOR FAILURE:
+failed pair: 2
+expected/got diff:
+(r,c): expected X, got Y
+...
+
+Return corrected code only.
+Use canonical infer_T/apply_T latent-mask structure.
+
+ASSISTANT:
+verified canonical solver
+```
+
+---
+
+## 7.3 Wrong Code Sources
+
+Use:
+
+```text
+previous Phase 2 generations
+mutated canonical solvers
+LLM-generated plausible wrong solvers
+overfit/hardcoded solvers
+near-miss candidates
+visible-pass-hidden-fail candidates
+```
+
+Prioritize wrong code that is:
+
+```text
+syntax-valid
+runtime-valid
+returns grid
+close or partially correct
+has interpretable validator diff
+```
+
+Avoid too much:
+
+```text
+syntax garbage
+empty code
+nonsense code
+```
+
+---
+
+## 7.4 Repair Dataset Mix
+
+For each canonical real puzzle, keep up to:
+
+```text
+3–5 useful wrong codes
+```
+
+Do not use all 10 blindly.
+
+Rank wrong examples by teaching value:
+
+```text
+1. visible-pass hidden-fail
+2. near miss
+3. wrong extent / off-by-one
+4. wrong component
+5. wrong color rule
+6. hardcode smell
+7. runtime exception
+```
+
+---
+
+# 8. Full Training Schedule
+
+## Run A — Clean Canonical Code
+
+Purpose:
+
+```text
+test whether canonical targets alone fix Phase 2
+```
+
+Train from:
+
+```text
+golden phase1_same_lit
+```
+
+Data:
+
+```text
+100% verified real canonical solvers
+with pair cycling
+```
+
+Evaluate.
+
+---
+
+## Run B — Micro + Canonical
+
+Purpose:
+
+```text
+teach reusable infer_T primitives
+```
+
+Train from:
+
+```text
+golden phase1_same_lit
+```
+
+Data:
+
+```text
+40% micro primitive solvers
+60% real canonical solvers
+```
+
+Evaluate.
+
+---
+
+## Run C — Canonical + Repair
+
+Purpose:
+
+```text
+teach acceptance boundaries
+```
+
+Train from best of Run A/B.
+
+Data:
+
+```text
+60% canonical correct
+40% repair
+```
+
+Evaluate.
+
+---
+
+## Run D — Full V2
+
+Purpose:
+
+```text
+final combined curriculum
+```
+
+Train from:
+
+```text
+golden same_lit
+or best intermediate adapter
+```
+
+Data:
+
+```text
+25% micro primitives
+45% real canonical solvers
+30% repair records
+```
+
+Evaluate.
+
+---
+
+# 9. Evaluation Strategy
+
+## 9.1 Do Not Use Loss Alone
+
+Loss can look good while code generalization fails.
+
+Evaluate by execution.
+
+---
+
+## 9.2 Code Funnel
+
+Report:
+
+```text
+total prompts
+code extracted
+syntax-valid
+runtime-valid
+returns grid
+same-shape grid
+passes at least one visible pair
+passes all visible pairs
+passes hidden/test pair
+```
+
+---
+
+## 9.3 Pass@k
+
+Measure:
+
+```text
+pass@1
+pass@2
+pass@4 diagnostic
+```
+
+Kaggle-like setting cares about pass@2.
+
+---
+
+## 9.4 Visible vs Hidden Split
+
+Critical metrics:
+
+```text
+visible_pair_pass_rate
+hidden_pair_pass_rate
+visible-pass-hidden-fail count
+```
+
+If visible pass is high but hidden fail is high:
+
+```text
+overfitting / spurious invariant
+```
+
+If visible pass is low:
+
+```text
+solver generation still weak
+```
+
+---
+
+## 9.5 Canonical Shape Audit on Generated Code
+
+Generated code must be checked for:
+
+```text
+has solve(input_grid)
+has infer_T or equivalent
+has apply_T or equivalent
+has T/mask/delta/changes variable
+copies input before overwrite
+preserves by default
+```
+
+Reject / flag:
+
+```text
+full output literal
+input equality lookup
+fingerprint lookup
+large memorized templates
+no input read
+returns input unchanged
+direct output construction with no T/mask
+```
+
+---
+
+## 9.6 Failure Taxonomy
+
+For failed generations, classify:
+
+```text
+syntax error
+runtime exception
+wrong shape
+no code extracted
+timeout
+hardcode smell
+passes none
+passes some visible only
+passes visible but hidden fails
+wrong color rule
+wrong extent
+wrong component
+wrong boundary
+wrong period/phase
+overpaint
+underpaint
+```
+
+This determines next training move.
+
+---
+
+## 9.7 Repair Lift
+
+For repair-capable runs, measure:
+
+```text
+first attempt pass rate
+after one repair pass
+after two repair passes
+repair success rate by failure type
+```
+
+Important:
+
+```text
+repair only matters if first code is runnable and near enough.
+```
+
+---
+
+# 10. Build Artifacts
+
+Claude should build:
+
+```text
+scripts/build_micro_latentT.py
+scripts/build_phase2_latentT_code.py
+scripts/validate_latentT_solvers.py
+scripts/audit_canonical_shape.py
+scripts/build_phase2_repair.py
+scripts/run_phase2_latentT_probe.py
+```
+
+Datasets:
+
+```text
+data_sft/micro_latentT_train.jsonl.gz
+data_sft/phase2_latentT_code_train.jsonl.gz
+data_sft/phase2_latentT_code_probe.jsonl
+data_sft/phase2_latentT_repair_train.jsonl.gz
+```
+
+Reports:
+
+```text
+reports/micro_latentT_build_report.json
+reports/phase2_latentT_solver_audit.json
+reports/phase2_latentT_probe_report.json
+reports/phase2_latentT_repair_report.json
+```
+
+Configs:
+
+```text
+phase2_latentT_code_axolotl.yaml
+phase2_latentT_micro_mix_axolotl.yaml
+phase2_latentT_repair_axolotl.yaml
+```
+
+Adapter names:
+
+```text
+outputs/phase2_latentT_code
+outputs/phase2_latentT_micro_mix
+outputs/phase2_latentT_repair
+```
+
+Never overwrite old adapters.
+
+---
+
+# 11. The Final V2 Claim
+
+Phase 2 V1 failed because it trained arbitrary output solvers.
+
+Phase 2 V2 trains the correct artifact:
+
+```text
+latent transformation-mask generators
+```
+
+The model already learned:
+
+```text
+INPUT + T → OUTPUT
+```
+
+Now it must learn:
+
+```text
+INPUT/T examples → code that generates T
+```
+
+That is the bridge.
+
+Clean final formula:
+
+```text
+Phase 1:
+learn transformation language
+
+Phase 2 V2:
+write latent-T generator code
+
+Phase 3:
+repair latent-T generator from validator diffs
+
+Runtime:
+model proposes
+code executes
+validator accepts/rejects
+```
+
+This preserves the authority boundary:
+
+```text
+the model is not the authority
+the validator is the acceptance gate
+the substrate defines what counts
+```
+
+That is the architecture.
+
