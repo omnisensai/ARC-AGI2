@@ -45,17 +45,24 @@ def infer_T(input_grid):
     else:
         anchor_row = min(k["rmin"] for k in comps)
 
-    T = {}
+    paint = {}   # destination cells -> color
+    sources = set()
     for comp in comps:
         shift = anchor_row - comp["rmin"]
         if shift == 0:
             continue
         for (r, c) in comp["cells"]:
-            # clear source (unless another cell paints over it later)
-            if (r, c) not in T:
-                T[(r, c)] = 0
-        for (r, c) in comp["cells"]:
-            T[(r + shift, c)] = comp["color"]
+            sources.add((r, c))
+            paint[(r + shift, c)] = comp["color"]
+
+    T = {}
+    # Clear every source cell that is not reoccupied by a painted destination.
+    for (r, c) in sources:
+        if (r, c) not in paint:
+            T[(r, c)] = 0
+    # Paint destinations (override any clears).
+    for (r, c), col in paint.items():
+        T[(r, c)] = col
     return T
 
 
