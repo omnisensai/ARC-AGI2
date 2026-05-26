@@ -6,32 +6,33 @@ def infer_T(input_grid):
     90 clockwise, panel 3 = source rotated 180."""
     H, W = len(input_grid), len(input_grid[0])
 
-    # Separator columns: uniform columns whose color differs from both
-    # horizontal neighbours (width-1 stripes). Blank-fill panels are >1 wide,
-    # so their uniform columns share color with neighbours and are excluded.
+    # Find uniform full-height columns and the color of each.
     def col_uniform(c):
         return len(set(input_grid[r][c] for r in range(H))) == 1
 
-    sep_cols = []
-    for c in range(W):
-        if not col_uniform(c):
-            continue
-        v = input_grid[0][c]
-        left_diff = (c == 0) or (input_grid[0][c - 1] != v)
-        right_diff = (c == W - 1) or (input_grid[0][c + 1] != v)
-        if left_diff and right_diff:
-            sep_cols.append(c)
+    uniform_color = {c: input_grid[0][c] for c in range(W) if col_uniform(c)}
 
-    # Split columns into panels (maximal runs between separators / borders).
-    panels = []
-    start = 0
-    for c in range(W + 1):
-        if c == W or c in sep_cols:
-            if start < c:
-                panels.append(list(range(start, c)))
-            start = c + 1
-    if not panels:
+    def split_by(color):
+        seps = {c for c, v in uniform_color.items() if v == color}
+        panels, start = [], 0
+        for c in range(W + 1):
+            if c == W or c in seps:
+                if start < c:
+                    panels.append(list(range(start, c)))
+                start = c + 1
+        return panels
+
+    # The separator color divides the grid into >=2 equal-width panels.
+    best = None
+    for color in set(uniform_color.values()):
+        panels = split_by(color)
+        if len(panels) >= 2 and len({len(p) for p in panels}) == 1:
+            # prefer the split with the most panels (finest valid separator)
+            if best is None or len(panels) > len(best[1]):
+                best = (color, panels)
+    if best is None:
         return {}
+    panels = best[1]
 
     src_cols = panels[0]
     n = len(src_cols)
