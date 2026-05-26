@@ -40,6 +40,7 @@ def infer_T(input_grid):
             top = (r == 0)
             left = (c == 0)
             offsets = top_block if top else bottom_leg
+            T[(r, c)] = bg  # original corner pixel clears to background
             for dr, dc in offsets:
                 rr = r + dr
                 cc = c + (dc if left else -dc)
