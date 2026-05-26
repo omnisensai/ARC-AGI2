@@ -2,11 +2,11 @@
 
 Rule: the grid is a single background color plus several shapes drawn in
 color 2. Each shape is an 8-connected component of non-background cells.
-Every multi-cell shape is recolored according to its bounding-box aspect
-ratio:
-  - bounding box wider than tall (w > h)  -> recolor to 1
-  - bounding box taller than wide (h > w) -> recolor to 3
-  - square bounding box (h == w)          -> recolor to 6
+Every multi-cell shape is recolored according to its mirror symmetry
+(computed within its own bounding box):
+  - symmetric about its horizontal axis only (top-bottom mirror) -> 1
+  - symmetric about its vertical axis only (left-right mirror)   -> 3
+  - no axis mirror symmetry (diagonal arrangement)               -> 6
 Single isolated cells are noise and erased back to the background color.
 
 infer_T produces a {(r,c): color} mask; apply_T copies the input and
@@ -56,14 +56,15 @@ def infer_T(input_grid):
             T[(r, c)] = bg
             continue
         minr = min(y for y, x in cells)
-        maxr = max(y for y, x in cells)
         minc = min(x for y, x in cells)
-        maxc = max(x for y, x in cells)
-        bh = maxr - minr + 1
-        bw = maxc - minc + 1
-        if bw > bh:
+        h = max(y for y, x in cells) - minr + 1
+        w = max(x for y, x in cells) - minc + 1
+        norm = set((y - minr, x - minc) for y, x in cells)
+        lr_sym = all((y, w - 1 - x) in norm for y, x in norm)
+        tb_sym = all((h - 1 - y, x) in norm for y, x in norm)
+        if tb_sym and not lr_sym:
             color = 1
-        elif bh > bw:
+        elif lr_sym and not tb_sym:
             color = 3
         else:
             color = 6
