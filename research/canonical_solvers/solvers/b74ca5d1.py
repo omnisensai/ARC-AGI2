@@ -27,6 +27,7 @@ input and overwrites only the masked cells.
 from collections import Counter
 
 N4 = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+N8 = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 
 
 def _background(grid):
@@ -75,19 +76,42 @@ def _rel_mask(cells, seedpos):
     return frozenset((y - r0, x - c0) for y, x in pts), max(ys) - r0, max(xs) - c0
 
 
-def _peel_tail(mask):
-    """4-connected cells that peel away as 1-wide straight protrusions."""
-    s = set(mask)
-    removed = set()
-    changed = True
-    while changed:
-        changed = False
-        for c in list(s):
-            if sum(1 for dr, dc in N4 if (c[0] + dr, c[1] + dc) in s) == 1:
-                s.discard(c)
-                removed.add(c)
-                changed = True
-    return removed
+def _deg(c, mset, nbrs):
+    return sum(1 for dr, dc in nbrs if (c[0] + dr, c[1] + dc) in mset)
+
+
+def _stems(mask):
+    """Cells of 1-wide straight orthogonal protrusions that hang off a body.
+
+    A stem is a straight horizontal/vertical run that starts at a free tip (a cell
+    with a single 8-neighbour) and terminates at an orthogonal junction (a cell with
+    >=3 orthogonal neighbours).  Pure straight lines with no junction are NOT stems
+    (they are bodies), and purely diagonal structures (diamonds) are never touched.
+    """
+    mset = set(mask)
+    stems = set()
+    for c in mset:
+        if _deg(c, mset, N8) != 1:
+            continue
+        d = None
+        for dr, dc in N4:
+            if (c[0] + dr, c[1] + dc) in mset:
+                d = (dr, dc)
+        if d is None:
+            continue
+        run = [c]
+        cur = (c[0] + d[0], c[1] + d[1])
+        while True:
+            if _deg(cur, mset, N4) >= 3:
+                stems.update(run)
+                break
+            nxt = (cur[0] + d[0], cur[1] + d[1])
+            if _deg(cur, mset, N4) == 2 and nxt in mset:
+                run.append(cur)
+                cur = nxt
+            else:
+                break
+    return stems
 
 
 def infer_T(input_grid):
@@ -124,8 +148,18 @@ def infer_T(input_grid):
         maxw = max(g[2] for g in group)
 
         result = set()
-        for rel in rel_masks:
-            result |= rel
+        multi = len(rel_masks) > 1
+        for i, rel in enumerate(rel_masks):
+            keep = set(rel)
+            if multi:
+                others = set()
+                for j, other in enumerate(rel_masks):
+                    if j != i:
+                        others |= other
+                st = _stems(rel)
+                if st and not (st & others):
+                    keep -= st
+            result |= keep
 
         for (cr, cc) in positions:
             ar = 0 if cr == 0 else H - 1 - maxh
