@@ -87,12 +87,10 @@ def infer_T(input_grid):
         if not enc:
             continue  # open outline -> untouched
 
-        # solid = outline cells plus all cells they enclose
-        solid = comp | enc
-
-        # interior fill (3) and outer border (2) via 8-adjacency to the solid
+        # interior fill (3) and outer border (2) via 8-adjacency to the OUTLINE.
+        # (Cells touching only other interior cells, e.g. the very centre, stay 0.)
         border = set()
-        for r, c in solid:
+        for r, c in comp:
             for dr, dc in NEIGHBORS8:
                 nr, nc = r + dr, c + dc
                 if not (0 <= nr < H and 0 <= nc < W):
