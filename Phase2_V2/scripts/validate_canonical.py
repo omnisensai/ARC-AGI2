@@ -1,19 +1,19 @@
-"""Incremental verifier for the agent-built canonical corpus.
+"""Incremental verifier for the canonical latent-T corpus (Phase2_V2).
 
-Re-runs each NEW solver in research/canonical_solvers/solvers/ against ALL its
-puzzle pairs (independent of the agent's claim) + AST-audits it, recording the
-verdict in _validation.json (only checks solvers not already recorded, so it's
+Re-runs each NEW solver in canonical/solvers/ against ALL its puzzle pairs
+(independent of the agent's claim) + AST-audits it, recording the verdict in
+canonical/_validation.json (only checks solvers not already recorded, so it's
 cheap to run every refill). Prints a corpus summary + the next TODO ids to launch.
 
-  python scripts/validate_canonical.py [--next N]
+  python Phase2_V2/scripts/validate_canonical.py [--next N]
 """
 import argparse, ast, glob, json, os, subprocess, sys
 from pathlib import Path
-ROOT = Path(__file__).resolve().parent.parent
-SOLV = ROOT / "research/canonical_solvers/solvers"
-TASKS = ROOT / "research/canonical_solvers/_tasks"
-REPORT = ROOT / "research/canonical_solvers/_validation.json"
-IDS = ROOT / "Fine Tune Run 2/splits/golden_train_ids.txt"
+ROOT = Path(__file__).resolve().parent.parent  # = Phase2_V2/
+SOLV = ROOT / "canonical/solvers"
+TASKS = ROOT / "canonical/_tasks"
+REPORT = ROOT / "canonical/_validation.json"
+IDS = ROOT / "splits/golden_train_ids.txt"
 
 VRUN = r'''
 import json,sys

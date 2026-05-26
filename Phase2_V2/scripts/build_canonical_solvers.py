@@ -214,9 +214,9 @@ def main():
     from collections import Counter
     from concurrent.futures import ThreadPoolExecutor, as_completed
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ids", default="Fine Tune Run 2/splits/golden_train_ids.txt")
-    ap.add_argument("--puzzle-dir", default="Fine Tune Run 2/puzzles")
-    ap.add_argument("--out-dir", default="research/canonical_solvers")
+    ap.add_argument("--ids", default="Phase2_V2/splits/golden_train_ids.txt")
+    ap.add_argument("--puzzle-dir", default="../legacy_puzzles")  # raw 1681-puzzle pool lives in Legacy; point here to regenerate
+    ap.add_argument("--out-dir", default="Phase2_V2/canonical")
     ap.add_argument("--model", default="gpt-5")
     ap.add_argument("--repair-tries", type=int, default=3)
     ap.add_argument("--temperature", type=float, default=0.4)
