@@ -7,51 +7,16 @@ cheap to run every refill). Prints a corpus summary + the next TODO ids to launc
 
   python Phase2_V2/scripts/validate_canonical.py [--next N]
 """
-import argparse, ast, glob, json, os, subprocess, sys
+import argparse, glob, json, sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from canonical_gate import accept  # single source of the acceptance gate
+
 ROOT = Path(__file__).resolve().parent.parent  # = Phase2_V2/
 SOLV = ROOT / "canonical/solvers"
 TASKS = ROOT / "canonical/ground_truth_puzzles"
 REPORT = ROOT / "canonical/_validation.json"
 IDS = ROOT / "splits/golden_train_ids.txt"
-
-VRUN = r'''
-import json,sys
-exec(open(sys.argv[1]).read(), (ns:={}))
-pairs=json.load(open(sys.argv[2])); fn=ns.get("solve")
-oks=[]
-for p in pairs:
-    try:
-        o=fn(p["input"]); o=o.tolist() if hasattr(o,"tolist") else o
-        oks.append(o==p["output"])
-    except Exception: oks.append(False)
-print(json.dumps(oks))
-'''
-open("/tmp/_vc.py","w").write(VRUN)
-
-def audit(code):
-    flags=[]
-    try: t=ast.parse(code)
-    except: return ["unparseable"]
-    def gl(n):
-        if not isinstance(n,ast.List): return 0
-        s=0
-        for e in n.elts:
-            if isinstance(e,ast.List): s+=len(e.elts)
-            else: return 0
-        return s
-    big=0; eq=False
-    for n in ast.walk(t):
-        big=max(big,gl(n))
-        if isinstance(n,ast.Compare):
-            for op,c in zip(n.ops,n.comparators):
-                if isinstance(op,(ast.Eq,ast.NotEq)) and gl(c)>=9: eq=True
-    if big>=12: flags.append(f"BIG_LITERAL({big})")
-    if eq: flags.append("EQ_GRID")
-    if "frozenset(" in code and ("known" in code.lower() or "case" in code.lower()): flags.append("FINGERPRINT")
-    import re
-    if not re.search(r"\b(infer_T|apply_T|mask|changes|delta|T\s*=|Tcells)\b", code): flags.append("NO_MASK")
-    return flags
 
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument("--next", type=int, default=0); a=ap.parse_args()
@@ -61,16 +26,9 @@ def main():
         if pid.startswith("_") or pid in rep: continue
         task=TASKS/f"{pid}.json"
         if not task.exists(): rep[pid]={"status":"no_task"}; continue
-        npairs=len(json.load(open(task))["train"])+len(json.load(open(task))["test"])
-        json.dump(json.load(open(task))["train"]+json.load(open(task))["test"], open("/tmp/_pairs.json","w"))
-        try:
-            r=subprocess.run([sys.executable,"/tmp/_vc.py",str(f),"/tmp/_pairs.json"],capture_output=True,text=True,timeout=60)
-            oks=json.loads(r.stdout.strip().splitlines()[-1]) if r.stdout.strip() else [False]*npairs
-        except subprocess.TimeoutExpired: oks=[False]*npairs
-        flags=audit(f.read_text())
-        hardbad=any(x.startswith(("BIG_LITERAL","EQ_GRID","FINGERPRINT","NO_MASK","unparseable")) for x in flags)
-        rep[pid]={"status":"accepted" if (all(oks) and not hardbad) else "rejected",
-                  "pass":f"{sum(oks)}/{len(oks)}","flags":flags}
+        d=json.load(open(task)); pairs=d["train"]+d["test"]
+        ok, passs, flags = accept(f, pairs)
+        rep[pid]={"status":"accepted" if ok else "rejected","pass":passs,"flags":flags}
     REPORT.write_text(json.dumps(rep,indent=2))
     acc=[p for p,v in rep.items() if v.get("status")=="accepted"]
     rej=[p for p,v in rep.items() if v.get("status")=="rejected"]
