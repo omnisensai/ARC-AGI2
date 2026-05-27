@@ -35,6 +35,34 @@ the real corpus** (`scripts/canonical_gate.py`: solver run vs ground truth on
 every pair + AST audit). No pass → no task on disk. Validate-before-emit is the
 authority boundary.
 
+### Two validation layers (sample correctness is NOT enough)
+
+Per-sample verification proves the emitted tasks are correct; it does NOT prove
+the family CONTRACT is well-specified. If the generator never emits a dangerous
+case, thousands of samples pass while the solver's assumptions stay unproven
+(this is exactly how the `boundary_mask` bg-majority bug hid until the RNG
+happened to make a shape larger than the background).
+
+So there are two gates:
+
+1. **`build_micro.py`** — per-sample: solver reproduces every pair + AST audit +
+   subprocess timeout. (correctness, gates 1-3)
+2. **`validate_contracts.py`** — per-FAMILY:
+   - **precondition audit** over a fresh batch: the properties each solver
+     relies on actually hold (background is the unique mode; exactly one ray
+     source; unique-largest component; collinear line endpoints; recoverable
+     minimal period; each blocker-task demonstrates a blocker on the path).
+   - **adversarial probes**: hostile inputs the generator avoids (non-collinear
+     endpoints, zero/multiple markers, ties, all-bg, 1×1, solid). Each must
+     terminate within a hard timeout and return a well-formed grid OR raise a
+     controlled exception — never HANG / MALFORMED / NON-DETERMINISTIC.
+
+  `python micro/validate_contracts.py --dir micro` (or `--dir micro_diff`).
+  On its first run it caught two real bugs sample-checking missed: `complete_line`
+  hung forever on non-collinear endpoints (unbounded loop, now bounds-guarded),
+  and `ray_until_blocker` could emit whole tasks with no on-path blocker
+  (degenerate `ray_to_edge`, now guaranteed ≥1 per task).
+
 ## Layout
 
 ```

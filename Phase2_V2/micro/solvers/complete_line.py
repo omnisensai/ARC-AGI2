@@ -11,7 +11,7 @@ def infer_T(g):
     dc = (c2 > c1) - (c2 < c1)
     T = {}
     r, c = r1 + dr, c1 + dc
-    while (r, c) != (r2, c2):
+    while (r, c) != (r2, c2) and 0 <= r < H and 0 <= c < W:
         T[(r, c)] = col
         r += dr
         c += dc

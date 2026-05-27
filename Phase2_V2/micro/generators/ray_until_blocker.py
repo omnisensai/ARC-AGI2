@@ -60,7 +60,7 @@ def family_prompt_hint() -> str:
     return "An edge marker shoots a ray inward, stopping just before any blocker."
 
 
-def _instance(rng, difficulty):
+def _instance(rng, difficulty, force_blocker=False):
     if difficulty <= 1:
         H = W = 8
     else:
@@ -71,6 +71,8 @@ def _instance(rng, difficulty):
         bg = rng.choice([0, 0, rng.randint(0, 9)]); color = rng.choice([c for c in range(1, 10) if c != bg]); edge = "top"; has_blocker = True
     else:
         bg = rng.choice([0, 0, rng.randint(0, 9)]); color = rng.choice([c for c in range(0, 10) if c != bg]); edge = rng.choice(["top", "bottom", "left", "right"]); has_blocker = rng.random() < 0.7
+    if force_blocker:
+        has_blocker = True
     blk = rng.choice([c for c in range(0, 10) if c not in (bg, color)])
 
     grid = [[bg] * W for _ in range(H)]
@@ -107,6 +109,9 @@ def _instance(rng, difficulty):
 def generate(seed, difficulty):
     rng = random.Random(seed)
     n_train = rng.randint(3, 4)
-    pairs = [_instance(rng, difficulty) for _ in range(n_train + 1)]
+    # guarantee the rule is demonstrated: first train pair + the test pair carry
+    # an on-path blocker, so a task is never a degenerate (blocker-free) ray_to_edge.
+    pairs = [_instance(rng, difficulty, force_blocker=(k == 0 or k == n_train))
+             for k in range(n_train + 1)]
     return {"family": FAMILY, "seed": seed, "difficulty": difficulty,
             "params": {"n_train": n_train}, "train": pairs[:-1], "test": pairs[-1:]}

@@ -15,20 +15,15 @@ Validate-before-emit is the authority boundary: no pass, no task on disk.
 import argparse, importlib.util, json, sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent          # Phase2_V2/micro
-sys.path.insert(0, str(ROOT.parent / "scripts"))
-from canonical_gate import accept                # single source of the gate
+P2 = Path(__file__).resolve().parent.parent      # Phase2_V2/
+sys.path.insert(0, str(P2 / "scripts"))
+from canonical_gate import accept                 # single source of the gate
 
-GEN = ROOT / "generators"
-TASKS = ROOT / "tasks"
-SOLV = ROOT / "solvers"
-REPORT = ROOT / "_validation.json"
-MANIFEST = ROOT / "MANIFEST.txt"
 TIERS = [0, 1, 2]  # reference families use tiers 0-2 (no distractors)
 
 
-def load_family(name):
-    spec = importlib.util.spec_from_file_location(name, GEN / f"{name}.py")
+def load_family(gen_dir, name):
+    spec = importlib.util.spec_from_file_location(name, gen_dir / f"{name}.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -38,9 +33,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("family")
     ap.add_argument("--n", type=int, default=60, help="tasks to generate")
+    ap.add_argument("--dir", default="micro", help="corpus dir under Phase2_V2/ (micro | micro_diff)")
+    ap.add_argument("--big-literal-max", type=int, default=12,
+                    help="AST audit literal cap; tighten (e.g. 8) for diff-size small outputs")
     a = ap.parse_args()
 
-    fam = load_family(a.family)
+    ROOT = P2 / a.dir
+    GEN = ROOT / "generators"; TASKS = ROOT / "tasks"; SOLV = ROOT / "solvers"
+    REPORT = ROOT / "_validation.json"; MANIFEST = ROOT / "MANIFEST.txt"
+
+    fam = load_family(GEN, a.family)
     SOLV.mkdir(parents=True, exist_ok=True)
     solver_path = SOLV / f"{a.family}.py"
     solver_path.write_text(fam.canonical_solver())
@@ -55,7 +57,7 @@ def main():
         tier = TIERS[i % len(TIERS)]
         task = fam.generate(seed=i, difficulty=tier)
         pairs = task["train"] + task["test"]
-        ok, passs, flags = accept(solver_path, pairs)
+        ok, passs, flags = accept(solver_path, pairs, big_literal_max=a.big_literal_max)
         if not ok:
             failed.append({"seed": i, "tier": tier, "pass": passs, "flags": flags})
             continue
