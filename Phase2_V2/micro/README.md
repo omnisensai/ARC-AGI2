@@ -104,7 +104,7 @@ ALL 17 families DONE — each 60/60 across tiers 0-2, 240 records (4080 total):
   selection:   extract_largest_recolor ✅  (select-by-size + recolour to seed colour)
                component_4conn ✅  component_8conn ✅  (matched pair: 4- vs 8-connectivity)
   contour:     boundary_mask ✅
-  symmetry:    symmetry_complete ✅  (vertical + horizontal axes)
+  symmetry:    symmetry_complete_vertical ✅  symmetry_complete_horizontal ✅  (split — fixed axis each)
   periodic:    periodic_extension ✅  periodic_repair ✅
   simulation:  gravity_water ✅  drop_to_floor ✅ (rigid drop)
   seed-flood:  flood_from_seed ✅  flood_from_seed_8 ✅  (matched pair: 4- vs 8-conn)
