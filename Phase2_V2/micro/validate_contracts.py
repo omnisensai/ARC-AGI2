@@ -252,6 +252,28 @@ def pc_recolor_marker(g):
     return None
 
 
+def pc_border_seed(g):
+    H, W = len(g), len(g[0]); bg = mode(g)
+    border = [(r, c) for r in range(H) for c in range(W)
+              if g[r][c] != bg and (r in (0, H - 1) or c in (0, W - 1))]
+    if len(border) != 1:
+        return f"expected exactly 1 border seed, found {len(border)}"
+    return None
+
+
+def pc_fence(g):
+    bg = mode(g)
+    nz = Counter(v for row in g for v in row if v != bg)
+    if len(nz) < 2:
+        return "need a shape + a fence-colour marker"
+    vals = sorted(nz.values())
+    if vals[0] != 1:
+        return f"fence-colour marker is not a single cell (rarest count {vals[0]})"
+    if vals[-1] < 2:
+        return "shape has fewer than 2 cells"
+    return None
+
+
 def adv(rows):  # convenience
     return rows
 
@@ -290,6 +312,9 @@ CONFIG = {
     "move_to_marker":         {"precond": pc_single_seed, "adv": [[[3, 3, 0, 0], [0, 0, 0, 4]]]},
     "copy_to_markers":        {"precond": pc_copy_markers, "adv": [[[3, 3, 0, 0, 4], [3, 0, 0, 0, 0]]]},
     "recolor_by_marker":      {"precond": pc_recolor_marker, "adv": [[[5, 5, 0], [0, 0, 0]]]},
+    "ball_roll":              {"precond": pc_border_seed, "adv": [[[2, 0, 0], [0, 5, 0], [0, 0, 0]]]},
+    "fence_8conn":            {"precond": pc_fence, "adv": [[[3, 3, 0], [0, 0, 4]]]},
+    "fence_4conn":            {"precond": pc_fence, "adv": [[[3, 3, 0], [0, 0, 4]]]},
     # micro_diff
     "crop_to_bbox":           {"diff": True, "adv": [[[0, 0], [0, 0]]]},             # no content -> controlled
     "scale_2x":               {"diff": True, "uses_bg": False},

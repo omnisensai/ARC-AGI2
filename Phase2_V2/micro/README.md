@@ -109,6 +109,8 @@ ALL 17 families DONE — each 60/60 across tiers 0-2, 240 records (4080 total):
   simulation:  gravity_water ✅  drop_to_floor ✅ (rigid drop)
   seed-flood:  flood_from_seed ✅  flood_from_seed_8 ✅  (matched pair: 4- vs 8-conn)
   seed-radiate: cross_from_seed ✅  star_from_seed ✅  (matched pair: 4- vs 8-direction)
+  seed-path:   ball_roll ✅  (snake / maze runner — roll, turn at walls, trail)
+  fencing:     fence_8conn ✅  fence_4conn ✅  (matched pair: square vs rounded corners)
   markers:     move_to_marker ✅  copy_to_markers ✅  recolor_by_marker ✅
                (seed-as-trigger: anchor / replicate / colour-bind)
 ```
