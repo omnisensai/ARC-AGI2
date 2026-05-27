@@ -92,6 +92,23 @@ def _pc_components(conn8):
     return f
 
 
+def pc_extract_largest(g):
+    bg = mode(g)
+    nz = Counter(v for row in g for v in row if v != bg)
+    if len(nz) < 2:
+        return "fewer than 2 non-bg colours (need blobs + a marker)"
+    m = min(nz, key=lambda k: nz[k])
+    if nz[m] != 1:
+        return f"marker colour is not a single cell (count {nz[m]})"
+    comps = [c for c in comps_of(g, bg, False) if g[c[0][0]][c[0][1]] != m]
+    sizes = sorted((len(c) for c in comps), reverse=True)
+    if len(sizes) < 2:
+        return "fewer than 2 blobs"
+    if sizes[0] == sizes[1]:
+        return "largest-blob size tie (selection ambiguous)"
+    return None
+
+
 def _edge_markers(g):
     H, W = len(g), len(g[0]); bg = mode(g)
     return [(r, c) for r in range(H) for c in range(W)
@@ -192,8 +209,8 @@ CONFIG = {
     "ray_diag_until_blocker": {"precond": pc_ray_corner, "adv": [[[0, 0], [0, 0]]]},  # no corner -> StopIteration
     "complete_line":          {"precond": pc_complete_line,
                                "adv": [[[3, 0, 0, 0, 0], [0]*5, [0, 0, 0, 0, 3]]]},  # non-collinear -> HANG risk
-    "component_recolor":      {"precond": _pc_components(False),
-                               "adv": [[[3, 0, 4], [0, 0, 0], [0, 0, 0]]]},          # equal-size tie
+    "extract_largest_recolor": {"precond": pc_extract_largest,
+                               "adv": [[[3, 3, 0, 4], [0, 0, 0, 0], [3, 3, 0, 0]]]},  # blob tie + marker
     "component_4conn":        {"precond": _pc_components(False),
                                "adv": [[[3, 0, 4], [0, 0, 0]]]},
     "component_8conn":        {"precond": _pc_components(True),
@@ -204,9 +221,9 @@ CONFIG = {
     "u_cup_fill":             {},
     "fill_enclosed":          {},
     "sandwich_fill":          {},
-    "mirror":                 {},
+    "symmetry_complete":      {},
     "gravity_water":          {},
-    "rotate_translate":       {},
+    "drop_to_floor":          {},
     # micro_diff
     "crop_to_bbox":           {"diff": True, "adv": [[[0, 0], [0, 0]]]},             # no content -> controlled
     "scale_2x":               {"diff": True, "uses_bg": False},

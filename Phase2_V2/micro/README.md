@@ -94,13 +94,14 @@ ALL 17 families DONE — each 60/60 across tiers 0-2, 240 records (4080 total):
 
   rays:        ray_to_edge ✅  ray_until_blocker ✅
                ray_diag_to_edge ✅  ray_diag_until_blocker ✅  (corner -> diagonal)
-  lines/fill:  complete_line ✅  sandwich_fill ✅ (H/V/diag)  fill_enclosed ✅  u_cup_fill ✅
-  components:  component_recolor ✅
+  lines/fill:  complete_line ✅  sandwich_fill ✅ (H/V/diag)  u_cup_fill ✅
+               fill_enclosed ✅  (any closed outline — rect + irregular blob)
+  selection:   extract_largest_recolor ✅  (select-by-size + recolour to seed colour)
                component_4conn ✅  component_8conn ✅  (matched pair: 4- vs 8-connectivity)
   contour:     boundary_mask ✅
-  symmetry:    mirror ✅
+  symmetry:    symmetry_complete ✅  (vertical + horizontal axes)
   periodic:    periodic_extension ✅  periodic_repair ✅
-  simulation:  gravity_water ✅  rotate_translate ✅ (rigid drop)
+  simulation:  gravity_water ✅  drop_to_floor ✅ (rigid drop)
 ```
 
 Ray mechanic covered in both forms (edge->perpendicular, corner->diagonal).
