@@ -272,6 +272,40 @@ def pc_fence(g):
     return None
 
 
+def pc_flip_h(g):
+    if g == [row[::-1] for row in g]:
+        return "input is already left-right symmetric (flip is a no-op)"
+    return None
+
+
+def pc_flip_v(g):
+    if g == g[::-1]:
+        return "input is already top-bottom symmetric (flip is a no-op)"
+    return None
+
+
+def pc_draw_bbox(g):
+    bg = mode(g)
+    cells = [(r, c) for r in range(len(g)) for c in range(len(g[0])) if g[r][c] != bg]
+    if not cells:
+        return "no object"
+    if len({g[r][c] for r, c in cells}) != 1:
+        return "object has more than one colour"
+    r0 = min(r for r, c in cells); r1 = max(r for r, c in cells)
+    c0 = min(c for r, c in cells); c1 = max(c for r, c in cells)
+    if r0 == r1 and c0 == c1:
+        return "degenerate bbox (single cell)"
+    perim_bg = any(g[r0][c] == bg or g[r1][c] == bg for c in range(c0, c1 + 1)) \
+        or any(g[r][c0] == bg or g[r][c1] == bg for r in range(r0, r1 + 1))
+    if not perim_bg:
+        return "bbox perimeter already complete (frame adds nothing)"
+    return None
+
+
+def pc_nonsquare(g):
+    return "input is square (rotate would not change size)" if len(g) == len(g[0]) else None
+
+
 def adv(rows):  # convenience
     return rows
 
@@ -315,9 +349,13 @@ CONFIG = {
     "maze_runner":            {"precond": pc_border_seed, "adv": [[[2, 0, 0], [0, 5, 0], [0, 0, 0]]]},
     "fence_8conn":            {"precond": pc_fence, "adv": [[[3, 3, 0], [0, 0, 0]]]},
     "fence_4conn":            {"precond": pc_fence, "adv": [[[3, 3, 0], [0, 0, 0]]]},
+    "flip_horizontal":        {"precond": pc_flip_h, "uses_bg": False},
+    "flip_vertical":          {"precond": pc_flip_v, "uses_bg": False},
+    "draw_bbox":              {"precond": pc_draw_bbox},
     # micro_diff
     "crop_to_bbox":           {"diff": True, "adv": [[[0, 0], [0, 0]]]},             # no content -> controlled
     "scale_2x":               {"diff": True, "uses_bg": False},
+    "rotate_90":              {"diff": True, "uses_bg": False, "precond": pc_nonsquare},
 }
 
 UNIVERSAL_ADV = [[[0]], [[0]*5 for _ in range(5)], [[5]*5 for _ in range(5)], [[0, 3, 0, 3, 0]]]

@@ -78,11 +78,19 @@ Columns:
 | copy_to_markers | stamp a copy of the prototype at every marker | — | prototype = the one multi-cell component; markers = single cells of a distinct colour; **anchor = prototype bbox top-left lands on each marker; markers consumed; prototype stays** | read (prototype colour) | same |
 | recolor_by_marker | each object takes the colour of the marker touching it | object comps **4**-conn; marker adjacency **8**-conn | object colour = most-common non-bg; markers = other non-bg colours; **marker excluded from object comps; marker not recoloured (stays)** | read (= marker colour) | same |
 
+## Whole-grid geometry (same-size)
+| family | rule | conn | seed/marker | out colour | size |
+|---|---|---|---|---|---|
+| flip_horizontal | mirror the WHOLE grid left<->right: out[r][c]=in[r][W-1-c] | — | none | read | same |
+| flip_vertical | mirror the WHOLE grid top<->bottom: out[r][c]=in[H-1-r][c] | — | none | read | same |
+| draw_bbox | draw the object's bounding-box rectangle outline (4 edges at min/max row/col) | — | none | read (object colour) | same |
+
 ## Diff-size geometry (SEPARATE CLASS — the per-cell T-map does not apply)
 | family | rule | conn | seed/marker | out colour | size |
 |---|---|---|---|---|---|
 | crop_to_bbox | output = tight bounding box of the non-bg content | — | none | gather (copy from input) | **changes** → (bbox h, bbox w) |
 | scale_2x | every cell becomes a 2×2 block | — | none | gather: out[r][c]=in[r//2][c//2] | **changes** → (2H, 2W) |
+| rotate_90 | rotate the whole grid 90° clockwise: out[i][j]=in[H-1-j][i] | — | none | gather | **changes** → (W, H) |
 
 ---
 

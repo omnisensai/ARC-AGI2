@@ -113,7 +113,16 @@ ALL 17 families DONE — each 60/60 across tiers 0-2, 240 records (4080 total):
   fencing:     fence_8conn ✅  fence_4conn ✅  (matched pair: square vs rounded corners)
   markers:     move_to_marker ✅  copy_to_markers ✅  recolor_by_marker ✅
                (seed-as-trigger: anchor / replicate / colour-bind)
+  geometry:    flip_horizontal ✅  flip_vertical ✅  draw_bbox ✅  (whole-grid mirror / bbox frame)
+  diff-size (micro_diff/): crop_to_bbox ✅  scale_2x ✅  rotate_90 ✅  (size-changing class)
 ```
+
+Geometric primitive layer complete. The set is deliberately bounded to primitive
+INVARIANCE (rays, lines, enclosure, components, connectivity, boundary, symmetry,
+periodicity, gravity, rigid movement, marker recolor/move, flip/rotate/bbox,
+crop/scale) — not puzzle coverage. Compositions/policies (object sorting,
+select/delete-by-marker, intersection-mark, pattern replace, palette mapping)
+are deliberately held back.
 
 Ray mechanic covered in both forms (edge->perpendicular, corner->diagonal).
 Next: scale counts toward ~300/family (`--n 300`), enable tier-3 distractors,
