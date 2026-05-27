@@ -57,6 +57,11 @@ So there are two gates:
      terminate within a hard timeout and return a well-formed grid OR raise a
      controlled exception — never HANG / MALFORMED / NON-DETERMINISTIC.
 
+  Generation runs in a timeout-guarded subprocess (`--gen-timeout`, default 30s),
+  so a hanging/slow generator is reported as `GENERATOR TIMEOUT` rather than
+  stalling the validator itself (the failure mode the extract_largest_recolor
+  hang first exposed — the validator caught the bug by hanging; now it reports it).
+
   `python micro/validate_contracts.py --dir micro` (or `--dir micro_diff`).
   On its first run it caught two real bugs sample-checking missed: `complete_line`
   hung forever on non-collinear endpoints (unbounded loop, now bounds-guarded),

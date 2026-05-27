@@ -18,7 +18,7 @@ This validator adds:
 Correctness, timeout, and AST audit (gates 1-3) remain build_micro's job; this
 complements them. Exit code is nonzero if any family violates its contract.
 """
-import argparse, importlib.util, json, os, subprocess, sys, tempfile
+import argparse, json, os, subprocess, sys, tempfile
 from collections import Counter, deque
 from math import gcd
 from pathlib import Path
@@ -314,6 +314,35 @@ except Exception as e:
 '''
 
 
+_GEN_RUNNER = r'''
+import importlib.util, json, sys
+spec = importlib.util.spec_from_file_location("m", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+batch = int(sys.argv[2]); tiers = [0, 1, 2]
+out = [m.generate(seed=10000 + i, difficulty=tiers[i % 3]) for i in range(batch)]
+json.dump(out, open(sys.argv[3], "w"))
+'''
+
+
+def gen_batch(gen_path, batch, timeout):
+    """Generate a fresh batch in a SUBPROCESS so a hanging/slow generator is
+    reported (GENERATOR TIMEOUT) instead of stalling the validator itself —
+    the exact failure mode the extract_largest_recolor hang exposed."""
+    rf = tempfile.NamedTemporaryFile("w", suffix=".py", delete=False); rf.write(_GEN_RUNNER); rf.close()
+    of = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False); of.close()
+    try:
+        r = subprocess.run([sys.executable, rf.name, str(gen_path), str(batch), of.name],
+                           capture_output=True, text=True, timeout=timeout)
+        if r.returncode != 0:
+            last = (r.stderr.strip().splitlines() or ["?"])[-1][:70]
+            return [], f"GENERATOR ERROR ({last})"
+        return json.load(open(of.name)), None
+    except subprocess.TimeoutExpired:
+        return [], f"GENERATOR TIMEOUT (>{timeout}s for {batch} tasks)"
+    finally:
+        os.unlink(rf.name); os.unlink(of.name)
+
+
 def run_adv(solver_path, grid, timeout=5):
     rf = tempfile.NamedTemporaryFile("w", suffix=".py", delete=False); rf.write(_ADV_RUNNER); rf.close()
     gf = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False); json.dump(grid, gf); gf.close()
@@ -328,16 +357,11 @@ def run_adv(solver_path, grid, timeout=5):
         os.unlink(rf.name); os.unlink(gf.name)
 
 
-def load_family(gen_dir, name):
-    spec = importlib.util.spec_from_file_location(name, gen_dir / f"{name}.py")
-    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
-    return mod
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", default="micro")
     ap.add_argument("--batch", type=int, default=150, help="fresh tasks per family for precondition audit")
+    ap.add_argument("--gen-timeout", type=int, default=30, help="seconds allowed for a family's batch generation")
     a = ap.parse_args()
     ROOT = P2 / a.dir
     GEN, SOLV = ROOT / "generators", ROOT / "solvers"
@@ -351,14 +375,16 @@ def main():
         is_diff = cfg.get("diff", False)
         precond = cfg.get("precond")
         precond_task = cfg.get("precond_task")
-        mod = load_family(GEN, fam)
         solver = SOLV / f"{fam}.py"
 
         # ---- (4) precondition / property audit over a fresh batch ----
+        # Generation runs in a timeout-guarded subprocess: a hanging generator is
+        # reported, never stalls the validator.
         viol = Counter()
-        tiers = [0, 1, 2]
-        for i in range(a.batch):
-            task = mod.generate(seed=10000 + i, difficulty=tiers[i % 3])
+        tasks, gen_err = gen_batch(GEN / f"{fam}.py", a.batch, a.gen_timeout)
+        if gen_err:
+            viol[gen_err] += 1
+        for task in tasks:
             if precond_task:
                 v = precond_task(task)
                 if v:
