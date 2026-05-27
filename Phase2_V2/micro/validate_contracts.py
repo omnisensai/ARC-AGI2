@@ -193,6 +193,65 @@ def pc_periodic_repair(g):
 
 
 # --------------------- per-family config registry -------------------------
+def pc_single_seed(g):
+    bg = mode(g)
+    nz = Counter(v for row in g for v in row if v != bg)
+    if not nz:
+        return "no seed/marker (all background)"
+    mn = min(nz.values())
+    if mn != 1:
+        return f"seed/marker is not a single cell (rarest non-bg count {mn})"
+    if sum(1 for v in nz.values() if v == mn) != 1:
+        return "ambiguous seed/marker (multiple rarest non-bg colours)"
+    return None
+
+
+def pc_copy_markers(g):
+    bg = mode(g)
+    comps = comps_of(g, bg, False)
+    big = [c for c in comps if len(c) >= 2]
+    singles = [c for c in comps if len(c) == 1]
+    if len(big) != 1:
+        return f"expected exactly 1 multi-cell prototype, found {len(big)}"
+    if not singles:
+        return "no marker pixels"
+    pcol = g[big[0][0][0]][big[0][0][1]]
+    if any(g[s[0][0]][s[0][1]] == pcol for s in singles):
+        return "a marker shares the prototype colour"
+    return None
+
+
+def pc_recolor_marker(g):
+    H, W = len(g), len(g[0]); bg = mode(g)
+    nz = Counter(v for row in g for v in row if v != bg)
+    if not nz:
+        return "no objects"
+    C = max(nz, key=lambda k: nz[k])
+    nb8 = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+    seen = [[False] * W for _ in range(H)]
+    for r in range(H):
+        for c in range(W):
+            if g[r][c] == C and not seen[r][c]:
+                comp = []; st = [(r, c)]; seen[r][c] = True
+                while st:
+                    y, x = st.pop(); comp.append((y, x))
+                    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        ny, nx = y + dy, x + dx
+                        if 0 <= ny < H and 0 <= nx < W and not seen[ny][nx] and g[ny][nx] == C:
+                            seen[ny][nx] = True; st.append((ny, nx))
+                mcols = set()
+                for (y, x) in comp:
+                    for dy, dx in nb8:
+                        ny, nx = y + dy, x + dx
+                        if 0 <= ny < H and 0 <= nx < W and g[ny][nx] != bg and g[ny][nx] != C:
+                            mcols.add(g[ny][nx])
+                if len(mcols) == 0:
+                    return "an object has no adjacent marker"
+                if len(mcols) > 1:
+                    return "an object touches markers of >1 colour (ambiguous)"
+    return None
+
+
 def adv(rows):  # convenience
     return rows
 
@@ -224,6 +283,11 @@ CONFIG = {
     "symmetry_complete":      {},
     "gravity_water":          {},
     "drop_to_floor":          {},
+    "flood_from_seed":        {"precond": pc_single_seed, "adv": [[[5, 5, 5], [5, 2, 5], [5, 5, 5]]]},
+    "flood_from_seed_8":      {"precond": pc_single_seed, "adv": [[[5, 5, 5], [5, 2, 5], [5, 5, 5]]]},
+    "move_to_marker":         {"precond": pc_single_seed, "adv": [[[3, 3, 0, 0], [0, 0, 0, 4]]]},
+    "copy_to_markers":        {"precond": pc_copy_markers, "adv": [[[3, 3, 0, 0, 4], [3, 0, 0, 0, 0]]]},
+    "recolor_by_marker":      {"precond": pc_recolor_marker, "adv": [[[5, 5, 0], [0, 0, 0]]]},
     # micro_diff
     "crop_to_bbox":           {"diff": True, "adv": [[[0, 0], [0, 0]]]},             # no content -> controlled
     "scale_2x":               {"diff": True, "uses_bg": False},

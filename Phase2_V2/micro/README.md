@@ -102,6 +102,9 @@ ALL 17 families DONE — each 60/60 across tiers 0-2, 240 records (4080 total):
   symmetry:    symmetry_complete ✅  (vertical + horizontal axes)
   periodic:    periodic_extension ✅  periodic_repair ✅
   simulation:  gravity_water ✅  drop_to_floor ✅ (rigid drop)
+  seed-flood:  flood_from_seed ✅  flood_from_seed_8 ✅  (matched pair: 4- vs 8-conn)
+  markers:     move_to_marker ✅  copy_to_markers ✅  recolor_by_marker ✅
+               (seed-as-trigger: anchor / replicate / colour-bind)
 ```
 
 Ray mechanic covered in both forms (edge->perpendicular, corner->diagonal).
