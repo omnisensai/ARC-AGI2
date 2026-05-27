@@ -283,6 +283,8 @@ CONFIG = {
     "symmetry_complete":      {},
     "gravity_water":          {},
     "drop_to_floor":          {},
+    "cross_from_seed":        {"precond": pc_single_seed, "adv": [[[2, 0, 0], [0, 0, 0], [0, 0, 0]]]},
+    "star_from_seed":         {"precond": pc_single_seed, "adv": [[[2, 0, 0], [0, 0, 0], [0, 0, 0]]]},
     "flood_from_seed":        {"precond": pc_single_seed, "adv": [[[5, 5, 5], [5, 2, 5], [5, 5, 5]]]},
     "flood_from_seed_8":      {"precond": pc_single_seed, "adv": [[[5, 5, 5], [5, 2, 5], [5, 5, 5]]]},
     "move_to_marker":         {"precond": pc_single_seed, "adv": [[[3, 3, 0, 0], [0, 0, 0, 4]]]},
