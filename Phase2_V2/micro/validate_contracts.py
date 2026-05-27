@@ -313,6 +313,7 @@ CONFIG = {
     "copy_to_markers":        {"precond": pc_copy_markers, "adv": [[[3, 3, 0, 0, 4], [3, 0, 0, 0, 0]]]},
     "recolor_by_marker":      {"precond": pc_recolor_marker, "adv": [[[5, 5, 0], [0, 0, 0]]]},
     "ball_roll":              {"precond": pc_border_seed, "adv": [[[2, 0, 0], [0, 5, 0], [0, 0, 0]]]},
+    "maze_runner":            {"precond": pc_border_seed, "adv": [[[2, 0, 0], [0, 5, 0], [0, 0, 0]]]},
     "fence_8conn":            {"precond": pc_fence, "adv": [[[3, 3, 0], [0, 0, 4]]]},
     "fence_4conn":            {"precond": pc_fence, "adv": [[[3, 3, 0], [0, 0, 4]]]},
     # micro_diff
