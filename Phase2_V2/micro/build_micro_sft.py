@@ -85,14 +85,18 @@ def render_pairs_diff(pairs):
 
 
 def variants(train, test, rng):
-    """Yield (label, shown_train_pairs, test_input_or_None)."""
+    """Yield (label, shown_train_pairs, test_input_or_None).
+
+    Competition-shape variant (showing TEST INPUT) is deliberately excluded:
+    it conditions the solver on a specific test grid, which weakens the
+    invariance signal we want the LoRA to learn.
+    """
     n = len(train)
     out = [("A_all", train, None)]
     if n >= 3:
         out.append(("B_3pair", rng.sample(train, 3), None))
     if n >= 2:
         out.append(("C_2pair", rng.sample(train, 2), None))
-    out.append(("D_comp", train, test[0]["input"]))  # competition-shaped
     return out
 
 
