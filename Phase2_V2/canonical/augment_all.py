@@ -43,7 +43,7 @@ def random_perm(rng):
     return {0: 0, **{i + 1: cs[i] for i in range(9)}}
 
 
-def augment_puzzle(puzzle_id, solver_path, puzzle, color_perms, rng):
+def augment_puzzle(puzzle_id, solver_path, puzzle, color_perms, rng, timeout):
     """Return list of (tag, aug_train, aug_test) that survived the gate."""
     all_pairs = puzzle["train"] + puzzle["test"]
     n_train = len(puzzle["train"])
@@ -58,7 +58,7 @@ def augment_puzzle(puzzle_id, solver_path, puzzle, color_perms, rng):
             aug = [{"input":  color_perm(d4_fn(p["input"]),  c_perm),
                     "output": color_perm(d4_fn(p["output"]), c_perm)}
                    for p in all_pairs]
-            ok, _, _ = accept(solver_path, aug)
+            ok, _, _ = accept(solver_path, aug, timeout=timeout)
             if ok:
                 accepted.append((f"{d4_name}+{c_name}", aug[:n_train], aug[n_train:]))
     return accepted, n_attempt
@@ -68,9 +68,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--color-perms", type=int, default=4)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--out", default="Phase2_V2/canonical/sft/real_samesize.jsonl")
+    ap.add_argument("--out-dir", default="Phase2_V2/canonical/sft")
     ap.add_argument("--report", default="Phase2_V2/canonical/augment_report.json")
     ap.add_argument("--limit", type=int, default=0, help="cap puzzles (0 = all)")
+    ap.add_argument("--timeout", type=int, default=3,
+                    help="per-gate-call timeout seconds (normal solver runs in <100ms)")
     a = ap.parse_args()
 
     SOLV = P2 / "canonical" / "solvers"
@@ -79,11 +81,13 @@ def main():
     if a.limit:
         ids = ids[:a.limit]
 
-    out_path = Path(a.out); out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_dir = Path(a.out_dir); out_dir.mkdir(parents=True, exist_ok=True)
+    orig_path = out_dir / "real_samesize_original.jsonl"
+    aug_path  = out_dir / "real_samesize_augmented.jsonl"
     report = {}
-    n_total_rec, n_total_aug = 0, 0
+    n_orig_rec, n_aug_rec, n_total_aug = 0, 0, 0
     t0 = time.time()
-    with out_path.open("w") as fh:
+    with orig_path.open("w") as fh_orig, aug_path.open("w") as fh_aug:
         for i, pid in enumerate(ids):
             solver_path = SOLV / f"{pid}.py"
             puzzle_path = PUZ / f"{pid}.json"
@@ -92,33 +96,37 @@ def main():
             puzzle = json.loads(puzzle_path.read_text())
             rng = random.Random(a.seed + i)  # deterministic per puzzle
             accepted, n_attempt = augment_puzzle(pid, solver_path, puzzle,
-                                                  a.color_perms, rng)
+                                                  a.color_perms, rng, a.timeout)
             solver_src = solver_path.read_text()
-            n_rec = 0
             for tag, aug_train, aug_test in accepted:
+                # 'id+c_id' = the un-augmented original puzzle; route to originals
+                is_original = (tag == "id+c_id")
+                fh = fh_orig if is_original else fh_aug
                 for label, shown, _ in variants(aug_train, aug_test, rng):
                     user = render_pairs(shown) + "\n\nWrite def solve(input_grid)."
                     rec = {"system": SYSTEM, "user": user, "assistant": solver_src,
-                           "meta": {"puzzle": pid, "augment": tag, "variant": label}}
+                           "meta": {"puzzle": pid, "augment": tag, "variant": label,
+                                    "original": is_original}}
                     fh.write(json.dumps(rec) + "\n")
-                    n_rec += 1
-            report[pid] = {"accepted": len(accepted), "attempted": n_attempt,
-                           "records": n_rec}
-            n_total_rec += n_rec
+                    if is_original: n_orig_rec += 1
+                    else:           n_aug_rec  += 1
+            report[pid] = {"accepted": len(accepted), "attempted": n_attempt}
             n_total_aug += len(accepted)
             if (i + 1) % 50 == 0:
                 dt = time.time() - t0
                 eta = dt / (i + 1) * (len(ids) - i - 1)
-                print(f"[{i+1}/{len(ids)}] aug={n_total_aug} rec={n_total_rec} "
-                      f"  {dt:.0f}s elapsed  eta {eta:.0f}s")
+                print(f"[{i+1}/{len(ids)}] aug={n_total_aug} orig_rec={n_orig_rec} "
+                      f"aug_rec={n_aug_rec}  {dt:.0f}s  eta {eta:.0f}s",
+                      flush=True)
 
     Path(a.report).write_text(json.dumps(report, indent=2))
     dt = time.time() - t0
     print(f"\n=== DONE in {dt:.0f}s ===")
     print(f"puzzles: {len(ids)}")
-    print(f"total augmentations accepted: {n_total_aug}")
-    print(f"total SFT records: {n_total_rec}")
-    print(f"avg records / puzzle: {n_total_rec / max(1, len(ids)):.1f}")
+    print(f"total accepted augmentations: {n_total_aug}")
+    print(f"original records: {n_orig_rec}  -> {orig_path}")
+    print(f"augmented records: {n_aug_rec}  -> {aug_path}")
+    print(f"avg accepted / puzzle: {n_total_aug / max(1, len(ids)):.1f}")
     # distribution
     buckets = {"0": 0, "1-10": 0, "11-20": 0, "21-30": 0, "31-40": 0}
     for pid, v in report.items():
