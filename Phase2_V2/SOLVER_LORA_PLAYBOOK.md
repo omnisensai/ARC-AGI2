@@ -79,6 +79,14 @@ LoRA is kept as a baseline only.
    are being trained. Otherwise the model learns surface style without stable
    operators. This is the line.
 
+9. **Object class is taught from INPUT.**
+   Detection (L0) runs on the input grid. Physics (L1) are typed by the
+   **input** object class. The output is `input + T`; outputs are NOT re-typed.
+   A `frame_around_seed` operation is *a physic of `seed`*, even though its
+   output looks like `seed + hollow_rect`; the output classification is
+   descriptive, not architectural. This eliminates "cross-class transitions"
+   as a separate build category — every physic is owned by its input class.
+
 ## Run 1 mix (the default — falsifiable, simple)
 
 All four layers present from the start. **No staging.** Repair is *capped*, not

@@ -6,8 +6,8 @@ Planning document. **No code in this commit — just the substrate audit.**
 
 - **Invariant** = the structural definition of the shape. Cross it, you're in a different class.
 - **Within-class physics** = operations that produce variants WHILE PRESERVING the invariant. Variants are exactly the closure of the invariant under these operations; the variant set isn't a separate column.
-- **Cross-class transitions** = operations that BREAK the invariant. They produce a different shape and therefore belong to a different object's family — not this object's gaps.
 - **Shapes are MECE.** A U-cup whose top gets enclosed is a *hollow_rectangle*, not a transformed U-cup. Filling the interior of a hollow_rectangle is a *filled_rectangle*.
+- **Object class is taught from INPUT** (playbook principle 9). Physics are typed by their input class only; outputs are not re-typed. A physic whose output *looks like* a different shape — e.g. `frame_around_seed` emitting cells that read as a hollow_rect — is still a physic *of* its input class (seed). Cross-class transitions exist *descriptively* (useful for puzzle-decoding) but are **not a separate build category**; every physic is owned by the input class it operates on. The "Cross-class transitions" rows below are reference notes, not gaps to fill.
 
 ## Read of our existing 35 L1 micros, sorted by object class
 
