@@ -54,35 +54,57 @@ LoRA is kept as a baseline only.
    (same AST audit). Protects against code bias regardless of base model.
 
 7. **The layering thesis is a HYPOTHESIS, not a belief.**
-   The substrate goal is: **ARC task = latent operator graph → code.** We claim
-   a stack on the way there:
-     - Layer 1 — **alphabet** = micro primitives (one rule, clean contract).
-     - Layer 2 — **words** = composed synthetic puzzles (2–4 known primitives
-       chained, contract still known). **REQUIRED BRIDGE**, not optional.
-     - Layer 3 — **sentences** = real ARC puzzles (messy natural composition).
+   The substrate goal is: **ARC task = latent operator graph → code.** The stack
+   on the way there has FOUR layers, all present from the start (none staged):
+     - **Layer 1 — substrate primitives (the ONTOLOGY)**: micro families.
+       One rule, clean contract. *Not* curriculum convenience — these DEFINE
+       the operators the rest of the stack composes.
+     - **Layer 2 — composed synthetic**: 2–4 known primitives chained, contract
+       still known. The bridge between atoms and messy natural composition.
+     - **Layer 3 — real ARC-style**: messy natural puzzles.
+     - **Layer 4 — repair / constraint-checking**: plausible-but-wrong solvers
+       paired with corrected ones. Antidote to the 47.5% hardcode reflex.
+       Implementation TBD: (a) SFT contrastive (wrong/right pairs in the mix)
+       or (b) post-SFT DPO. Partial groundwork: `data_sft/phase3_dpo.jsonl`
+       (7,221 pairs).
+
    "Positive transfer between layers" is not assumed — it is *tested* by the
    bucketed eval below. Without Layer 2, alphabet may stay isolated toy skill
    AND sentences may be memorised stylistically without stable operators.
 
-8. **Repair / constraint-checking (Phase D).**
-   Train on plausible-but-wrong solvers paired with corrected ones so the model
-   learns: *"this solver looks fluent but violates the contract — fix it."*
-   This is the antidote to fluent code bias (the 47.5% hardcode reflex on raw
-   Instruct). Two implementations possible:
-     (a) SFT contrastive — wrong/right pairs in the SFT mix.
-     (b) Post-SFT DPO — preference pairs (right preferred over wrong).
-   Partial groundwork already exists (`data_sft/phase3_dpo.jsonl`, 7,221 pairs).
-   Decision deferred to after run 1 reads, but the contract for the data lives
-   here.
+8. **Ontology replay is non-negotiable.**
+   **Micro (Layer 1) is the ontology layer, not curriculum convenience.**
+   Composition must NEVER be trained without ontology replay — i.e. Layer 1
+   examples must always be present in meaningful proportion whenever Layers 2/3
+   are being trained. Otherwise the model learns surface style without stable
+   operators. This is the line.
+
+## Run 1 mix (the default — falsifiable, simple)
+
+All four layers present from the start. **No staging.** Repair is *capped*, not
+deferred. If composed is not yet built, the fallback raises micro and real and
+emphasises diff-size to retain operator coverage.
+
+| layer | full mix (if composed ready) | fallback (composed not yet built) |
+|---|---:|---:|
+| Layer 1 — substrate micro            | **35%** | **45%** |
+| Layer 2 — composed synthetic         | **25%** |    —    |
+| Layer 3 — real ARC-style             | **25%** | **30%** |
+| Layer 4 — repair / wrong-code        | **15%** | **15%** |
+| (within L1) diff-size geometry emphasis | — | **+10%** boost |
+
+These are tunable — but `run 1 = uniform joint mix at these ratios` is the
+simplest falsifiable experiment. The bucketed eval then decides whether to
+shift weights; do not bake speculative curriculum into run 1.
 
 ## Curriculum policy (resolves a potential contradiction with principle 2)
 
-Principle 2 says "joint, not sequential." That stands. "Phases" of the layering
-thesis (atoms → words → sentences → repair) refer to **the conceptual stack**,
-not to discrete training stages. If we ever introduce a curriculum, it is
-**shifting EMPHASIS within a single joint mix — atoms never disappear** (replay).
-Default for run 1: **uniform joint mix**, no curriculum (simpler, lower-risk).
-Add curriculum-with-replay only if the bucketed eval shows a specific failure
+Principle 2 says "joint, not sequential." That stands. The **Layers** above
+refer to the **conceptual stack**, not to training stages — every layer is in
+every batch. If we ever introduce curriculum, it is **shifting EMPHASIS within
+a single joint mix — Layer 1 never disappears** (ontology replay, principle 8).
+Default for run 1: the uniform joint mix at the ratios above. Add
+curriculum-with-replay only if the bucketed eval reveals a specific failure
 mode the simpler mix cannot fix. Do not bake speculative complexity into run 1.
 
 ## Eval taxonomy (FIVE distinct categories — do not conflate)
