@@ -111,6 +111,116 @@ def puzzle_signature(puzzle):
     return Counter(sigs).most_common(1)[0][0]
 
 
+# ---------- T-signature -> likely L1 primitives ------------------------
+# Heuristic mapping from (polarity, topology, density) to the L1 primitives
+# we already have that produce that kind of T pattern. The model still has to
+# infer composition from train pairs; this just names which primitives are
+# likely involved in puzzles of this cluster.
+
+L1_HAVE = {  # short labels for our existing L1 primitives
+    "frame_around_seed":     "(seed) NEW — halo of cells around a seed",
+    "cross_from_seed":       "(seed) 4 arms to edges",
+    "star_from_seed":        "(seed) 8 arms to edges",
+    "flood_from_seed_4":     "(seed) 4-conn flood region",
+    "flood_from_seed_8":     "(seed) 8-conn flood region",
+    "ray_to_edge":           "(seed-on-edge) line to far edge",
+    "ray_until_blocker":     "(seed-on-edge) line until obstacle",
+    "ball_roll":             "(seed) rolls with trail",
+    "maze_runner":           "(seed) rolls, no trail",
+    "fill_enclosed":         "(hollow shape) fill interior",
+    "u_cup_fill":            "(u_cup) fill interior",
+    "fence_4conn":           "(shape) fence orthogonal neighbours, fixed colour 8",
+    "fence_8conn":           "(shape) fence incl. diagonals, fixed colour 8",
+    "boundary_mask":         "(blob) hollow to outline",
+    "draw_bbox":             "(object) draw bbox perimeter",
+    "complete_line":         "(two endpoints) fill between",
+    "sandwich_fill":         "(pairs) fill between same-colour pairs",
+    "component_4conn":       "(blobs) keep largest 4-conn",
+    "component_8conn":       "(blobs) keep largest 8-conn",
+    "extract_largest_recolor":"(blobs+marker) largest -> marker colour, others erased",
+    "recolor_by_marker":     "(blob+marker) blob takes marker colour",
+    "move_to_marker":        "(object+marker) translate to anchor",
+    "copy_to_markers":       "(prototype+markers) stamp at each marker",
+    "drop_to_floor":         "(rigid blob) fall as one piece",
+    "gravity_water":         "(cells) per-column settle",
+    "symmetry_complete_v":   "(half-grid) mirror L<->R",
+    "symmetry_complete_h":   "(half-grid) mirror T<->B",
+    "flip_horizontal":       "(grid) flip L<->R",
+    "flip_vertical":         "(grid) flip T<->B",
+    "rotate_90":             "(grid) 90° CW (size swaps)",
+    "scale_2x":              "(grid) 2x upscale (size doubles)",
+    "crop_to_bbox":          "(content) crop to bbox (size shrinks)",
+    "periodic_extension":    "(row periodic dots) extend period across row",
+    "periodic_repair":       "(periodic tile) repair holes by consensus",
+    "panel_repair":          "(panels) per-panel periodic repair",
+    "periodic_extension_2d": "PROPOSED — multi-panel periodic extension",
+    "mark_corners":          "PROPOSED — mark the 4 grid corners",
+}
+
+
+def predict_primitives(sig):
+    """Heuristic list of L1 primitives likely composing puzzles of this signature."""
+    if sig[0] == "DIFF_SIZE":
+        return ["crop_to_bbox (output ⊂ input bbox)", "scale_2x (k× upscale)",
+                "rotate_90 (dims swap)", "tile_grid (input repeated)"]
+
+    _, density, polarity, topology, n_comps = sig
+    cands = []
+
+    if density == "TOTAL":
+        return ["flip_horizontal / flip_vertical", "rotate_90 (square)",
+                "transpose / color_permute (whole-grid)"]
+    if density == "NO_CHANGE":
+        return ["identity / no-op"]
+
+    if polarity == "ADD":
+        if topology == "ONE_BLOB":
+            if density in ("MEDIUM", "DENSE"):
+                cands += ["fill_enclosed", "flood_from_seed", "u_cup_fill"]
+            else:  # SPARSE/TINY
+                cands += ["frame_around_seed (3x3 halo)", "draw_bbox", "boundary_mask (outline)"]
+        elif topology == "FEW_BLOBS":
+            cands += ["copy_to_markers (2-3 markers)", "frame_around_seed × few",
+                      "cross_from_seed × few", "sandwich_fill (few pairs)"]
+        elif topology == "MULTI_BLOBS":
+            cands += ["copy_to_markers × many", "frame_around_seed × many",
+                      "cross/star_from_seed × many"]
+        elif topology == "ISOLATED_CELLS":
+            cands += ["mark_corners", "scatter point ops",
+                      "periodic_extension (periodic dots)"]
+        elif topology == "MANY_SCATTERED":
+            cands += ["ray_to_edge / ray_until_blocker", "cross/star_from_seed",
+                      "periodic_extension", "flood_from_seed (large region)"]
+    elif polarity == "MOVE":
+        if topology == "ONE_BLOB":
+            cands += ["drop_to_floor", "move_to_marker (1 object)"]
+        elif topology == "FEW_BLOBS":
+            cands += ["move_to_marker × 2-3", "ball_roll (snake trail)",
+                      "gravity_water (few cells)"]
+        elif topology == "MULTI_BLOBS":
+            cands += ["gravity_water (per-column)", "ball_roll",
+                      "move_to_marker × many"]
+        elif topology == "MANY_SCATTERED":
+            cands += ["gravity_water (many cells)", "scatter translations"]
+    elif polarity == "RECOLOR":
+        if topology == "ONE_BLOB":
+            cands += ["extract_largest_recolor", "recolor_one_object"]
+        elif topology in ("FEW_BLOBS", "MULTI_BLOBS"):
+            cands += ["recolor_by_marker", "recolor_by_size / by_topology"]
+        elif topology == "MANY_SCATTERED":
+            cands += ["color_palette_mapping", "per-cell recolor by rule"]
+    elif polarity == "REMOVE":
+        if topology == "ONE_BLOB":
+            cands += ["delete_one_object", "boundary_mask (hollow interior)"]
+        elif topology in ("FEW_BLOBS", "MULTI_BLOBS"):
+            cands += ["component_4/8conn keep_largest", "delete_by_marker"]
+    elif polarity == "MIXED":
+        cands += ["COMPOSITION — multiple primitives",
+                  "(likely ADD + RECOLOR, or MOVE + RECOLOR)"]
+
+    return cands or ["(unrecognised — open and review)"]
+
+
 def main():
     if not GT_DIR.exists():
         print(f"Error: {GT_DIR} not found"); sys.exit(1)
@@ -145,12 +255,18 @@ def main():
         tail = [(s, p) for s, p in sorted_buckets if len(p) == 1]
         f.write(f"- Head (clusters ≥ 2):  **{len(head)}** clusters covering **{head_pids}** puzzles ({100*head_pids/len(files):.1f}%)\n")
         f.write(f"- Tail (1 puzzle):      **{len(tail)}** puzzles ({100*len(tail)/len(files):.1f}%)\n\n")
-        f.write("---\n\n## Clusters (largest first)\n\n")
+        f.write("---\n\n## Clusters (largest first) — each annotated with likely L1 composition\n\n")
         for sig, pids in sorted_buckets:
             sig_str = " | ".join(str(s) for s in sig)
             f.write(f"### `({sig_str})` — {len(pids)} puzzles\n\n")
+            cands = predict_primitives(sig)
+            f.write(f"**Likely L1 primitives**:\n")
+            for c in cands:
+                f.write(f"  - {c}\n")
+            f.write("\n")
             shown = pids[:25]
             extra = len(pids) - len(shown)
+            f.write(f"**Puzzles**: ")
             f.write(", ".join(f"[`{p}`](https://arcprize.org/tasks/{p})" for p in shown))
             if extra > 0:
                 f.write(f" … (+{extra} more)")
