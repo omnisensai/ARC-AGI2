@@ -53,18 +53,36 @@ LoRA is kept as a baseline only.
    At inference, reject any solver that passes the train pairs only by hardcoding
    (same AST audit). Protects against code bias regardless of base model.
 
-## Eval taxonomy (FOUR distinct categories — do not conflate)
+7. **The layering thesis is a HYPOTHESIS, not a belief.**
+   We are claiming a stack:
+     - Layer 1 — **alphabet** = micro primitives (one rule, clean contract).
+     - Layer 2 — **words** = composed synthetic puzzles (2–4 known primitives
+       chained, contract still known). **REQUIRED BRIDGE**, not optional.
+     - Layer 3 — **sentences** = real ARC puzzles (messy natural composition).
+   "Positive transfer between layers" is not assumed — it is *tested* by the
+   bucketed eval below. Without Layer 2, alphabet may stay isolated toy skill
+   AND sentences may be memorised stylistically without stable operators.
 
-| # | category | what it measures | how to build |
+## Eval taxonomy (FIVE distinct categories — do not conflate)
+
+The first four buckets test the layering thesis directly; #5 is the orthogonal
+extrapolation test (can the model learn a *new* operator from examples).
+
+| # | bucket | what it measures | how to build |
 |---|---|---|---|
-| 1 | **seen-family, unseen-seed** | invariant ROBUSTNESS — same operator, new surface form | generate fresh seeds (outside the training seed range) for families that ARE in training |
-| 2 | **held-out family** | primitive EXTRAPOLATION — can it write a solver for an operator whose RULE it never trained on? | hold a few whole families OUT of training; test on their tasks |
-| 3 | **composed (known primitives, new combination)** | COMPOSITION — chaining trained operators in a new way | build composed tasks (e.g. flood-then-fence, crop-then-flip) whose solver composes seen `infer_T` steps. **NOT YET BUILT.** |
-| 4 | **real ARC-like** | TRANSFER to messy natural tasks | held-out real-corpus puzzles (and locked_arc2_eval) |
+| 1 | **micro primitive (seen-family, unseen-seed)** | invariant ROBUSTNESS — same operator, new surface form | fresh seeds outside the training seed range for families IN training |
+| 2 | **mapped real** | TRANSFER of a primitive to its messy real instances | real puzzles **tagged** as exercising one of our primitives (requires the coverage map) |
+| 3 | **composed-known-primitive (synthetic bridge)** | COMPOSITION — chaining trained operators in a new way | new generators that chain 2–4 known primitives (e.g. flood-then-fence, crop-then-flip) |
+| 4 | **unmapped real ARC** | TRANSFER to puzzles that do NOT cleanly map to any primitive | real puzzles the coverage map could not tag |
+| 5 | **held-out family** *(orthogonal)* | primitive EXTRAPOLATION — can it write a solver for a rule it NEVER saw? | hold a few whole families out of training; test on their tasks |
 
-Note: #2 (held-out family) is NOT composition — it is operator extrapolation.
-Composition (#3) specifically requires *known* primitives recombined. These are
-different capabilities and must be reported separately.
+Decision rule for the layering thesis (buckets 1–4):
+- **1, 2, 3 improve together** → layering works; alphabet → words → sentences holds.
+- **1 improves, 2 and 3 do not** → micro is isolated toy skill (alphabet stays alphabet).
+- **2 and 3 improve, 1 drops** → real training is overwriting primitives (forgetting).
+- **Only 4 moves** → memorised style, no operators.
+
+This is the "truth, not vibes" criterion: don't assume layering helped — read the buckets.
 
 ## Base model
 
@@ -79,14 +97,25 @@ different capabilities and must be reported separately.
 
 ## Build order (gated — only after this spec is agreed)
 
-1. Build the held-out split FIRST (decide which families are #2, generate the
-   unseen seeds for #1, designate real holdout for #4).
-2. Build composed-puzzle generators for #3.
-3. Build `mixed_arc_sft_train.jsonl` (balanced micro + real, EXCLUDING all
-   held-out families/puzzles).
-4. Build the execution-based eval harness covering all four categories +
-   hardcode metric.
-5. Train on Qwen-2.5-7B-Instruct; measure all four categories.
+1. **Primitive coverage map (HARD PREREQUISITE).** Auto-tag every real solver by
+   the micro primitive(s) it uses. Without this we cannot split bucket 2
+   (mapped real) from bucket 4 (unmapped real), so the layering thesis is
+   untestable.
+2. **Held-out split.** Designate: unseen-seeds for #1, held-out families for #5,
+   mapped-real holdouts for #2, unmapped-real holdouts for #4.
+3. **Composed-puzzle generators (Layer 2 — the BRIDGE).** Build a small set of
+   composed synthetic generators that chain 2–4 known primitives (e.g.
+   flood-then-fence, crop→detect-tile→repair, select-largest→recolor-by-marker
+   →move-to-target). Each composed task's canonical solver chains seen
+   `infer_T` steps. Required for both training and bucket #3 eval — without it,
+   alphabet stays toy.
+4. **`mixed_arc_sft_train.jsonl`.** Balanced micro + composed + real, EXCLUDING
+   all held-out items. Coverage map drives the balance so each primitive has
+   clean (Layer 1), composed (Layer 2), and messy (Layer 3) representation.
+5. **Execution-based eval harness** covering all five buckets + hardcode metric.
+6. **Train on Qwen-2.5-7B-Instruct; read the buckets** (apply the decision rule
+   above to declare whether layering worked).
 
-Yes to the direction; no to building the merged set before the eval taxonomy is
-pinned.
+Yes to the direction; no to building the merged set before the coverage map +
+composition layer are in place. "Mixing helps" without the map is a hope;
+with the map and the bucketed read, it becomes a testable substrate hypothesis.
