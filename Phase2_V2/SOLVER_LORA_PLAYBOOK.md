@@ -54,7 +54,8 @@ LoRA is kept as a baseline only.
    (same AST audit). Protects against code bias regardless of base model.
 
 7. **The layering thesis is a HYPOTHESIS, not a belief.**
-   We are claiming a stack:
+   The substrate goal is: **ARC task = latent operator graph → code.** We claim
+   a stack on the way there:
      - Layer 1 — **alphabet** = micro primitives (one rule, clean contract).
      - Layer 2 — **words** = composed synthetic puzzles (2–4 known primitives
        chained, contract still known). **REQUIRED BRIDGE**, not optional.
@@ -62,6 +63,27 @@ LoRA is kept as a baseline only.
    "Positive transfer between layers" is not assumed — it is *tested* by the
    bucketed eval below. Without Layer 2, alphabet may stay isolated toy skill
    AND sentences may be memorised stylistically without stable operators.
+
+8. **Repair / constraint-checking (Phase D).**
+   Train on plausible-but-wrong solvers paired with corrected ones so the model
+   learns: *"this solver looks fluent but violates the contract — fix it."*
+   This is the antidote to fluent code bias (the 47.5% hardcode reflex on raw
+   Instruct). Two implementations possible:
+     (a) SFT contrastive — wrong/right pairs in the SFT mix.
+     (b) Post-SFT DPO — preference pairs (right preferred over wrong).
+   Partial groundwork already exists (`data_sft/phase3_dpo.jsonl`, 7,221 pairs).
+   Decision deferred to after run 1 reads, but the contract for the data lives
+   here.
+
+## Curriculum policy (resolves a potential contradiction with principle 2)
+
+Principle 2 says "joint, not sequential." That stands. "Phases" of the layering
+thesis (atoms → words → sentences → repair) refer to **the conceptual stack**,
+not to discrete training stages. If we ever introduce a curriculum, it is
+**shifting EMPHASIS within a single joint mix — atoms never disappear** (replay).
+Default for run 1: **uniform joint mix**, no curriculum (simpler, lower-risk).
+Add curriculum-with-replay only if the bucketed eval shows a specific failure
+mode the simpler mix cannot fix. Do not bake speculative complexity into run 1.
 
 ## Eval taxonomy (FIVE distinct categories — do not conflate)
 
