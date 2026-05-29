@@ -1,13 +1,13 @@
 """Micro-primitive family: snake.
 
 Several same-colour seed cells (3 or 4) sit at arbitrary positions on the grid.
-Rule: connect them in (row, col)-sorted order with axis-aligned Manhattan
-L-paths. Each consecutive pair (p_i, p_{i+1}) is connected by going horizontally
-first to p_{i+1}'s column, then vertically to p_{i+1}'s row. The path cells
-take the seed colour.
+Rule: connect them in (row, col)-sorted order with 8-CONNECTED chebyshev-style
+paths. Each consecutive pair (p_i, p_{i+1}) is connected by a path that takes
+diagonal steps first (until aligned with p_{i+1} on one axis) then axis-aligned
+steps to reach p_{i+1}. The path cells take the seed colour.
 
-Equivalent to applying manhattan_path to consecutive seed pairs in sorted
-order. Produces a "snake-like" polyline through the seeds.
+8-conn distinguishes this from manhattan_path / complete_line / connect_centroids,
+all of which only emit axis-aligned segments.
 
 Tiers: 0 fixed 11x11, 3 seeds, bg 0, colour 4 | 1 + colour/bg, 3-4 seeds
        | 2 + varied size, 4 seeds.
@@ -21,6 +21,26 @@ def canonical_solver() -> str:
     return '''from collections import Counter
 
 
+def _path_8conn(p1, p2):
+    """8-conn path from p1 to p2 (exclusive of p1, inclusive of p2):
+    diagonal steps first, then axis-aligned for the remainder."""
+    r, c = p1
+    r2, c2 = p2
+    dr = (r2 > r) - (r2 < r)
+    dc = (c2 > c) - (c2 < c)
+    path = []
+    while r != r2 and c != c2:
+        r += dr; c += dc
+        path.append((r, c))
+    while r != r2:
+        r += dr
+        path.append((r, c))
+    while c != c2:
+        c += dc
+        path.append((r, c))
+    return path
+
+
 def infer_T(g):
     H, W = len(g), len(g[0])
     bg = Counter(v for row in g for v in row).most_common(1)[0][0]
@@ -30,22 +50,12 @@ def infer_T(g):
     col = g[seeds[0][0]][seeds[0][1]]
     if any(g[r][c] != col for r, c in seeds):
         return {}
+    seeds_set = set(seeds)
     T = {}
     for i in range(len(seeds) - 1):
-        r1, c1 = seeds[i]; r2, c2 = seeds[i + 1]
-        # horizontal then vertical from (r1, c1) to (r2, c2)
-        step_c = 1 if c2 > c1 else (-1 if c2 < c1 else 0)
-        if step_c:
-            for c in range(c1 + step_c, c2 + step_c, step_c):
-                if (r1, c) not in set(seeds) and (r1, c) not in T:
-                    T[(r1, c)] = col
-                elif (r1, c) in set(seeds):
-                    pass  # already this colour
-        step_r = 1 if r2 > r1 else (-1 if r2 < r1 else 0)
-        if step_r:
-            for r in range(r1 + step_r, r2 + step_r, step_r):
-                if (r, c2) not in set(seeds) and (r, c2) not in T:
-                    T[(r, c2)] = col
+        for cell in _path_8conn(seeds[i], seeds[i + 1]):
+            if cell not in seeds_set and cell not in T:
+                T[cell] = col
     return T
 
 
@@ -63,8 +73,26 @@ def solve(input_grid):
 
 
 def family_prompt_hint() -> str:
-    return ("Connect the same-colour seeds in (row, col) order with L-shaped "
-            "axis-aligned paths (horizontal then vertical) through the seeds.")
+    return ("Connect the same-colour seeds in (row, col) order with 8-conn "
+            "chebyshev paths: diagonals first, then axis-aligned to reach.")
+
+
+def _path_8conn(p1, p2):
+    r, c = p1
+    r2, c2 = p2
+    dr = (r2 > r) - (r2 < r)
+    dc = (c2 > c) - (c2 < c)
+    path = []
+    while r != r2 and c != c2:
+        r += dr; c += dc
+        path.append((r, c))
+    while r != r2:
+        r += dr
+        path.append((r, c))
+    while c != c2:
+        c += dc
+        path.append((r, c))
+    return path
 
 
 def _instance(rng, difficulty):
@@ -83,15 +111,11 @@ def _instance(rng, difficulty):
         bg = rng.choice([0, 0, rng.randint(0, 9)])
         col = rng.choice([c for c in range(10) if c != bg])
 
-    # Place seeds at random positions (all distinct).
     for _ in range(50):
         positions = set()
         while len(positions) < n_seeds:
             positions.add((rng.randint(0, H - 1), rng.randint(0, W - 1)))
         seeds = sorted(positions)
-        # Avoid two seeds at the same row AND same col (impossible by uniqueness),
-        # but also require that the polyline visits all seeds without collapsing
-        # (consecutive seeds must differ in at least one coord -> always true).
         break
 
     inp = [[bg] * W for _ in range(H)]
@@ -101,17 +125,9 @@ def _instance(rng, difficulty):
     out = [row[:] for row in inp]
     seeds_set = set(seeds)
     for i in range(len(seeds) - 1):
-        r1, c1 = seeds[i]; r2, c2 = seeds[i + 1]
-        step_c = 1 if c2 > c1 else (-1 if c2 < c1 else 0)
-        if step_c:
-            for c in range(c1 + step_c, c2 + step_c, step_c):
-                if (r1, c) not in seeds_set:
-                    out[r1][c] = col
-        step_r = 1 if r2 > r1 else (-1 if r2 < r1 else 0)
-        if step_r:
-            for r in range(r1 + step_r, r2 + step_r, step_r):
-                if (r, c2) not in seeds_set:
-                    out[r][c2] = col
+        for cell in _path_8conn(seeds[i], seeds[i + 1]):
+            if cell not in seeds_set:
+                out[cell[0]][cell[1]] = col
     return {"input": inp, "output": out}
 
 

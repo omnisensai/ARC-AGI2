@@ -1,6 +1,26 @@
 from collections import Counter
 
 
+def _path_8conn(p1, p2):
+    """8-conn path from p1 to p2 (exclusive of p1, inclusive of p2):
+    diagonal steps first, then axis-aligned for the remainder."""
+    r, c = p1
+    r2, c2 = p2
+    dr = (r2 > r) - (r2 < r)
+    dc = (c2 > c) - (c2 < c)
+    path = []
+    while r != r2 and c != c2:
+        r += dr; c += dc
+        path.append((r, c))
+    while r != r2:
+        r += dr
+        path.append((r, c))
+    while c != c2:
+        c += dc
+        path.append((r, c))
+    return path
+
+
 def infer_T(g):
     H, W = len(g), len(g[0])
     bg = Counter(v for row in g for v in row).most_common(1)[0][0]
@@ -10,22 +30,12 @@ def infer_T(g):
     col = g[seeds[0][0]][seeds[0][1]]
     if any(g[r][c] != col for r, c in seeds):
         return {}
+    seeds_set = set(seeds)
     T = {}
     for i in range(len(seeds) - 1):
-        r1, c1 = seeds[i]; r2, c2 = seeds[i + 1]
-        # horizontal then vertical from (r1, c1) to (r2, c2)
-        step_c = 1 if c2 > c1 else (-1 if c2 < c1 else 0)
-        if step_c:
-            for c in range(c1 + step_c, c2 + step_c, step_c):
-                if (r1, c) not in set(seeds) and (r1, c) not in T:
-                    T[(r1, c)] = col
-                elif (r1, c) in set(seeds):
-                    pass  # already this colour
-        step_r = 1 if r2 > r1 else (-1 if r2 < r1 else 0)
-        if step_r:
-            for r in range(r1 + step_r, r2 + step_r, step_r):
-                if (r, c2) not in set(seeds) and (r, c2) not in T:
-                    T[(r, c2)] = col
+        for cell in _path_8conn(seeds[i], seeds[i + 1]):
+            if cell not in seeds_set and cell not in T:
+                T[cell] = col
     return T
 
 
