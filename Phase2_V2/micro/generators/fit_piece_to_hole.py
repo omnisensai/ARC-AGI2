@@ -1,20 +1,20 @@
-"""Micro-primitive family: fit_piece_to_hole.
+"""Micro-primitive family: fit_piece_to_hole (ghost + 2 pieces variant).
 
 Input has:
-  - Two SOLID rectangular pieces of distinct colours AND distinct dimensions
-    (so they're clearly different pieces)
-  - One HOLLOW rectangle outline whose interior dimensions match EXACTLY ONE
-    of the pieces
+  - Two SOLID pieces of DIFFERENT shapes (and different colours)
+  - One SOLID "ghost" of the same shape as EXACTLY ONE of the pieces
+    (different colour from both pieces)
+  - No marker — the matching itself disambiguates (shape uniquely identifies
+    which piece corresponds to which ghost)
 
-Rule: the matching piece "fits into" the outline — its original cells become
-bg, and the outline's interior is filled with that piece's colour. The
-non-matching piece stays where it is.
+Rule: the piece whose shape matches the ghost is the SOURCE. Output:
+  - source's cells  -> bg
+  - ghost's cells   -> source's colour (ghost is "filled in" with the piece)
+  - non-matching piece stays put
 
-This generalises snap_to_outline (which has only one piece, so no matching
-decision). Here the model must compute piece dims, compare against the
-outline's interior dims, and select.
+Works for rectangles AND irregular shapes.
 
-Tiers: 0 fixed 12x12 | 1 + colour/bg | 2 + varied size.
+Tiers: 0 fixed 13x13 rect | 1 + colour/bg | 2 irregular blobs.
 """
 import random
 
@@ -44,43 +44,46 @@ def _components_by_colour(g, bg):
     return comps
 
 
+def _normalize(cells):
+    mr = min(r for r, _ in cells); mc = min(c for _, c in cells)
+    return frozenset((r - mr, c - mc) for r, c in cells)
+
+
 def infer_T(g):
     H, W = len(g), len(g[0])
     bg = Counter(v for row in g for v in row).most_common(1)[0][0]
     comps = _components_by_colour(g, bg)
-    pieces = []; outline = None
-    for col, cells in comps:
-        rmin = min(r for r, _ in cells); rmax = max(r for r, _ in cells)
-        cmin = min(c for _, c in cells); cmax = max(c for _, c in cells)
-        bbox_size = (rmax - rmin + 1) * (cmax - cmin + 1)
-        if len(cells) == bbox_size:
-            pieces.append((col, cells, (rmin, rmax, cmin, cmax)))
-        else:
-            boundary = {(r, c) for r in (rmin, rmax) for c in range(cmin, cmax + 1)} \
-                     | {(r, c) for c in (cmin, cmax) for r in range(rmin, rmax + 1)}
-            if set(cells) == boundary:
-                outline = (col, cells, (rmin, rmax, cmin, cmax))
-    if outline is None or len(pieces) < 1:
+    if len(comps) != 3:
         return {}
-
-    _, _, (hr0, hr1, hc0, hc1) = outline
-    inner_h = hr1 - hr0 - 1; inner_w = hc1 - hc0 - 1
-
-    matching = None
-    for p in pieces:
-        _, _, (pr0, pr1, pc0, pc1) = p
-        if (pr1 - pr0 + 1, pc1 - pc0 + 1) == (inner_h, inner_w):
-            matching = p; break
-    if matching is None:
+    # Find a pair of components with matching normalized shape.
+    pairs = []
+    for i in range(3):
+        for j in range(i + 1, 3):
+            if _normalize(comps[i][1]) == _normalize(comps[j][1]):
+                pairs.append((i, j))
+    if len(pairs) != 1:
         return {}
-    match_col, match_cells, _ = matching
+    i, j = pairs[0]
+    # The third component is the non-matching piece (irrelevant); pick one of
+    # the matching pair as ghost (destination) and the other as source. We use
+    # the deterministic rule: source = the one whose top-left (row, col) is
+    # smaller. This makes the rule reversible from the data without an
+    # explicit marker.
+    a_cells = comps[i][1]; b_cells = comps[j][1]
+    a_tl = (min(r for r, _ in a_cells), min(c for _, c in a_cells))
+    b_tl = (min(r for r, _ in b_cells), min(c for _, c in b_cells))
+    if a_tl < b_tl:
+        src = comps[i]; dst = comps[j]
+    else:
+        src = comps[j]; dst = comps[i]
+    src_col, src_cells = src
+    dst_col, dst_cells = dst
 
     T = {}
-    for (y, x) in match_cells:
+    for (y, x) in src_cells:
         T[(y, x)] = bg
-    for r in range(hr0 + 1, hr1):
-        for c in range(hc0 + 1, hc1):
-            T[(r, c)] = match_col
+    for (y, x) in dst_cells:
+        T[(y, x)] = src_col
     return T
 
 
@@ -98,83 +101,106 @@ def solve(input_grid):
 
 
 def family_prompt_hint() -> str:
-    return "Of the two solid pieces, the one whose dimensions match the outline's interior moves into it."
+    return ("Of the three solid shapes, two have the same shape. The top-left "
+            "one (the source) moves into the other (the destination), which "
+            "takes the source's colour; the third piece is untouched.")
 
 
-def _place_rect(rng, H, W, h, w, occupied):
-    """Return (r0, c0) for a non-overlapping rect of size h x w, or None."""
+def _shape_rect(rng, max_dim):
+    h = rng.randint(2, max_dim); w = rng.randint(2, max_dim)
+    return frozenset((r, c) for r in range(h) for c in range(w))
+
+
+def _shape_blob(rng, max_dim):
+    h = rng.randint(2, max_dim); w = rng.randint(2, max_dim)
+    cells = {(r, c) for r in range(h) for c in range(w)}
+    for _ in range(rng.randint(1, 3)):
+        cs = list(cells)
+        y, x = rng.choice(cs)
+        dy, dx = rng.choice([(1, 0), (-1, 0), (0, 1), (0, -1)])
+        ny, nx = y + dy, x + dx
+        if ny >= 0 and nx >= 0:
+            cells.add((ny, nx))
+    mr = min(r for r, _ in cells); mc = min(c for _, c in cells)
+    return frozenset((r - mr, c - mc) for r, c in cells)
+
+
+def _place(rng, H, W, shape_cells, occupied, margin=1):
+    sh = max(r for r, _ in shape_cells) + 1
+    sw = max(c for _, c in shape_cells) + 1
+    if H - sh < 0 or W - sw < 0:
+        return None
     for _ in range(80):
-        r0 = rng.randint(0, H - h); c0 = rng.randint(0, W - w)
-        cells = {(r0 + dr, c0 + dc) for dr in range(h) for dc in range(w)}
-        margin = {(r + dy, c + dx) for (r, c) in cells
-                  for dy in (-1, 0, 1) for dx in (-1, 0, 1)}
-        if not (margin & occupied):
-            return r0, c0, cells
+        r0 = rng.randint(0, H - sh); c0 = rng.randint(0, W - sw)
+        placed = {(r0 + r, c0 + c) for (r, c) in shape_cells}
+        halo = {(y + dy, x + dx) for (y, x) in placed
+                for dy in range(-margin, margin + 1)
+                for dx in range(-margin, margin + 1)}
+        if not (halo & occupied):
+            return placed
     return None
 
 
 def _instance(rng, difficulty):
     if difficulty <= 1:
-        H = W = 12
+        H = W = 13
     else:
-        H = rng.randint(12, 15); W = rng.randint(12, 15)
+        H = rng.randint(13, 16); W = rng.randint(13, 16)
 
     if difficulty == 0:
-        bg, match_col, other_col, hollow_col = 0, 2, 4, 8
+        bg, src_col, dst_col, other_col = 0, 2, 4, 7
+        shape_A = frozenset((r, c) for r in range(2) for c in range(2))
+        shape_B = frozenset((r, c) for r in range(3) for c in range(2))
     elif difficulty == 1:
         bg = rng.choice([0, 0, rng.randint(0, 9)])
         avail = [c for c in range(10) if c != bg]
-        match_col, other_col, hollow_col = rng.sample(avail, 3)
+        src_col, dst_col, other_col = rng.sample(avail, 3)
+        for _ in range(10):
+            shape_A = _shape_rect(rng, 3)
+            shape_B = _shape_rect(rng, 3)
+            if shape_A != shape_B: break
+        else:
+            shape_A = frozenset((r, c) for r in range(2) for c in range(2))
+            shape_B = frozenset((r, c) for r in range(3) for c in range(2))
     else:
         bg = rng.choice([0, 0, rng.randint(0, 9)])
         avail = [c for c in range(10) if c != bg]
-        match_col, other_col, hollow_col = rng.sample(avail, 3)
-
-    # Pick two distinct rectangular dimensions for the two pieces
-    for _ in range(20):
-        ph1, pw1 = rng.randint(1, 3), rng.randint(1, 3)
-        ph2, pw2 = rng.randint(1, 3), rng.randint(1, 3)
-        if (ph1, pw1) != (ph2, pw2):
-            break
-    else:
-        return _instance(rng, difficulty)
-
-    # Outline interior must match piece 1 dims; outline bbox = (ph1+2, pw1+2)
-    out_h, out_w = ph1 + 2, pw1 + 2
+        src_col, dst_col, other_col = rng.sample(avail, 3)
+        for _ in range(10):
+            shape_A = _shape_blob(rng, 4) if rng.random() < 0.5 else _shape_rect(rng, 3)
+            shape_B = _shape_blob(rng, 4) if rng.random() < 0.5 else _shape_rect(rng, 3)
+            if shape_A != shape_B: break
+        else:
+            shape_A = frozenset((r, c) for r in range(2) for c in range(2))
+            shape_B = frozenset((r, c) for r in range(3) for c in range(2))
 
     occupied = set()
-    res = _place_rect(rng, H, W, ph1, pw1, occupied)
-    if res is None: return _instance(rng, difficulty)
-    p1_r0, p1_c0, p1_cells = res
-    occupied |= p1_cells
+    # source: shape_A (top-left will be smallest)
+    src_placed = _place(rng, H, W, shape_A, occupied, margin=1)
+    if src_placed is None: return _instance(rng, difficulty)
+    occupied |= {(y + dy, x + dx) for (y, x) in src_placed
+                 for dy in (-1, 0, 1) for dx in (-1, 0, 1)}
+    dst_placed = _place(rng, H, W, shape_A, occupied, margin=1)
+    if dst_placed is None: return _instance(rng, difficulty)
+    occupied |= {(y + dy, x + dx) for (y, x) in dst_placed
+                 for dy in (-1, 0, 1) for dx in (-1, 0, 1)}
+    other_placed = _place(rng, H, W, shape_B, occupied, margin=1)
+    if other_placed is None: return _instance(rng, difficulty)
 
-    res = _place_rect(rng, H, W, ph2, pw2, occupied)
-    if res is None: return _instance(rng, difficulty)
-    p2_r0, p2_c0, p2_cells = res
-    occupied |= p2_cells
-
-    res = _place_rect(rng, H, W, out_h, out_w, occupied)
-    if res is None: return _instance(rng, difficulty)
-    out_r0, out_c0, out_cells = res
+    # Enforce source has smaller (top-left row, col) than destination.
+    src_tl = (min(r for r, _ in src_placed), min(c for _, c in src_placed))
+    dst_tl = (min(r for r, _ in dst_placed), min(c for _, c in dst_placed))
+    if src_tl > dst_tl:
+        src_placed, dst_placed = dst_placed, src_placed
 
     inp = [[bg] * W for _ in range(H)]
-    for (y, x) in p1_cells:
-        inp[y][x] = match_col
-    for (y, x) in p2_cells:
-        inp[y][x] = other_col
-    # Outline boundary only (hollow)
-    out_r1 = out_r0 + out_h - 1; out_c1 = out_c0 + out_w - 1
-    for r in range(out_r0, out_r1 + 1):
-        inp[r][out_c0] = hollow_col; inp[r][out_c1] = hollow_col
-    for c in range(out_c0, out_c1 + 1):
-        inp[out_r0][c] = hollow_col; inp[out_r1][c] = hollow_col
+    for (y, x) in src_placed:   inp[y][x] = src_col
+    for (y, x) in dst_placed:   inp[y][x] = dst_col
+    for (y, x) in other_placed: inp[y][x] = other_col
 
     out = [row[:] for row in inp]
-    for (y, x) in p1_cells:
-        out[y][x] = bg
-    for r in range(out_r0 + 1, out_r1):
-        for c in range(out_c0 + 1, out_c1):
-            out[r][c] = match_col
+    for (y, x) in src_placed: out[y][x] = bg
+    for (y, x) in dst_placed: out[y][x] = src_col
     return {"input": inp, "output": out}
 
 

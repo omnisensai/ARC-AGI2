@@ -20,42 +20,46 @@ def _components_by_colour(g, bg):
     return comps
 
 
+def _normalize(cells):
+    mr = min(r for r, _ in cells); mc = min(c for _, c in cells)
+    return frozenset((r - mr, c - mc) for r, c in cells)
+
+
 def infer_T(g):
     H, W = len(g), len(g[0])
     bg = Counter(v for row in g for v in row).most_common(1)[0][0]
     comps = _components_by_colour(g, bg)
-    pieces = []; outline = None
-    for col, cells in comps:
-        rmin = min(r for r, _ in cells); rmax = max(r for r, _ in cells)
-        cmin = min(c for _, c in cells); cmax = max(c for _, c in cells)
-        bbox_size = (rmax - rmin + 1) * (cmax - cmin + 1)
-        if len(cells) == bbox_size:
-            pieces.append((col, cells, (rmin, rmax, cmin, cmax)))
-        else:
-            boundary = {(r, c) for r in (rmin, rmax) for c in range(cmin, cmax + 1)}                      | {(r, c) for c in (cmin, cmax) for r in range(rmin, rmax + 1)}
-            if set(cells) == boundary:
-                outline = (col, cells, (rmin, rmax, cmin, cmax))
-    if outline is None or len(pieces) < 1:
+    if len(comps) != 3:
         return {}
-
-    _, _, (hr0, hr1, hc0, hc1) = outline
-    inner_h = hr1 - hr0 - 1; inner_w = hc1 - hc0 - 1
-
-    matching = None
-    for p in pieces:
-        _, _, (pr0, pr1, pc0, pc1) = p
-        if (pr1 - pr0 + 1, pc1 - pc0 + 1) == (inner_h, inner_w):
-            matching = p; break
-    if matching is None:
+    # Find a pair of components with matching normalized shape.
+    pairs = []
+    for i in range(3):
+        for j in range(i + 1, 3):
+            if _normalize(comps[i][1]) == _normalize(comps[j][1]):
+                pairs.append((i, j))
+    if len(pairs) != 1:
         return {}
-    match_col, match_cells, _ = matching
+    i, j = pairs[0]
+    # The third component is the non-matching piece (irrelevant); pick one of
+    # the matching pair as ghost (destination) and the other as source. We use
+    # the deterministic rule: source = the one whose top-left (row, col) is
+    # smaller. This makes the rule reversible from the data without an
+    # explicit marker.
+    a_cells = comps[i][1]; b_cells = comps[j][1]
+    a_tl = (min(r for r, _ in a_cells), min(c for _, c in a_cells))
+    b_tl = (min(r for r, _ in b_cells), min(c for _, c in b_cells))
+    if a_tl < b_tl:
+        src = comps[i]; dst = comps[j]
+    else:
+        src = comps[j]; dst = comps[i]
+    src_col, src_cells = src
+    dst_col, dst_cells = dst
 
     T = {}
-    for (y, x) in match_cells:
+    for (y, x) in src_cells:
         T[(y, x)] = bg
-    for r in range(hr0 + 1, hr1):
-        for c in range(hc0 + 1, hc1):
-            T[(r, c)] = match_col
+    for (y, x) in dst_cells:
+        T[(y, x)] = src_col
     return T
 
 
