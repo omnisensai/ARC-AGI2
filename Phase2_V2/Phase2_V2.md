@@ -1804,3 +1804,193 @@ the substrate defines what counts
 
 That is the architecture.
 
+---
+
+# 12. Run 1 — Sealed Plan (the version that actually runs)
+
+This section supersedes the earlier draft mixes / Runs A-D for the **actual
+first training run we ship**. It's the concrete instantiation of sections 5-9
+above, with the simplifications we landed on after corpus build.
+
+## 12.1 What Run 1 actually is
+
+ONE LoRA on **L2 same-size only**. No L1 micro, no diff-size training, no
+synthetic repair. Single grammar, single bucket of targets, clean signal.
+
+This is more conservative than the Run A→B→C→D ladder in section 8 because:
+
+- L1 micro families were written in-conversation; their RULES are not
+  human-vetted, only their gate-consistency (generator vs solver agree).
+  Trust risk -> set aside until Run 1 tells us if we even need them.
+- Diff-size has only 3 L2 pilots. Too little to learn from; the cold-eval
+  result tells us how much we need to invest.
+- Synthetic Layer-4 repair has a distribution-mismatch problem vs real
+  failure modes. Real failures from Run 1 itself are a better signal.
+
+## 12.2 Training corpus
+
+| layer | records | source | trust |
+|---|---:|---|---|
+| L2 original | 2,081 | 740 hand-vetted canonical solvers, A/B/C variants per puzzle | HIGH |
+| L2 augmented | 29,645 | D4 x 5 color perms, gate-filtered (~15 accepted per puzzle) | HIGH (inherits L2) |
+| **Total** | **31,726** | 739 unique puzzles | |
+
+Files:
+```
+Phase2_V2/canonical/sft/real_samesize_original.jsonl
+Phase2_V2/canonical/sft/real_samesize_augmented_shard0[0-3].jsonl
+```
+
+Augmentation gate: each transformed pair-set re-runs the ORIGINAL canonical
+solver via `canonical_gate.accept`. Only solver-passes get written. Same target
+code, many surface forms = the invariance signal.
+
+## 12.3 Held-out (zero contamination, verified)
+
+| bucket | name | raw puzzles | augmented (~) | role |
+|---:|---|---:|---:|---|
+| 1 | trained sample | 200 | n/a | sanity ("did it learn its own training set?") |
+| 2 | held-out same-size | 43 | ~645 | transfer signal + Phase 3 same-size corpus |
+| 3 | cold diff-size | 364 | ~5,500 | gap diagnosis + Phase 3 diff-size corpus |
+
+Splits:
+```
+Phase2_V2/run1/splits/bucket{1,2,3}_*.txt
+```
+
+Bucket 2 is small (43 puzzles) — every same-size puzzle in our DB outside
+training is in here. Augmentation multiplier brings eval samples to ~645,
+which is statistically adequate for the solve-rate signal.
+
+## 12.4 SYSTEM prompt (compact, sealed)
+
+```
+T encodes how INPUT becomes OUTPUT.
+
+For same-size grids, T is a per-cell change map:
+. = unchanged
+0-9 = overwrite this cell with that colour
+
+Each pair shows INPUT and T. The same rule produced every T.
+
+Write Python code in this exact shape:
+
+def infer_T(input_grid):
+    ...
+
+def apply_T(input_grid, T):
+    out = [row[:] for row in input_grid]
+    for (r, c), v in T.items():
+        out[r][c] = v
+    return out
+
+def solve(input_grid):
+    T = infer_T(input_grid)
+    return apply_T(input_grid, T)
+
+infer_T must read structure from input_grid only. Do not hardcode grids,
+compare to known inputs, or look up outputs. Return code only.
+```
+
+Saved ~2.7M tokens across the corpus vs the verbose v1 SYSTEM. Carries the
+full contract: T semantics, three-function skeleton, anti-hardcoding rule.
+
+**Architectural note (GPT, pre-train):** locking the same-size `apply_T`
+body in SYSTEM is fine for Run 1 (every target uses the same body) but
+becomes a lock-in for diff-size in Run 2+. See `run1/POSTRUN_DECISIONS.md`
+section 1 for the Run 2 `infer + execute` contract.
+
+## 12.5 LoRA + train hyperparams
+
+- Base: `Qwen/Qwen2.5-7B-Instruct`
+- LoRA: r=32, alpha=64, dropout=0.05
+- Targets: q/k/v/o/gate/up/down (full attention + MLP)
+- Optim: AdamW, lr=2e-4, cosine schedule, 3% warmup
+- Loss: **completion-only** (mask SYSTEM + USER, loss only on ASSISTANT)
+- Epochs: 3, batch 4 x grad_accum 4 (effective 16)
+- Max seq: 4096
+
+Spec in `Phase2_V2/run1/train_config.py` (importable from RunPod driver).
+
+## 12.6 Eval harness
+
+`Phase2_V2/run1/eval_harness.py` runs the LoRA against all 3 buckets,
+classifies every emission, writes JSONL per bucket.
+
+Failure-mode taxonomy (auto-classified):
+
+| mode | meaning |
+|---|---|
+| `PASS` | code runs, exact match on test pair |
+| `WRONG_OUTPUT` | runs, shape ok, cells wrong |
+| `SHAPE_MISMATCH` | output shape != expected (key signal for bucket 3) |
+| `RUNTIME_ERROR` | code raised |
+| `TIMEOUT` | 3s wall cap |
+| `EMPTY_OR_INVALID` | no `def solve`, syntax error |
+| `HARDCODED` | passes via fingerprint / big literal / eq_grid |
+
+Augmentation at eval time multiplies each held-out puzzle by ~15 (D4 x
+color, gate-filtered) so each prompt is an independent test.
+
+Expected solve rates:
+
+| bucket | expected | far-under means |
+|---|---:|---|
+| 1 | ~97% | training broke (masking, hyperparams, data) |
+| 2 | 20-40% | transfer weaker than hoped; L1 audit becomes worth it |
+| 3 | < 10% | by design (no diff-size training); high = surprise generalization |
+
+## 12.7 Phase 3 plan (real failures, not synthetic)
+
+For every non-PASS in buckets 2 and 3:
+
+```json
+{
+  "prompt": "<SYSTEM + USER>",
+  "wrong_code": "<exact LoRA emission>",
+  "correct_code": "<canonical solver source>",
+  "failure_mode": "<auto-classified>",
+  "meta": { "puzzle": "...", "augment": "...", "bucket": 2 or 3 }
+}
+```
+
+These are the Phase 3 training records. Choice between DPO (rank correct
+over wrong) and SFT-contrastive (fix-the-wrong-code) is made by the failure
+profile -- see `run1/POSTRUN_DECISIONS.md` section 4.
+
+This replaces section 7's "wrong code sources" list (LLM-generated /
+mutated canonicals / Phase 2 V1 generations) with **the trained LoRA's
+own real failure distribution**. Strictly better signal: the failures we
+need to fix are the failures the model actually makes.
+
+## 12.8 What Run 1 omits vs sections 5-8
+
+| in original Phase2 V2 plan | Run 1 status | why omitted |
+|---|---|---|
+| Variant D (competition-shaped, TEST INPUT shown) | DROPPED | conditions solver on a specific input, weakens invariance signal. Competition harness runs the emitted code; the model doesn't need to see the test input |
+| Variant E (upper-bound diagnostic) | not used | diagnostic only per section 5.4 |
+| Micro primitives mix (40% in Run B) | DROPPED | trust risk; revisited if bucket 2 weak |
+| Repair mix (30% in Run C/D) | DROPPED | Phase 3 uses real failures instead |
+| Runs A->B->C->D ladder | COLLAPSED | single Run 1 + Phase 3 from real failures |
+
+## 12.9 Decision criteria after Run 1
+
+| trigger | choice |
+|---|---|
+| bucket 1 < 90% | training broke; investigate before continuing |
+| bucket 2 < 30% | L2-only transfer weak; audit + include L1 in Run 2 |
+| bucket 2 30-60% | normal; Phase 3 fixes long tail |
+| bucket 2 > 60% | L2 sufficient; Phase 3 focuses on bucket 3 |
+| bucket 3 SHAPE_MISMATCH > 80% | grammar lock confirmed; Run 2 adopts `infer + execute` |
+| bucket 3 SHAPE_MISMATCH 30-80% | partial generalization; lighter Run 2 fix |
+| bucket 3 EMPTY/RUNTIME > 50% | no diff-size representation; Run 2 needs new corpus + new SYSTEM |
+
+Pinned details for each open decision live in
+`Phase2_V2/run1/POSTRUN_DECISIONS.md`.
+
+## 12.10 One-line summary
+
+**Train Qwen2.5-7B + LoRA on 31,726 L2 same-size SFT records. Eval 3 buckets.
+Use the failures as Phase 3 input. Decide Run 2's grammar from bucket 3's
+shape-mismatch signal.**
+
