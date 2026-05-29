@@ -131,9 +131,24 @@ def main():
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from peft import PeftModel
 
+    # Disable cuDNN SDPA backend (vLLM install bumped CUDA libs and broke cuDNN
+    # ABI compatibility; eager / math kernels still work).
+    torch.backends.cuda.matmul.allow_tf32 = True
+    try:
+        torch.backends.cuda.enable_cudnn_sdp(False)
+    except Exception:
+        pass
+    try:
+        torch.backends.cuda.enable_flash_sdp(False)
+    except Exception:
+        pass
+
     tokenizer = AutoTokenizer.from_pretrained(a.base_model)
     base = AutoModelForCausalLM.from_pretrained(
-        a.base_model, torch_dtype=torch.bfloat16, device_map="cuda",
+        a.base_model,
+        torch_dtype=torch.bfloat16,
+        device_map="cuda",
+        attn_implementation="eager",   # plain PyTorch attention; bypasses cuDNN
     )
     print(f"loading LoRA adapter from {a.lora} ...")
     model = PeftModel.from_pretrained(base, a.lora)
