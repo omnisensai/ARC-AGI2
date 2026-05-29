@@ -58,23 +58,44 @@ def infer_T(g):
             if 0 <= nr < H and 0 <= nc < W and (nr, nc) not in chamber and (nr, nc) not in wall_cells:
                 chamber.add((nr, nc)); q.append((nr, nc))
 
+    # Group walls into connected components (4-conn). A component is "kept"
+    # iff ANY of its cells is 4-adjacent to the chamber. Otherwise erased
+    # ENTIRELY (per-component, so interior wall cells don't get falsely erased).
+    wall_unseen = set(wall_cells)
+    components = []
+    while wall_unseen:
+        start = next(iter(wall_unseen))
+        comp = {start}; cq = deque([start]); wall_unseen.remove(start)
+        while cq:
+            y, x = cq.popleft()
+            for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nb = (y + dy, x + dx)
+                if nb in wall_unseen:
+                    wall_unseen.remove(nb); comp.add(nb); cq.append(nb)
+        components.append(comp)
+    kept_walls = set()
+    for comp in components:
+        touches_chamber = any((y + dy, x + dx) in chamber
+                              for (y, x) in comp
+                              for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+        if touches_chamber:
+            kept_walls |= comp
+
     T = {}
-    # Halo: chamber cells 8-adjacent to wall or grid border take the seed colour.
+    # Halo: chamber cells 8-adjacent to a KEPT wall cell or to grid border.
     for (r, c) in chamber:
         if (r, c) == seed_pos:
             continue
         on_border = (r in (0, H - 1) or c in (0, W - 1))
-        near_wall = any((r + dy, c + dx) in wall_cells
+        near_wall = any((r + dy, c + dx) in kept_walls
                         for dy in (-1, 0, 1) for dx in (-1, 0, 1)
                         if (dy, dx) != (0, 0))
         if on_border or near_wall:
             T[(r, c)] = seed_col
 
-    # Erase walls not 4-adjacent to the chamber.
+    # Erase walls that are NOT kept (entire components disappear).
     for (r, c) in wall_cells:
-        adj_chamber = any((r + dy, c + dx) in chamber
-                          for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)))
-        if not adj_chamber:
+        if (r, c) not in kept_walls:
             T[(r, c)] = bg
     return T
 
@@ -98,14 +119,23 @@ def family_prompt_hint() -> str:
             "chamber touches. Erase any walls outside the chamber.")
 
 
-def _place_rect(rng, H, W, max_h, max_w, occupied, margin=1):
-    """Place a solid h x w rectangle, ENFORCING at least 2 cells total (so the
-    wall is unambiguously distinct from the single-cell seed by component size)."""
-    for _ in range(60):
-        h = rng.randint(1, max_h); w = rng.randint(1, max_w)
+def _place_rect_border(rng, H, W, max_h, max_w, occupied, margin=1):
+    """Place a solid rectangle that touches at least one grid border. This
+    keeps the wall as part of the chamber's outer boundary so the halo is one
+    continuous snake trail (no isolated interior-wall halos)."""
+    for _ in range(80):
+        h = rng.randint(2, max_h); w = rng.randint(2, max_w)
         if h * w < 2:
             continue
-        r0 = rng.randint(0, H - h); c0 = rng.randint(0, W - w)
+        side = rng.choice(["top", "bottom", "left", "right"])
+        if side == "top":
+            r0 = 0; c0 = rng.randint(0, W - w)
+        elif side == "bottom":
+            r0 = H - h; c0 = rng.randint(0, W - w)
+        elif side == "left":
+            r0 = rng.randint(0, H - h); c0 = 0
+        else:
+            r0 = rng.randint(0, H - h); c0 = W - w
         cells = {(r0 + r, c0 + c) for r in range(h) for c in range(w)}
         halo = {(y + dy, x + dx) for (y, x) in cells
                 for dy in range(-margin, margin + 1)
@@ -115,32 +145,67 @@ def _place_rect(rng, H, W, max_h, max_w, occupied, margin=1):
     return None
 
 
+def _build_connected_wall(rng, H, W, n_pieces, max_h, max_w):
+    """Build ONE 4-connected wall structure made of n_pieces overlapping
+    rectangles. First piece must touch a grid border; subsequent pieces
+    must overlap the existing structure (so the wall is one component)."""
+    pieces = []
+    # First piece: touches a border.
+    first = None
+    for _ in range(50):
+        h = rng.randint(2, max_h); w = rng.randint(2, max_w)
+        side = rng.choice(["top", "bottom", "left", "right"])
+        if side == "top":      r0 = 0;     c0 = rng.randint(0, W - w)
+        elif side == "bottom": r0 = H - h; c0 = rng.randint(0, W - w)
+        elif side == "left":   r0 = rng.randint(0, H - h); c0 = 0
+        else:                  r0 = rng.randint(0, H - h); c0 = W - w
+        first = {(r0 + r, c0 + c) for r in range(h) for c in range(w)}
+        break
+    if first is None:
+        return None
+    pieces.append(first)
+    union = set(first)
+
+    for _ in range(n_pieces - 1):
+        added = False
+        for _ in range(40):
+            h = rng.randint(2, max_h); w = rng.randint(2, max_w)
+            r0 = rng.randint(0, H - h); c0 = rng.randint(0, W - w)
+            cells = {(r0 + r, c0 + c) for r in range(h) for c in range(w)}
+            # Require overlap (so wall is one connected component) AND
+            # the union doesn't fill the grid (so a chamber still exists).
+            if not (cells & union):
+                continue
+            new_union = union | cells
+            if len(new_union) > (H * W) * 3 // 5:
+                continue
+            union = new_union
+            pieces.append(cells)
+            added = True
+            break
+        if not added:
+            break
+    return union
+
+
 def _instance(rng, difficulty):
     if difficulty == 0:
-        H = W = 11; n_walls = 1
+        H = W = 11; n_pieces = 1
         bg, wall_col, seed_col = 8, 1, 6
     elif difficulty == 1:
-        H = W = 12; n_walls = rng.randint(2, 3)
+        H = W = 12; n_pieces = rng.randint(1, 2)
         bg = rng.choice([0, 8, rng.randint(0, 9)])
         avail = [c for c in range(10) if c != bg]
         wall_col, seed_col = rng.sample(avail, 2)
     else:
-        H = rng.randint(12, 16); W = rng.randint(12, 16); n_walls = rng.randint(3, 4)
+        H = rng.randint(12, 16); W = rng.randint(12, 16); n_pieces = rng.randint(2, 3)
         bg = rng.choice([0, 8, rng.randint(0, 9)])
         avail = [c for c in range(10) if c != bg]
         wall_col, seed_col = rng.sample(avail, 2)
 
-    occupied = set(); wall_cells = set()
-    for _ in range(n_walls):
-        rect = _place_rect(rng, H, W, max_h=max(2, H // 4), max_w=max(2, W // 4),
-                           occupied=occupied)
-        if rect is None:
-            continue
-        wall_cells |= rect
-        occupied |= {(y + dy, x + dx) for (y, x) in rect
-                     for dy in (-1, 0, 1) for dx in (-1, 0, 1)}
-
-    if not wall_cells:
+    wall_cells = _build_connected_wall(rng, H, W, n_pieces,
+                                        max_h=max(2, H // 3), max_w=max(2, W // 3))
+    if wall_cells is None or not wall_cells:
         return _instance(rng, difficulty)
 
     # Build chambers.
@@ -171,20 +236,39 @@ def _instance(rng, difficulty):
         inp[y][x] = wall_col
     inp[seed_pos[0]][seed_pos[1]] = seed_col
 
+    # Per-component wall keeping: a connected wall component is kept iff any
+    # cell of it is 4-adjacent to the chamber.
+    wall_unseen = set(wall_cells)
+    components = []
+    while wall_unseen:
+        start = next(iter(wall_unseen))
+        comp = {start}; cq = [start]; wall_unseen.remove(start)
+        while cq:
+            y, x = cq.pop()
+            for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nb = (y + dy, x + dx)
+                if nb in wall_unseen:
+                    wall_unseen.remove(nb); comp.add(nb); cq.append(nb)
+        components.append(comp)
+    kept_walls = set()
+    for comp in components:
+        if any((y + dy, x + dx) in chamber
+               for (y, x) in comp
+               for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+            kept_walls |= comp
+
     out = [row[:] for row in inp]
     for (r, c) in chamber:
         if (r, c) == seed_pos:
             continue
         on_border = (r in (0, H - 1) or c in (0, W - 1))
-        near_wall = any((r + dy, c + dx) in wall_cells
+        near_wall = any((r + dy, c + dx) in kept_walls
                         for dy in (-1, 0, 1) for dx in (-1, 0, 1)
                         if (dy, dx) != (0, 0))
         if on_border or near_wall:
             out[r][c] = seed_col
     for (r, c) in wall_cells:
-        adj_chamber = any((r + dy, c + dx) in chamber
-                          for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)))
-        if not adj_chamber:
+        if (r, c) not in kept_walls:
             out[r][c] = bg
     return {"input": inp, "output": out}
 
