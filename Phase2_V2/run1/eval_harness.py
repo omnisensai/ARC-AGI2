@@ -1,20 +1,31 @@
 """Phase2_V2 Run 1 eval harness.
 
-Runs the trained LoRA against three buckets and writes a results JSONL per
-bucket with the model's emitted code + the canonical correct code + a
-failure-mode classification. Phase 3 (repair) is built from the failure records.
+DUAL PURPOSE — one eval run, two outputs:
+
+  1. SOLVE-RATE READ (honest eval signal)
+     Report solve rate from the FIRST 100 records per bucket. Statistically
+     adequate for the read-out (~10% margin of error on binomial solve rate).
+
+  2. PHASE 3 CORPUS (failure collection)
+     Save EVERY non-PASS record across all augmented variants. Each failure
+     becomes a (prompt, wrong_code, correct_code) triple for Phase 3 repair
+     training (DPO or SFT-contrastive — choice in POSTRUN_DECISIONS §4).
+
+Both happen from the same eval pass: run the LoRA against the full augmented
+bucket, then slice the first 100 for stats while keeping all failures.
 
 Usage:
   python Phase2_V2/run1/eval_harness.py \\
       --lora Phase2_V2/run1/lora_out/checkpoint-N \\
       --bucket 1 \\
       [--augment]      # apply D4 + color perms to multiply the bucket
+                       # (recommended for buckets 2 and 3)
       [--limit N]      # cap puzzles for smoke tests
 
 Buckets:
-  1  trained sample        (200)   -> bucket1_trained_sample.txt
-  2  held-out same-size    (43)    -> bucket2_heldout_samesize.txt
-  3  cold diff-size       (364)   -> bucket3_cold_diffsize.txt
+  1  trained sample        (100)   -> bucket1_trained_sample.txt    NO augment
+  2  held-out same-size    (43)    -> bucket2_heldout_samesize.txt  augment -> ~645
+  3  cold diff-size       (364)   -> bucket3_cold_diffsize.txt     augment -> ~5,500
 
 Failure modes (auto-classified):
   PASS              -- model code, run on test input, exact match expected output
@@ -24,6 +35,11 @@ Failure modes (auto-classified):
   WRONG_OUTPUT      -- shape ok but cells wrong
   EMPTY_OR_INVALID  -- no `def solve` extracted, syntax error, etc.
   HARDCODED         -- code passes via fingerprint/big-literal hardcoding (AST audit)
+
+After running all 3 buckets, call:
+  python Phase2_V2/run1/eval_harness.py --report
+to print solve-rate stats (from 100-slice) and dump the Phase 3 corpus file
+(every failure record concatenated across buckets).
 """
 import argparse, ast, json, sys, subprocess, tempfile, time
 from pathlib import Path
@@ -223,19 +239,65 @@ def augment_puzzle(puzzle, n_color_perms, seed):
 
 
 # ============================================================================
+# Report (run after all three buckets have been eval'd)
+# ============================================================================
+STATS_SLICE = 100  # solve rate computed on first N records per bucket
+
+
+def report():
+    """Read each bucket's eval JSONL, print solve-rate from first STATS_SLICE
+    records, and write the merged Phase 3 corpus (all non-PASS records)."""
+    eval_dir = P2 / "run1/eval"
+    phase3_path = eval_dir / "phase3_corpus.jsonl"
+    bucket_files = {
+        1: eval_dir / "bucket1.jsonl",
+        2: eval_dir / "bucket2_aug.jsonl",
+        3: eval_dir / "bucket3_aug.jsonl",
+    }
+    print(f"{'bucket':<8} {'records':>10} {'stats_slice':>12} {'solve%':>8} {'failures':>10}")
+    print("-" * 50)
+    phase3 = []
+    for bn, path in bucket_files.items():
+        if not path.exists():
+            print(f"{bn:<8} {'MISSING':>10}  {path}")
+            continue
+        records = [json.loads(line) for line in open(path)]
+        slice_ = records[:STATS_SLICE]
+        n_pass_slice = sum(1 for r in slice_ if r["failure_mode"] == "PASS")
+        solve_pct = 100.0 * n_pass_slice / max(1, len(slice_))
+        failures = [r for r in records if r["failure_mode"] != "PASS"]
+        print(f"{bn:<8} {len(records):>10} {len(slice_):>12} {solve_pct:>7.1f}% {len(failures):>10}")
+        phase3.extend(failures)
+    with phase3_path.open("w") as fh:
+        for r in phase3:
+            fh.write(json.dumps(r) + "\n")
+    print()
+    print(f"phase3 corpus: {len(phase3)} failure records -> {phase3_path}")
+
+
+# ============================================================================
 # Main
 # ============================================================================
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--lora", required=True, help="path to LoRA checkpoint dir")
-    ap.add_argument("--bucket", type=int, choices=[1, 2, 3], required=True)
+    ap.add_argument("--lora", help="path to LoRA checkpoint dir (required unless --report)")
+    ap.add_argument("--bucket", type=int, choices=[1, 2, 3])
     ap.add_argument("--augment", action="store_true",
                     help="apply D4 x color perms to multiply the eval set")
     ap.add_argument("--n-color-perms", type=int, default=4)
     ap.add_argument("--limit", type=int, default=0, help="cap puzzles (0 = all)")
     ap.add_argument("--out", default=None,
                     help="output JSONL path (default: Phase2_V2/run1/eval/bucket{N}{_aug}.jsonl)")
+    ap.add_argument("--report", action="store_true",
+                    help="after running all 3 buckets: print solve rates from "
+                         "100-record slice + write merged phase3_corpus.jsonl")
     a = ap.parse_args()
+
+    if a.report:
+        report()
+        return
+    if a.lora is None or a.bucket is None:
+        ap.error("--lora and --bucket are required (or use --report)")
 
     bucket_to_split = {
         1: P2 / "run1/splits/bucket1_trained_sample.txt",

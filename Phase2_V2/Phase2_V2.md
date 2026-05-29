@@ -1849,7 +1849,7 @@ code, many surface forms = the invariance signal.
 
 | bucket | name | raw puzzles | augmented (~) | role |
 |---:|---|---:|---:|---|
-| 1 | trained sample | 200 | n/a | sanity ("did it learn its own training set?") |
+| 1 | trained sample | 100 | n/a | sanity ("did it learn its own training set?") |
 | 2 | held-out same-size | 43 | ~645 | transfer signal + Phase 3 same-size corpus |
 | 3 | cold diff-size | 364 | ~5,500 | gap diagnosis + Phase 3 diff-size corpus |
 
@@ -1912,10 +1912,22 @@ section 1 for the Run 2 `infer + execute` contract.
 
 Spec in `Phase2_V2/run1/train_config.py` (importable from RunPod driver).
 
-## 12.6 Eval harness
+## 12.6 Eval harness (dual purpose: solve-rate read + Phase 3 corpus)
 
 `Phase2_V2/run1/eval_harness.py` runs the LoRA against all 3 buckets,
-classifies every emission, writes JSONL per bucket.
+classifies every emission, writes JSONL per bucket. **One eval pass
+serves two purposes:**
+
+- **Honest solve-rate read** — computed from the FIRST 100 records per
+  bucket. 100 samples gives ~10% margin of error on binomial solve rate,
+  adequate for distinguishing the bands (e.g. 20% vs 40% vs 60%).
+- **Phase 3 failure corpus** — every non-PASS record across all augmented
+  variants is written to `phase3_corpus.jsonl` after running all 3 buckets
+  with `--report`. Bucket 2 augmented (~645) × ~80% fail = ~515 records.
+  Bucket 3 augmented (~5,500) × ~95% fail = ~5,225 records.
+
+The Phase 3 corpus is the (prompt, wrong_code, correct_code) DPO/contrastive
+input — real failure distribution from the trained model itself.
 
 Failure-mode taxonomy (auto-classified):
 
