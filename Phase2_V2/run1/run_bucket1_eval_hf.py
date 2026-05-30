@@ -125,12 +125,14 @@ def main():
                     help="beam search width; >1 overrides temperature. Catches "
                          "bad-token cascades that pure greedy can't recover from. "
                          "Recommended: 4")
-    ap.add_argument("--repetition-penalty", type=float, default=1.15,
-                    help="penalize already-emitted tokens to prevent runaway "
-                         "repetition collapse (default 1.15; 1.0 = off)")
-    ap.add_argument("--no-repeat-ngram", type=int, default=8,
-                    help="forbid any N-gram from repeating (default 8 — long enough "
-                         "to allow boilerplate, short enough to kill 'is is is' loops)")
+    ap.add_argument("--repetition-penalty", type=float, default=1.0,
+                    help="penalize already-emitted tokens (1.0 = off). >1 helps "
+                         "with repetition collapse but hurts code legitimate "
+                         "repetition (def X, def Y all share patterns)")
+    ap.add_argument("--no-repeat-ngram", type=int, default=0,
+                    help="forbid any N-gram from repeating (0 = off). For code, "
+                         "tends to be too aggressive — boilerplate legitimately "
+                         "repeats. Only enable if you see specific n-gram loops.")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
