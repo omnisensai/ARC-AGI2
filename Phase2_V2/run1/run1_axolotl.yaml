@@ -1,0 +1,84 @@
+# Phase2_V2 Run 1 — Axolotl trainer config
+#
+# ONE LoRA on the L2 same-size canonical-solver corpus.
+# - 31,726 records, 739 unique puzzles (held-out filtered)
+# - Target: def solve = infer_T + apply_T (same-size grammar)
+# - Trained from base Qwen2.5-7B-Instruct
+# - System prompt: the compact one we sealed (see record meta)
+#
+# Build the dataset first:
+#   python3 Phase2_V2/run1/prepare_dataset.py
+#
+# Then run (from repo root):
+#   axolotl train Phase2_V2/run1/run1_axolotl.yaml
+
+base_model: Qwen/Qwen2.5-7B-Instruct
+model_type: AutoModelForCausalLM
+tokenizer_type: AutoTokenizer
+trust_remote_code: true
+
+datasets:
+  - path: Phase2_V2/run1/data_sft/run1_train.jsonl.gz
+    type: chat_template
+    chat_template: tokenizer_default
+
+# Carve a 2% validation set from the train set (axolotl handles split + eval).
+val_set_size: 0.02
+
+dataset_prepared_path: Phase2_V2/run1/data_sft/prepared/run1
+output_dir: outputs/phase2_v2_run1
+
+# Sequence length: most records fit in ~2k; tail at ~4k. Use 4096 for safety.
+sequence_len: 4096
+sample_packing: true
+pad_to_sequence_len: true
+
+# Precision
+bf16: true
+fp16: false
+tf32: true
+load_in_8bit: false
+load_in_4bit: false
+
+# LoRA hyperparams (from train_config.py)
+adapter: lora
+lora_r: 32
+lora_alpha: 64
+lora_dropout: 0.05
+lora_target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
+
+# Training schedule
+num_epochs: 3
+micro_batch_size: 4
+gradient_accumulation_steps: 4    # effective batch 16
+
+# Optim
+learning_rate: 0.0002
+lr_scheduler: cosine
+warmup_ratio: 0.03
+weight_decay: 0.0
+optimizer: adamw_torch_fused
+
+# Memory + speed
+gradient_checkpointing: true
+flash_attention: true             # H100 sm_90; flip to false if compile fails
+
+# Loss masking: completion-only — mask SYSTEM + USER, loss only on ASSISTANT
+train_on_inputs: false
+group_by_length: false
+
+# Logging / checkpoints
+logging_steps: 10
+eval_steps: 200
+save_steps: 200
+save_total_limit: 5
+
+seed: 0
+strict: false

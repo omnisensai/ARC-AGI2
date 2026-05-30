@@ -1,11 +1,16 @@
 """Micro-primitive family: u_cup_fill.
 
 An open container — two vertical walls + a bottom bar, open at the top (a "U" /
-cup) — is filled to the rim with its own colour. Distinct from fill_enclosed:
-the cup is OPEN at the top, so a flood-from-outside would leak in; the fill is
-the cup's bounding interior above the floor.
+cup) — is filled to the rim with the MARKER colour (a single isolated cell of a
+distinct colour placed elsewhere in the grid). Distinct from fill_enclosed:
+the cup is OPEN at the top, so a flood-from-outside would leak in.
 
-Tiers: 0 fixed-ish 8x8, bg 0, colour 4 | 1 + colour/bg | 2 + varied size/position.
+The fill colour MUST differ from the cup colour — filling with the cup's own
+colour would collapse the U-cup into a solid filled rectangle, destroying its
+shape identity. The marker cell is the substrate's standard way to carry a
+"target colour" parameter.
+
+Tiers: 0 fixed-ish 8x8, bg 0 | 1 + colour/bg | 2 + varied size/position.
 """
 import random
 
@@ -19,17 +24,21 @@ def canonical_solver() -> str:
 def infer_T(g):
     H, W = len(g), len(g[0])
     bg = Counter(v for row in g for v in row).most_common(1)[0][0]
-    cells = [(r, c) for r in range(H) for c in range(W) if g[r][c] != bg]
-    if not cells:
+    nz = [(r, c, g[r][c]) for r in range(H) for c in range(W) if g[r][c] != bg]
+    # marker = rarest non-bg colour (a single isolated cell)
+    counts = Counter(v for _, _, v in nz)
+    marker_col = min(counts, key=lambda k: counts[k])
+    cup_cells = [(r, c) for r, c, v in nz if v != marker_col]
+    if not cup_cells:
         return {}
-    col = g[cells[0][0]][cells[0][1]]
-    top = min(r for r, c in cells); bottom = max(r for r, c in cells)
-    left = min(c for r, c in cells); right = max(c for r, c in cells)
+    cup_col = next(v for _, _, v in nz if v != marker_col)
+    top = min(r for r, c in cup_cells); bottom = max(r for r, c in cup_cells)
+    left = min(c for r, c in cup_cells); right = max(c for r, c in cup_cells)
     T = {}
     for r in range(top, bottom):              # above the floor row
         for c in range(left + 1, right):      # between the walls
             if g[r][c] == bg:
-                T[(r, c)] = col
+                T[(r, c)] = marker_col
     return T
 
 
@@ -47,32 +56,46 @@ def solve(input_grid):
 
 
 def family_prompt_hint() -> str:
-    return "Fill the open cup (two walls + floor) to the rim with its colour."
+    return "Fill the open cup (two walls + floor) to the rim with the marker colour."
 
 
 def _instance(rng, difficulty):
     if difficulty <= 1:
         H = W = 8
     else:
-        H = rng.randint(7, 12); W = rng.randint(7, 12)
+        H = rng.randint(8, 12); W = rng.randint(8, 12)
     if difficulty == 0:
-        bg, color = 0, 4
+        bg, cup_col, marker_col = 0, 4, 2
     elif difficulty == 1:
-        bg = rng.choice([0, 0, rng.randint(0, 9)]); color = rng.choice([c for c in range(1, 10) if c != bg])
+        bg = rng.choice([0, 0, rng.randint(0, 9)])
+        avail = [c for c in range(10) if c != bg]
+        cup_col, marker_col = rng.sample(avail, 2)
     else:
-        bg = rng.choice([0, 0, rng.randint(0, 9)]); color = rng.choice([c for c in range(0, 10) if c != bg])
+        bg = rng.choice([0, 0, rng.randint(0, 9)])
+        avail = [c for c in range(10) if c != bg]
+        cup_col, marker_col = rng.sample(avail, 2)
 
-    left = rng.randint(0, W - 4); right = rng.randint(left + 2, W - 1)
-    top = rng.randint(0, H - 4); bottom = rng.randint(top + 2, H - 1)
+    # place cup with at least 2 cells of margin on the right/bottom for the marker
+    left = rng.randint(0, W - 5); right = rng.randint(left + 2, W - 2)
+    top = rng.randint(0, H - 5); bottom = rng.randint(top + 2, H - 2)
     inp = [[bg] * W for _ in range(H)]
     for r in range(top, bottom + 1):
-        inp[r][left] = color; inp[r][right] = color    # walls
+        inp[r][left] = cup_col; inp[r][right] = cup_col   # walls
     for c in range(left, right + 1):
-        inp[bottom][c] = color                          # floor (open top)
+        inp[bottom][c] = cup_col                           # floor (open top)
+    # place ONE marker cell on bg, well outside the cup bbox
+    candidates = [(r, c) for r in range(H) for c in range(W)
+                  if inp[r][c] == bg
+                  and not (top - 1 <= r <= bottom + 1 and left - 1 <= c <= right + 1)]
+    if not candidates:
+        candidates = [(r, c) for r in range(H) for c in range(W) if inp[r][c] == bg]
+    mr, mc = rng.choice(candidates)
+    inp[mr][mc] = marker_col
     out = [row[:] for row in inp]
     for r in range(top, bottom):
         for c in range(left + 1, right):
-            out[r][c] = color
+            if out[r][c] == bg:
+                out[r][c] = marker_col
     return {"input": inp, "output": out}
 
 

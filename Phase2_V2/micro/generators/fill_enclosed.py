@@ -1,12 +1,18 @@
-"""Micro-primitive family: fill_enclosed.
+"""Micro-primitive family: fill_enclosed (any enclosing outline, not just rects).
 
-A hollow rectangle outline (one colour) sits on a background. The cells enclosed
-by it — background cells unreachable from the grid border — are filled with the
-outline's colour. Teaches inside/outside via flood fill.
+A closed outline (one colour) sits on a background; the cells it encloses —
+background cells unreachable from the grid border by a 4-connected flood — are
+filled with the outline's colour. Teaches inside/outside via flood fill.
+
+The solver floods from the border (4-connected), so it already handles ANY
+closed shape; tier 2 therefore uses irregular blobs (a solid blob's 4-boundary
+is the outline, its strict interior is what gets filled), not only rectangles.
+This makes connectivity explicit: a 4-connected outline blocks the 4-connected
+outside flood, so the interior stays enclosed.
 
 Output built directly from the rule, independent of the solver.
 
-Tiers: 0 fixed-ish 8x8, bg 0, colour 3 | 1 + colour/bg | 2 + varied size/position.
+Tiers: 0 rectangle, bg 0, colour 3 | 1 + colour/bg | 2 irregular blob outline.
 """
 import random
 
@@ -54,14 +60,29 @@ def solve(input_grid):
 
 
 def family_prompt_hint() -> str:
-    return "Fill the cells enclosed by the rectangle outline with its colour."
+    return "Fill the cells enclosed by the closed outline with its colour."
+
+
+def _solid_blob(rng, H, W):
+    """A solid 4-connected blob containing a base rectangle (so its strict
+    interior is non-empty), optionally grown with bumps for an irregular shape."""
+    r0 = rng.randint(1, H - 4); r1 = rng.randint(r0 + 2, H - 2)
+    c0 = rng.randint(1, W - 4); c1 = rng.randint(c0 + 2, W - 2)
+    blob = {(r, c) for r in range(r0, r1 + 1) for c in range(c0, c1 + 1)}
+    for _ in range(rng.randint(0, (r1 - r0 + c1 - c0))):
+        y, x = rng.choice(tuple(blob))
+        dy, dx = rng.choice([(1, 0), (-1, 0), (0, 1), (0, -1)])
+        ny, nx = y + dy, x + dx
+        if 0 <= ny < H and 0 <= nx < W:
+            blob.add((ny, nx))
+    return blob
 
 
 def _instance(rng, difficulty):
     if difficulty <= 1:
         H = W = 8
     else:
-        H = rng.randint(7, 12); W = rng.randint(7, 12)
+        H = rng.randint(9, 13); W = rng.randint(9, 13)
 
     if difficulty == 0:
         bg, color = 0, 3
@@ -70,17 +91,29 @@ def _instance(rng, difficulty):
     else:
         bg = rng.choice([0, 0, rng.randint(0, 9)]); color = rng.choice([c for c in range(0, 10) if c != bg])
 
-    r0 = rng.randint(0, H - 4); r1 = rng.randint(r0 + 2, H - 1)
-    c0 = rng.randint(0, W - 4); c1 = rng.randint(c0 + 2, W - 1)
+    if difficulty < 2:                              # plain rectangle outline
+        r0 = rng.randint(0, H - 4); r1 = rng.randint(r0 + 2, H - 1)
+        c0 = rng.randint(0, W - 4); c1 = rng.randint(c0 + 2, W - 1)
+        blob = {(r, c) for r in range(r0, r1 + 1) for c in range(c0, c1 + 1)}
+    else:                                           # irregular blob outline
+        blob = _solid_blob(rng, H, W)
+
+    # the outline = blob cells with a 4-neighbour outside the blob;
+    # the interior = the rest (what the flood fill must recover).
+    def nb4(y, x):
+        return [(y + dy, x + dx) for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1))]
+    outline = {(y, x) for (y, x) in blob
+               if any((ny, nx) not in blob for (ny, nx) in nb4(y, x))}
+    interior = blob - outline
+    if not interior:
+        return _instance(rng, difficulty)           # degenerate (too thin)
+
     inp = [[bg] * W for _ in range(H)]
-    for c in range(c0, c1 + 1):
-        inp[r0][c] = color; inp[r1][c] = color
-    for r in range(r0, r1 + 1):
-        inp[r][c0] = color; inp[r][c1] = color
+    for (y, x) in outline:
+        inp[y][x] = color
     out = [row[:] for row in inp]
-    for r in range(r0 + 1, r1):
-        for c in range(c0 + 1, c1):
-            out[r][c] = color
+    for (y, x) in interior:
+        out[y][x] = color
     return {"input": inp, "output": out}
 
 

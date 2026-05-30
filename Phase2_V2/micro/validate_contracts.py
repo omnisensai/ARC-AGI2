@@ -18,7 +18,7 @@ This validator adds:
 Correctness, timeout, and AST audit (gates 1-3) remain build_micro's job; this
 complements them. Exit code is nonzero if any family violates its contract.
 """
-import argparse, importlib.util, json, os, subprocess, sys, tempfile
+import argparse, json, os, subprocess, sys, tempfile
 from collections import Counter, deque
 from math import gcd
 from pathlib import Path
@@ -90,6 +90,23 @@ def _pc_components(conn8):
             return "largest-component size tie (selection ambiguous)"
         return None
     return f
+
+
+def pc_extract_largest(g):
+    bg = mode(g)
+    nz = Counter(v for row in g for v in row if v != bg)
+    if len(nz) < 2:
+        return "fewer than 2 non-bg colours (need blobs + a marker)"
+    m = min(nz, key=lambda k: nz[k])
+    if nz[m] != 1:
+        return f"marker colour is not a single cell (count {nz[m]})"
+    comps = [c for c in comps_of(g, bg, False) if g[c[0][0]][c[0][1]] != m]
+    sizes = sorted((len(c) for c in comps), reverse=True)
+    if len(sizes) < 2:
+        return "fewer than 2 blobs"
+    if sizes[0] == sizes[1]:
+        return "largest-blob size tie (selection ambiguous)"
+    return None
 
 
 def _edge_markers(g):
@@ -176,6 +193,119 @@ def pc_periodic_repair(g):
 
 
 # --------------------- per-family config registry -------------------------
+def pc_single_seed(g):
+    bg = mode(g)
+    nz = Counter(v for row in g for v in row if v != bg)
+    if not nz:
+        return "no seed/marker (all background)"
+    mn = min(nz.values())
+    if mn != 1:
+        return f"seed/marker is not a single cell (rarest non-bg count {mn})"
+    if sum(1 for v in nz.values() if v == mn) != 1:
+        return "ambiguous seed/marker (multiple rarest non-bg colours)"
+    return None
+
+
+def pc_copy_markers(g):
+    bg = mode(g)
+    comps = comps_of(g, bg, False)
+    big = [c for c in comps if len(c) >= 2]
+    singles = [c for c in comps if len(c) == 1]
+    if len(big) != 1:
+        return f"expected exactly 1 multi-cell prototype, found {len(big)}"
+    if not singles:
+        return "no marker pixels"
+    pcol = g[big[0][0][0]][big[0][0][1]]
+    if any(g[s[0][0]][s[0][1]] == pcol for s in singles):
+        return "a marker shares the prototype colour"
+    return None
+
+
+def pc_recolor_marker(g):
+    H, W = len(g), len(g[0]); bg = mode(g)
+    nz = Counter(v for row in g for v in row if v != bg)
+    if not nz:
+        return "no objects"
+    C = max(nz, key=lambda k: nz[k])
+    nb8 = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+    seen = [[False] * W for _ in range(H)]
+    for r in range(H):
+        for c in range(W):
+            if g[r][c] == C and not seen[r][c]:
+                comp = []; st = [(r, c)]; seen[r][c] = True
+                while st:
+                    y, x = st.pop(); comp.append((y, x))
+                    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        ny, nx = y + dy, x + dx
+                        if 0 <= ny < H and 0 <= nx < W and not seen[ny][nx] and g[ny][nx] == C:
+                            seen[ny][nx] = True; st.append((ny, nx))
+                mcols = set()
+                for (y, x) in comp:
+                    for dy, dx in nb8:
+                        ny, nx = y + dy, x + dx
+                        if 0 <= ny < H and 0 <= nx < W and g[ny][nx] != bg and g[ny][nx] != C:
+                            mcols.add(g[ny][nx])
+                if len(mcols) == 0:
+                    return "an object has no adjacent marker"
+                if len(mcols) > 1:
+                    return "an object touches markers of >1 colour (ambiguous)"
+    return None
+
+
+def pc_border_seed(g):
+    H, W = len(g), len(g[0]); bg = mode(g)
+    border = [(r, c) for r in range(H) for c in range(W)
+              if g[r][c] != bg and (r in (0, H - 1) or c in (0, W - 1))]
+    if len(border) != 1:
+        return f"expected exactly 1 border seed, found {len(border)}"
+    return None
+
+
+def pc_fence(g):
+    bg = mode(g)
+    if bg == 8:
+        return "background is the fence colour 8"
+    if any(v == 8 for row in g for v in row):
+        return "fence colour 8 already present in input (ambiguous)"
+    if not any(v != bg for row in g for v in row):
+        return "no shape to fence"
+    return None
+
+
+def pc_flip_h(g):
+    if g == [row[::-1] for row in g]:
+        return "input is already left-right symmetric (flip is a no-op)"
+    return None
+
+
+def pc_flip_v(g):
+    if g == g[::-1]:
+        return "input is already top-bottom symmetric (flip is a no-op)"
+    return None
+
+
+def pc_draw_bbox(g):
+    bg = mode(g)
+    cells = [(r, c) for r in range(len(g)) for c in range(len(g[0])) if g[r][c] != bg]
+    if not cells:
+        return "no object"
+    if len({g[r][c] for r, c in cells}) != 1:
+        return "object has more than one colour"
+    r0 = min(r for r, c in cells); r1 = max(r for r, c in cells)
+    c0 = min(c for r, c in cells); c1 = max(c for r, c in cells)
+    if r0 == r1 and c0 == c1:
+        return "degenerate bbox (single cell)"
+    perim_bg = any(g[r0][c] == bg or g[r1][c] == bg for c in range(c0, c1 + 1)) \
+        or any(g[r][c0] == bg or g[r][c1] == bg for r in range(r0, r1 + 1))
+    if not perim_bg:
+        return "bbox perimeter already complete (frame adds nothing)"
+    return None
+
+
+def pc_nonsquare(g):
+    return "input is square (rotate would not change size)" if len(g) == len(g[0]) else None
+
+
 def adv(rows):  # convenience
     return rows
 
@@ -192,8 +322,8 @@ CONFIG = {
     "ray_diag_until_blocker": {"precond": pc_ray_corner, "adv": [[[0, 0], [0, 0]]]},  # no corner -> StopIteration
     "complete_line":          {"precond": pc_complete_line,
                                "adv": [[[3, 0, 0, 0, 0], [0]*5, [0, 0, 0, 0, 3]]]},  # non-collinear -> HANG risk
-    "component_recolor":      {"precond": _pc_components(False),
-                               "adv": [[[3, 0, 4], [0, 0, 0], [0, 0, 0]]]},          # equal-size tie
+    "extract_largest_recolor": {"precond": pc_extract_largest,
+                               "adv": [[[3, 3, 0, 4], [0, 0, 0, 0], [3, 3, 0, 0]]]},  # blob tie + marker
     "component_4conn":        {"precond": _pc_components(False),
                                "adv": [[[3, 0, 4], [0, 0, 0]]]},
     "component_8conn":        {"precond": _pc_components(True),
@@ -204,12 +334,28 @@ CONFIG = {
     "u_cup_fill":             {},
     "fill_enclosed":          {},
     "sandwich_fill":          {},
-    "mirror":                 {},
+    "symmetry_complete_vertical":   {},
+    "symmetry_complete_horizontal": {},
     "gravity_water":          {},
-    "rotate_translate":       {},
+    "drop_to_floor":          {},
+    "cross_from_seed":        {"precond": pc_single_seed, "adv": [[[2, 0, 0], [0, 0, 0], [0, 0, 0]]]},
+    "star_from_seed":         {"precond": pc_single_seed, "adv": [[[2, 0, 0], [0, 0, 0], [0, 0, 0]]]},
+    "flood_from_seed":        {"precond": pc_single_seed, "adv": [[[5, 5, 5], [5, 2, 5], [5, 5, 5]]]},
+    "flood_from_seed_8":      {"precond": pc_single_seed, "adv": [[[5, 5, 5], [5, 2, 5], [5, 5, 5]]]},
+    "move_to_marker":         {"precond": pc_single_seed, "adv": [[[3, 3, 0, 0], [0, 0, 0, 4]]]},
+    "copy_to_markers":        {"precond": pc_copy_markers, "adv": [[[3, 3, 0, 0, 4], [3, 0, 0, 0, 0]]]},
+    "recolor_by_marker":      {"precond": pc_recolor_marker, "adv": [[[5, 5, 0], [0, 0, 0]]]},
+    "ball_roll":              {"precond": pc_border_seed, "adv": [[[2, 0, 0], [0, 5, 0], [0, 0, 0]]]},
+    "maze_runner":            {"precond": pc_border_seed, "adv": [[[2, 0, 0], [0, 5, 0], [0, 0, 0]]]},
+    "fence_8conn":            {"precond": pc_fence, "adv": [[[3, 3, 0], [0, 0, 0]]]},
+    "fence_4conn":            {"precond": pc_fence, "adv": [[[3, 3, 0], [0, 0, 0]]]},
+    "flip_horizontal":        {"precond": pc_flip_h, "uses_bg": False},
+    "flip_vertical":          {"precond": pc_flip_v, "uses_bg": False},
+    "draw_bbox":              {"precond": pc_draw_bbox},
     # micro_diff
     "crop_to_bbox":           {"diff": True, "adv": [[[0, 0], [0, 0]]]},             # no content -> controlled
     "scale_2x":               {"diff": True, "uses_bg": False},
+    "rotate_90":              {"diff": True, "uses_bg": False, "precond": pc_nonsquare},
 }
 
 UNIVERSAL_ADV = [[[0]], [[0]*5 for _ in range(5)], [[5]*5 for _ in range(5)], [[0, 3, 0, 3, 0]]]
@@ -233,6 +379,35 @@ except Exception as e:
 '''
 
 
+_GEN_RUNNER = r'''
+import importlib.util, json, sys
+spec = importlib.util.spec_from_file_location("m", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+batch = int(sys.argv[2]); tiers = [0, 1, 2]
+out = [m.generate(seed=10000 + i, difficulty=tiers[i % 3]) for i in range(batch)]
+json.dump(out, open(sys.argv[3], "w"))
+'''
+
+
+def gen_batch(gen_path, batch, timeout):
+    """Generate a fresh batch in a SUBPROCESS so a hanging/slow generator is
+    reported (GENERATOR TIMEOUT) instead of stalling the validator itself —
+    the exact failure mode the extract_largest_recolor hang exposed."""
+    rf = tempfile.NamedTemporaryFile("w", suffix=".py", delete=False); rf.write(_GEN_RUNNER); rf.close()
+    of = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False); of.close()
+    try:
+        r = subprocess.run([sys.executable, rf.name, str(gen_path), str(batch), of.name],
+                           capture_output=True, text=True, timeout=timeout)
+        if r.returncode != 0:
+            last = (r.stderr.strip().splitlines() or ["?"])[-1][:70]
+            return [], f"GENERATOR ERROR ({last})"
+        return json.load(open(of.name)), None
+    except subprocess.TimeoutExpired:
+        return [], f"GENERATOR TIMEOUT (>{timeout}s for {batch} tasks)"
+    finally:
+        os.unlink(rf.name); os.unlink(of.name)
+
+
 def run_adv(solver_path, grid, timeout=5):
     rf = tempfile.NamedTemporaryFile("w", suffix=".py", delete=False); rf.write(_ADV_RUNNER); rf.close()
     gf = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False); json.dump(grid, gf); gf.close()
@@ -247,16 +422,11 @@ def run_adv(solver_path, grid, timeout=5):
         os.unlink(rf.name); os.unlink(gf.name)
 
 
-def load_family(gen_dir, name):
-    spec = importlib.util.spec_from_file_location(name, gen_dir / f"{name}.py")
-    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
-    return mod
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", default="micro")
     ap.add_argument("--batch", type=int, default=150, help="fresh tasks per family for precondition audit")
+    ap.add_argument("--gen-timeout", type=int, default=30, help="seconds allowed for a family's batch generation")
     a = ap.parse_args()
     ROOT = P2 / a.dir
     GEN, SOLV = ROOT / "generators", ROOT / "solvers"
@@ -270,14 +440,16 @@ def main():
         is_diff = cfg.get("diff", False)
         precond = cfg.get("precond")
         precond_task = cfg.get("precond_task")
-        mod = load_family(GEN, fam)
         solver = SOLV / f"{fam}.py"
 
         # ---- (4) precondition / property audit over a fresh batch ----
+        # Generation runs in a timeout-guarded subprocess: a hanging generator is
+        # reported, never stalls the validator.
         viol = Counter()
-        tiers = [0, 1, 2]
-        for i in range(a.batch):
-            task = mod.generate(seed=10000 + i, difficulty=tiers[i % 3])
+        tasks, gen_err = gen_batch(GEN / f"{fam}.py", a.batch, a.gen_timeout)
+        if gen_err:
+            viol[gen_err] += 1
+        for task in tasks:
             if precond_task:
                 v = precond_task(task)
                 if v:

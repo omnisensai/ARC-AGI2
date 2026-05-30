@@ -57,6 +57,11 @@ So there are two gates:
      terminate within a hard timeout and return a well-formed grid OR raise a
      controlled exception — never HANG / MALFORMED / NON-DETERMINISTIC.
 
+  Generation runs in a timeout-guarded subprocess (`--gen-timeout`, default 30s),
+  so a hanging/slow generator is reported as `GENERATOR TIMEOUT` rather than
+  stalling the validator itself (the failure mode the extract_largest_recolor
+  hang first exposed — the validator caught the bug by hanging; now it reports it).
+
   `python micro/validate_contracts.py --dir micro` (or `--dir micro_diff`).
   On its first run it caught two real bugs sample-checking missed: `complete_line`
   hung forever on non-collinear endpoints (unbounded loop, now bounds-guarded),
@@ -94,14 +99,30 @@ ALL 17 families DONE — each 60/60 across tiers 0-2, 240 records (4080 total):
 
   rays:        ray_to_edge ✅  ray_until_blocker ✅
                ray_diag_to_edge ✅  ray_diag_until_blocker ✅  (corner -> diagonal)
-  lines/fill:  complete_line ✅  sandwich_fill ✅ (H/V/diag)  fill_enclosed ✅  u_cup_fill ✅
-  components:  component_recolor ✅
+  lines/fill:  complete_line ✅  sandwich_fill ✅ (H/V/diag)  u_cup_fill ✅
+               fill_enclosed ✅  (any closed outline — rect + irregular blob)
+  selection:   extract_largest_recolor ✅  (select-by-size + recolour to seed colour)
                component_4conn ✅  component_8conn ✅  (matched pair: 4- vs 8-connectivity)
   contour:     boundary_mask ✅
-  symmetry:    mirror ✅
+  symmetry:    symmetry_complete_vertical ✅  symmetry_complete_horizontal ✅  (split — fixed axis each)
   periodic:    periodic_extension ✅  periodic_repair ✅
-  simulation:  gravity_water ✅  rotate_translate ✅ (rigid drop)
+  simulation:  gravity_water ✅  drop_to_floor ✅ (rigid drop)
+  seed-flood:  flood_from_seed ✅  flood_from_seed_8 ✅  (matched pair: 4- vs 8-conn)
+  seed-radiate: cross_from_seed ✅  star_from_seed ✅  (matched pair: 4- vs 8-direction)
+  seed-path:   ball_roll ✅ (snake — roll & turn, leaves trail)  maze_runner ✅ (ball roll, NO trail — rest at dead end)
+  fencing:     fence_8conn ✅  fence_4conn ✅  (matched pair: square vs rounded corners)
+  markers:     move_to_marker ✅  copy_to_markers ✅  recolor_by_marker ✅
+               (seed-as-trigger: anchor / replicate / colour-bind)
+  geometry:    flip_horizontal ✅  flip_vertical ✅  draw_bbox ✅  (whole-grid mirror / bbox frame)
+  diff-size (micro_diff/): crop_to_bbox ✅  scale_2x ✅  rotate_90 ✅  (size-changing class)
 ```
+
+Geometric primitive layer complete. The set is deliberately bounded to primitive
+INVARIANCE (rays, lines, enclosure, components, connectivity, boundary, symmetry,
+periodicity, gravity, rigid movement, marker recolor/move, flip/rotate/bbox,
+crop/scale) — not puzzle coverage. Compositions/policies (object sorting,
+select/delete-by-marker, intersection-mark, pattern replace, palette mapping)
+are deliberately held back.
 
 Ray mechanic covered in both forms (edge->perpendicular, corner->diagonal).
 Next: scale counts toward ~300/family (`--n 300`), enable tier-3 distractors,
