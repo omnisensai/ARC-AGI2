@@ -27,11 +27,16 @@ from canonical_gate import audit as _ast_audit
 
 
 def load_puzzle(pid):
-    for suffix in ("A1T", "A2T", "A1E", "A2E"):
-        p = P2 / "Puzzle_Database" / f"{pid}_{suffix}.json"
-        if p.exists():
-            return json.loads(p.read_text())
-    raise FileNotFoundError(f"no puzzle file for {pid}")
+    """Load puzzle from the SAME source training used (canonical/ground_truth_puzzles/).
+
+    The other location Phase2_V2/Puzzle_Database/<pid>_*.json contains some
+    files in a corrupted flattened 90x1 format that does NOT match training.
+    Always use ground_truth_puzzles/ for eval to match the training distribution.
+    """
+    p = P2 / "canonical" / "ground_truth_puzzles" / f"{pid}.json"
+    if p.exists():
+        return json.loads(p.read_text())
+    raise FileNotFoundError(f"no puzzle file for {pid} in canonical/ground_truth_puzzles/")
 
 
 def build_prompt(puzzle):
