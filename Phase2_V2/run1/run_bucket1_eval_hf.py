@@ -125,6 +125,12 @@ def main():
                     help="beam search width; >1 overrides temperature. Catches "
                          "bad-token cascades that pure greedy can't recover from. "
                          "Recommended: 4")
+    ap.add_argument("--repetition-penalty", type=float, default=1.15,
+                    help="penalize already-emitted tokens to prevent runaway "
+                         "repetition collapse (default 1.15; 1.0 = off)")
+    ap.add_argument("--no-repeat-ngram", type=int, default=8,
+                    help="forbid any N-gram from repeating (default 8 — long enough "
+                         "to allow boilerplate, short enough to kill 'is is is' loops)")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
@@ -180,32 +186,21 @@ def main():
                 tokenize=False, add_generation_prompt=True,
             )
             inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
+            common = dict(
+                max_new_tokens=a.max_new_tokens,
+                pad_token_id=tokenizer.eos_token_id,
+                repetition_penalty=a.repetition_penalty,
+                no_repeat_ngram_size=a.no_repeat_ngram,
+            )
             with torch.no_grad():
                 if a.num_beams > 1:
-                    output = model.generate(
-                        **inputs,
-                        max_new_tokens=a.max_new_tokens,
-                        do_sample=False,
-                        num_beams=a.num_beams,
-                        early_stopping=True,
-                        pad_token_id=tokenizer.eos_token_id,
-                    )
+                    output = model.generate(**inputs, **common,
+                        do_sample=False, num_beams=a.num_beams, early_stopping=True)
                 elif a.temperature > 0:
-                    output = model.generate(
-                        **inputs,
-                        max_new_tokens=a.max_new_tokens,
-                        do_sample=True,
-                        temperature=a.temperature,
-                        top_p=0.9,
-                        pad_token_id=tokenizer.eos_token_id,
-                    )
+                    output = model.generate(**inputs, **common,
+                        do_sample=True, temperature=a.temperature, top_p=0.9)
                 else:
-                    output = model.generate(
-                        **inputs,
-                        max_new_tokens=a.max_new_tokens,
-                        do_sample=False,
-                        pad_token_id=tokenizer.eos_token_id,
-                    )
+                    output = model.generate(**inputs, **common, do_sample=False)
             raw = tokenizer.decode(
                 output[0][inputs.input_ids.shape[1]:],
                 skip_special_tokens=True,
