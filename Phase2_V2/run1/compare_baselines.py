@@ -79,12 +79,12 @@ def main():
         out.append("**Expected output:**\n```\n" + grid_str(ra["expected_output"]) + "\n```\n")
         out.append(f"**A got:**\n```\n{grid_str(ra.get('got_output'))}\n```\n")
         out.append(f"**B got:**\n```\n{grid_str(rb.get('got_output'))}\n```\n")
-        out.append(f"**A extracted code:**\n```python\n{ra.get('extracted_code','')[:2000]}\n```\n")
-        out.append(f"**B extracted code:**\n```python\n{rb.get('extracted_code','')[:2000]}\n```\n")
-        out.append("**A raw output (first 500 chars):**\n```\n"
-                   + ra.get('model_output_raw','')[:500] + "\n```\n")
-        out.append("**B raw output (first 500 chars):**\n```\n"
-                   + rb.get('model_output_raw','')[:500] + "\n```\n")
+        out.append(f"**A extracted code:**\n```python\n{ra.get('extracted_code','')}\n```\n")
+        out.append(f"**B extracted code:**\n```python\n{rb.get('extracted_code','')}\n```\n")
+        out.append("**A raw output (full):**\n```\n"
+                   + ra.get('model_output_raw','') + "\n```\n")
+        out.append("**B raw output (full):**\n```\n"
+                   + rb.get('model_output_raw','') + "\n```\n")
         out.append("---\n")
 
     Path(args.out).write_text("\n".join(out))
