@@ -732,25 +732,311 @@ EMPTY_OR_INVALID = discipline broken (env problem). High HARDCODED = data leak.
 
 ---
 
-## PART III — ENVIRONMENT / SETUP LESSONS
+## PART III — PROMPT + ENVIRONMENT VERSIONING PROTOCOL (NON-NEGOTIABLE)
 
-### Pin your environment, or it WILL break
+The two biggest sources of wasted hours in V1 → V2. Concrete protocol below.
+If anything in this section is skipped or weakened, the run is contaminated.
 
-Hours lost on:
-- vLLM 0.22 install bumped torch 2.8 → 2.11, broke flash-attn ABI
-- Cascaded into cuDNN errors during plain `torch.matmul`
-- Pinning `transformers<5.0` + `peft<0.16` to recover torch 2.4 compat
-- V1's adapter tokenizer (saved with older transformers) failed under newer
+### 3.1 Prompt versioning — single source of truth + signature check
 
-Save with every adapter checkpoint:
-1. `pip freeze > requirements.txt`
-2. torch / transformers / peft / flash-attn / axolotl versions
-3. CUDA + cuDNN versions
-4. Tokenizer files
-5. `attn_implementation` used in training
-6. Chat template
+**Rule 1: One module. No copy-paste anywhere.**
 
-Without this you cannot reproduce a trained model.
+Create `shared/prompts.py`:
+
+```python
+"""V3 prompt module — the canonical source of truth.
+
+Imported by BOTH data builders AND eval scripts. Never copy-paste anything
+from this file into another file. Drift = invalidated training.
+"""
+import hashlib
+import json
+
+PROMPT_VERSION = "v3.0.0"   # bump on ANY semantic change to SYSTEM or render
+
+SYSTEM = """You write Python functions that infer latent transformation masks for ARC grids.
+
+Return only Python code.
+
+Write exactly one function:
+
+def infer_T(input_grid):
+    ...
+
+The function must return a dict mapping (row, col) to new color.
+
+Do not write solve.
+Do not write apply_T.
+Do not return an output grid.
+Do not explain."""
+
+def render_pairs(pairs):
+    """Render a list of (input, T_str) pairs as the USER prompt body."""
+    parts = []
+    for i, (inp, t) in enumerate(pairs, 1):
+        inp_str = "\n".join("".join(str(c) for c in row) for row in inp)
+        parts.append(f"PAIR {i}\nINPUT:\n{inp_str}\nT:\n{t}")
+    return "\n\n".join(parts)
+
+def build_user_prompt(pairs):
+    """Full USER content. The ONLY way data builders or eval scripts assemble USER."""
+    header = (
+        "Each pair shows INPUT and T.\n\n"
+        "T marks how INPUT becomes OUTPUT.\n"
+        ". means unchanged.\n"
+        "0-9 means overwrite with that color.\n\n"
+    )
+    return header + render_pairs(pairs) + "\n\nWrite infer_T(input_grid)."
+
+def prompt_signature():
+    """Stable hash over SYSTEM + a frozen sample USER. Checkpoints record this.
+    Eval refuses to load if its signature doesn't match the checkpoint's."""
+    sample_pairs = [
+        ([[0, 0], [0, 8]], ".\n.2"),
+        ([[1, 0], [0, 1]], "..\n.."),
+    ]
+    canonical = SYSTEM + "\n\n---\n\n" + build_user_prompt(sample_pairs)
+    return hashlib.sha256(canonical.encode()).hexdigest()[:16]
+```
+
+**Rule 2: Every checkpoint stores `prompt_signature()` at save time.**
+
+Wrap `axolotl train` with a small post-save hook (or add to the training script)
+that writes `<checkpoint>/prompt_signature.json`:
+
+```python
+import json
+from shared.prompts import PROMPT_VERSION, prompt_signature
+json.dump(
+    {"version": PROMPT_VERSION, "signature": prompt_signature()},
+    open(f"{ckpt_dir}/prompt_signature.json", "w"),
+)
+```
+
+**Rule 3: Eval refuses to run if signatures disagree.**
+
+In every eval script:
+
+```python
+from shared.prompts import PROMPT_VERSION, prompt_signature
+import json
+ckpt_sig = json.load(open(f"{args.adapter}/prompt_signature.json"))
+if ckpt_sig["signature"] != prompt_signature():
+    raise SystemExit(
+        f"PROMPT DRIFT DETECTED.\n"
+        f"  checkpoint: {ckpt_sig['version']} / {ckpt_sig['signature']}\n"
+        f"  current   : {PROMPT_VERSION} / {prompt_signature()}\n"
+        f"  Fix shared/prompts.py to match, or use the matching adapter version."
+    )
+```
+
+This is non-bypassable. The eval cannot accidentally use a different prompt than
+training. This single check would have saved most of V2's debugging.
+
+**Rule 4: Golden tests in CI.**
+
+`tests/test_prompts.py`:
+
+```python
+import json
+from pathlib import Path
+from shared.prompts import SYSTEM, build_user_prompt, prompt_signature, PROMPT_VERSION
+
+def test_signature_stable():
+    """Signature must match the committed golden. Bump version + golden together."""
+    golden = json.load(open(Path(__file__).parent / "golden_signature.json"))
+    assert prompt_signature() == golden["signature"], \
+        f"Prompt changed without version bump. Current sig: {prompt_signature()}"
+    assert PROMPT_VERSION == golden["version"]
+
+def test_system_contract():
+    """SYSTEM must not reference 'solve', must reference 'infer_T'."""
+    assert "infer_T" in SYSTEM
+    assert "Do not write solve" in SYSTEM
+
+def test_user_format():
+    """USER must follow the PAIR N / INPUT / T pattern."""
+    out = build_user_prompt([([[0, 1], [1, 0]], "..\n..")])
+    assert "PAIR 1" in out
+    assert "INPUT:" in out
+    assert "T:" in out
+    assert "Write infer_T(input_grid)." in out.strip().splitlines()[-1]
+```
+
+`tests/golden_signature.json` is committed and updated only with intentional
+version bumps:
+
+```json
+{"version": "v3.0.0", "signature": "abc123..."}
+```
+
+Run `pytest tests/` before every training run. If signature changes without a
+version bump, CI fails — you can't ship drifted prompts.
+
+**Rule 5: Save prompts.py into every promoted checkpoint dir.**
+
+```bash
+cp shared/prompts.py <checkpoint>/prompts_snapshot.py
+```
+
+This is belt-and-suspenders. If the repo evolves but you need to reload an old
+checkpoint, the snapshot lets you reproduce the exact training prompts even if
+`shared/prompts.py` has moved on.
+
+### 3.2 Environment versioning — lockfile + verify-on-load
+
+**Rule 1: Lockfile committed.**
+
+`requirements.lock` — exact pip freeze, committed to repo. Generated once on a
+clean working environment:
+
+```bash
+pip freeze | grep -vE "(file:///|pkg_resources)" > requirements.lock
+git add requirements.lock && git commit -m "lock environment for V3"
+```
+
+Plus a `requirements.txt` with the loose top-level deps for documentation.
+
+**Rule 2: Environment snapshot script.**
+
+`scripts/snapshot_env.py`:
+
+```python
+"""Capture exact env state for reproducibility. Run after training a checkpoint."""
+import json, subprocess, sys, platform
+from pathlib import Path
+
+def snap():
+    info = {"python": sys.version, "platform": platform.platform()}
+    # Library versions
+    for lib in ("torch", "transformers", "peft", "flash_attn", "axolotl",
+                "datasets", "accelerate", "bitsandbytes"):
+        try:
+            mod = __import__(lib)
+            info[lib] = getattr(mod, "__version__", "unknown")
+        except ImportError:
+            info[lib] = None
+    # CUDA / cuDNN
+    try:
+        import torch
+        info["cuda"] = torch.version.cuda
+        info["cudnn"] = torch.backends.cudnn.version()
+        info["torch_compiled_for"] = torch.cuda.get_device_capability()
+    except Exception:
+        pass
+    # GPU info
+    try:
+        info["nvidia_smi"] = subprocess.check_output(
+            ["nvidia-smi", "--query-gpu=name,driver_version,memory.total",
+             "--format=csv"], text=True).strip()
+    except Exception:
+        pass
+    # Pip freeze
+    info["pip_freeze"] = subprocess.check_output(
+        [sys.executable, "-m", "pip", "freeze"], text=True).strip().split("\n")
+    return info
+
+if __name__ == "__main__":
+    ckpt_dir = sys.argv[1] if len(sys.argv) > 1 else "."
+    snap_data = snap()
+    out = Path(ckpt_dir) / "env_snapshot.json"
+    json.dump(snap_data, open(out, "w"), indent=2)
+    print(f"wrote {out}")
+```
+
+Run after every promoted checkpoint:
+
+```bash
+python3 scripts/snapshot_env.py outputs/v3_phase1/
+```
+
+**Rule 3: Eval verifies env compatibility.**
+
+`scripts/verify_env.py`:
+
+```python
+"""Refuse to load a checkpoint if the current env materially differs.
+
+Critical libs (must match exactly): torch, transformers, peft
+Important libs (warn if differ): flash_attn, axolotl, accelerate
+"""
+import json, sys
+from pathlib import Path
+
+CRITICAL = ("torch", "transformers", "peft")
+IMPORTANT = ("flash_attn", "axolotl", "accelerate", "bitsandbytes")
+
+def verify(ckpt_dir):
+    snap_path = Path(ckpt_dir) / "env_snapshot.json"
+    if not snap_path.exists():
+        raise SystemExit(f"NO env_snapshot.json in {ckpt_dir}. Refuse to load.")
+    saved = json.load(open(snap_path))
+    from scripts.snapshot_env import snap
+    current = snap()
+    errors, warnings = [], []
+    for lib in CRITICAL:
+        if saved.get(lib) != current.get(lib):
+            errors.append(f"{lib}: ckpt={saved.get(lib)} != current={current.get(lib)}")
+    for lib in IMPORTANT:
+        if saved.get(lib) != current.get(lib):
+            warnings.append(f"{lib}: ckpt={saved.get(lib)} != current={current.get(lib)}")
+    if errors:
+        raise SystemExit("ENV MISMATCH (critical):\n  " + "\n  ".join(errors)
+                         + "\nFix env or use a matching checkpoint.")
+    if warnings:
+        print("ENV WARNINGS (proceed but be aware):", file=sys.stderr)
+        for w in warnings:
+            print(f"  {w}", file=sys.stderr)
+
+if __name__ == "__main__":
+    verify(sys.argv[1])
+    print("env OK")
+```
+
+Every eval script calls `verify(args.adapter)` before loading the model. No
+silent drift.
+
+**Rule 4: Containerize the env.**
+
+`Dockerfile.train`:
+
+```dockerfile
+FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04
+RUN apt-get update && apt-get install -y python3.11 python3-pip git
+WORKDIR /workspace
+COPY requirements.lock .
+RUN pip install --no-deps -r requirements.lock
+# Plus any binary deps (flash-attn often needs special build)
+RUN pip install flash-attn==<exact_version> --no-build-isolation
+COPY . /workspace/
+```
+
+For pod work: build the image once, pin it on a registry, every training run
+uses the same container. No "what version of torch did this pod ship with"
+mysteries.
+
+**Rule 5: Pre-install all deps in the preflight, before any training/eval.**
+
+Common forgotten installs:
+```bash
+pip install protobuf sentencepiece  # Qwen tokenizer
+pip install accelerate==<pinned>     # axolotl dep
+pip install bitsandbytes==<pinned>   # if doing 4-bit
+```
+
+Add these to `scripts/preflight.py` so they fail loudly at the start, not 50
+minutes into a run.
+
+### 3.3 The two-line discipline summary
+
+**Prompts**: imported, never copy-pasted; signature checked at every eval load.
+**Env**: locked, snapshotted into every checkpoint, verified before every load.
+
+If either of these is bypassed, the run is contaminated and the numbers don't count.
+
+---
+
+## PART IV — OTHER ENVIRONMENT / SETUP LESSONS
 
 ### Attention implementation drift — mostly secondary
 
@@ -761,50 +1047,60 @@ prompt, not attention drift. With V1's own prompt, output was clean (1 typo
 across 18 generated solvers).
 
 Prompt-format mismatch dominates attention drift as a cause of corruption. Fix
-the prompt first. Only suspect attention if clean prompts still produce garbage.
+the prompt first (which §III makes literally impossible to skip). Only suspect
+attention if a signature-matched, env-verified run still produces token-level
+garbage.
 
 ### Preflight discipline
 
-Before any 30+ min run:
-```bash
-# 1. Smoke test: 1 puzzle, see real output
-python3 eval_script.py --limit 1
-# 2. Print actual prompt
-python3 -c "from shared.prompts import SYSTEM; print(SYSTEM)"
-# 3. Verify first 5
-python3 eval_script.py --limit 5
+Before any 30+ min run, `scripts/preflight.py` must do:
+
+```python
+# 1. Verify deps
+# 2. Verify env snapshot against checkpoint
+# 3. Verify prompt signature
+# 4. Print 1 sample prompt — eyeball it
+# 5. Run 1-puzzle eval — verify output is parseable
+# 6. Confirm JSONL writer is per-line-flushing
 ```
 
-ETA from the run script is faster signal than waiting for final SOLVE RATE.
+ETA from the run script is a faster signal than waiting for final SOLVE RATE.
+We burned hours waiting on full runs that were clearly failing at puzzle 5.
 
 ### Always JSONL per-line with flush
 
 Per-puzzle write + flush means Ctrl+C preserves data. Always.
 
-### Common pod setup gotchas
+### Common pod setup gotchas (preflight should catch these)
 
 - `pip install protobuf sentencepiece` for Qwen tokenizers
-- Pod CWD is usually `/workspace`, repo is `/workspace/<repo>`. cd first
+- Pod CWD is usually `/workspace`, repo is `/workspace/<repo>` — cd first
 - HF download needs correct subfolder name — list first: `hf repo files <repo>`
-- Git auth: PAT with `repo` scope, cache 24h with `git config credential.helper 'cache --timeout=86400'`
+- Git auth: PAT with `repo` scope, cache 24h: `git config credential.helper 'cache --timeout=86400'`
 - Pin git identity at session start: `git config user.email/name`
 
 ### Debugging order of operations (DO NOT SKIP)
 
-When a run produces garbage:
-1. Print the actual prompt being sent. Eyeball it.
-2. Print raw model_output (not extracted_code). Eyeball it.
-3. Run at T=0 to remove sampling noise.
-4. Check pip versions vs training-time versions.
-5. Verify adapter loaded: `print(model.peft_config)`.
-6. Self-consistency test on training puzzles.
+When a run produces garbage output:
 
-This is the order. Don't skip 1 to debug 3. Most of V2's night was wasted by
-skipping 1.
+1. **Print the actual prompt being sent.** Eyeball it. (Should never come up if
+   §III.1 signature check is wired — but check anyway.)
+2. **Print raw model_output** (not extracted_code). Catches leaks, hallucinated
+   metadata, structural collapses.
+3. **Run at T=0** to remove sampling noise.
+4. **Check pip versions vs training-time versions.** (Should never come up if
+   §III.2 env verify is wired.)
+5. **Verify the adapter loaded.** `print(model.peft_config)` — check target_modules / rank.
+6. **Self-consistency test.** Run trained model on training puzzles. If it can't
+   reproduce those, rule extraction broken at training time, not inference.
+
+Order matters. Each step is faster than the next. Don't skip 1 to debug 3. Most
+of V2's night was wasted by skipping 1 — and most of THAT was avoidable with the
+§III prompt signature check.
 
 ---
 
-## PART IV — REPO STRUCTURE FOR THE FRESH START
+## PART V — REPO STRUCTURE FOR THE FRESH START
 
 Recommended layout:
 
@@ -864,7 +1160,7 @@ Recommended layout:
 
 ---
 
-## PART V — RIGOR & DISCIPLINE
+## PART VI — RIGOR & DISCIPLINE
 
 ### Pre-registration is non-negotiable
 
@@ -954,7 +1250,7 @@ bug after the frozen run, that's V4.
 
 ---
 
-## PART VI — OPEN QUESTIONS (RESOLVE BEFORE TRAINING)
+## PART VII — OPEN QUESTIONS (RESOLVE BEFORE TRAINING)
 
 These need answers BEFORE the data builders run:
 
@@ -969,7 +1265,7 @@ These need answers BEFORE the data builders run:
 
 ---
 
-## PART VII — STATUS CHECKLIST
+## PART VIII — STATUS CHECKLIST
 
 ### Pre-training
 - [ ] Port canonical solvers
@@ -1003,7 +1299,7 @@ These need answers BEFORE the data builders run:
 
 ---
 
-## PART VIII — TL;DR
+## PART IX — TL;DR
 
 - The model writes `infer_T` only. Python owns `apply_T`, validation, scoring.
 - 5 phases: T ontology → multi-pair T → infer_T code → syntax → repair.
