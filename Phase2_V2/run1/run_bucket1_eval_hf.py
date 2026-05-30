@@ -39,8 +39,11 @@ def load_puzzle(pid):
     raise FileNotFoundError(f"no puzzle file for {pid} in canonical/ground_truth_puzzles/")
 
 
-def build_prompt(puzzle):
-    return SYSTEM, render_pairs(puzzle["train"]) + "\n\nWrite def solve(input_grid)."
+def build_prompt(puzzle, show_pairs=0):
+    train = puzzle["train"]
+    if show_pairs > 0:
+        train = train[:show_pairs]
+    return SYSTEM, render_pairs(train) + "\n\nWrite def solve(input_grid)."
 
 
 def extract_code(text):
@@ -133,6 +136,10 @@ def main():
                     help="forbid any N-gram from repeating (0 = off). For code, "
                          "tends to be too aggressive — boilerplate legitimately "
                          "repeats. Only enable if you see specific n-gram loops.")
+    ap.add_argument("--show-pairs", type=int, default=0,
+                    help="cap shown train pairs at N (0 = all). Tests if model "
+                         "generalizes from fewer examples or needs the full "
+                         "fingerprint. First N pairs in the puzzle's natural order.")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
@@ -181,7 +188,7 @@ def main():
     with out_path.open("w") as fh:
         for i, pid in enumerate(ids, 1):
             puz = puzzles[pid]
-            system, user = build_prompt(puz)
+            system, user = build_prompt(puz, show_pairs=a.show_pairs)
             prompt = tokenizer.apply_chat_template(
                 [{"role": "system", "content": system},
                  {"role": "user", "content": user}],
