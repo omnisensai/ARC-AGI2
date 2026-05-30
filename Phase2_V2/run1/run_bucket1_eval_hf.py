@@ -113,6 +113,9 @@ def main():
     ap.add_argument("--base-model", default="Qwen/Qwen2.5-7B-Instruct")
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--max-new-tokens", type=int, default=2048)
+    ap.add_argument("--temperature", type=float, default=0.5,
+                    help="generation temperature; 0.5 = mild sampling (default), "
+                         "0.0 = greedy (deterministic but brittle to backend drift)")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
@@ -169,13 +172,22 @@ def main():
             )
             inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
             with torch.no_grad():
-                output = model.generate(
-                    **inputs,
-                    max_new_tokens=a.max_new_tokens,
-                    do_sample=False,
-                    temperature=1.0,            # ignored when do_sample=False
-                    pad_token_id=tokenizer.eos_token_id,
-                )
+                if a.temperature > 0:
+                    output = model.generate(
+                        **inputs,
+                        max_new_tokens=a.max_new_tokens,
+                        do_sample=True,
+                        temperature=a.temperature,
+                        top_p=0.9,
+                        pad_token_id=tokenizer.eos_token_id,
+                    )
+                else:
+                    output = model.generate(
+                        **inputs,
+                        max_new_tokens=a.max_new_tokens,
+                        do_sample=False,
+                        pad_token_id=tokenizer.eos_token_id,
+                    )
             raw = tokenizer.decode(
                 output[0][inputs.input_ids.shape[1]:],
                 skip_special_tokens=True,
