@@ -121,6 +121,10 @@ def main():
     ap.add_argument("--temperature", type=float, default=0.5,
                     help="generation temperature; 0.5 = mild sampling (default), "
                          "0.0 = greedy (deterministic but brittle to backend drift)")
+    ap.add_argument("--num-beams", type=int, default=1,
+                    help="beam search width; >1 overrides temperature. Catches "
+                         "bad-token cascades that pure greedy can't recover from. "
+                         "Recommended: 4")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
@@ -177,7 +181,16 @@ def main():
             )
             inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
             with torch.no_grad():
-                if a.temperature > 0:
+                if a.num_beams > 1:
+                    output = model.generate(
+                        **inputs,
+                        max_new_tokens=a.max_new_tokens,
+                        do_sample=False,
+                        num_beams=a.num_beams,
+                        early_stopping=True,
+                        pad_token_id=tokenizer.eos_token_id,
+                    )
+                elif a.temperature > 0:
                     output = model.generate(
                         **inputs,
                         max_new_tokens=a.max_new_tokens,
