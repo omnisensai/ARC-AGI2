@@ -136,9 +136,23 @@ def main():
     ap.add_argument("--max-new-tokens", type=int, default=4096)
     ap.add_argument("--temperature", type=float, default=0.5,
                     help="0.0 = greedy, 0.5 = mild sampling (default — better for base models)")
+    ap.add_argument("--strict-prompt", action="store_true",
+                    help="Use the EXACT substrate prompt the LoRA was trained on "
+                         "(INPUT + T instead of INPUT + OUTPUT). For apples-to-apples "
+                         "fairness comparison. Baseline won't understand T jargon, "
+                         "but it's the same prompt the LoRA gets.")
     ap.add_argument("--out", default=None,
                     help="output JSONL. Default: baseline_<modelname>.jsonl")
     args = ap.parse_args()
+
+    # If strict-prompt, import the substrate SYSTEM + renderer the LoRA was trained on
+    if args.strict_prompt:
+        sys.path.insert(0, str(P2 / "micro"))
+        from build_micro_sft import SYSTEM as STRICT_SYSTEM, render_pairs as strict_render
+        global BASELINE_SYSTEM, build_user_prompt
+        BASELINE_SYSTEM = STRICT_SYSTEM
+        def build_user_prompt(puzzle):
+            return strict_render(puzzle["train"]) + "\n\nWrite def solve(input_grid)."
 
     out_path = Path(args.out or P2 / "run1/eval" /
                     f"baseline_{args.base_model.split('/')[-1].lower()}.jsonl")
