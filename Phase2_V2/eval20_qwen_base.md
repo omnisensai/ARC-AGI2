@@ -1633,3 +1633,78 @@ def solve(input_grid):
 
 This function first converts the input grid into a list of rows. It then iterates over each cell in the grid, checking if it forms a "corner" pattern with its immediate neighbors. If it does, it replaces the cell with a 1; otherwise, it keeps the original value. Finally, it maps the 1s back to their original values (1-9) and returns the transformed grid.
 root@e3241538a7a6:/workspace/ARC-AGI2# 
+
+
+ready.
+[  1/100] 00d62c1b  WRONG_OUTPUT        pass 0/1 (  0.0%)  elapsed 15s  eta 1488s
+[  2/100] 09629e4f  RUNTIME_ERROR       pass 0/2 (  0.0%)  elapsed 20s  eta 981s
+[  3/100] 12422b43  EMPTY_OR_INVALID    pass 0/3 (  0.0%)  elapsed 140s  eta 4528s
+[  4/100] 13f06aa5  EMPTY_OR_INVALID    pass 0/4 (  0.0%)  elapsed 159s  eta 3813s
+[  5/100] 142ca369  WRONG_OUTPUT        pass 0/5 (  0.0%)  elapsed 164s  eta 3125s
+[  6/100] 1acc24af  RUNTIME_ERROR       pass 0/6 (  0.0%)  elapsed 285s  eta 4459s
+[  7/100] 1b59e163  RUNTIME_ERROR       pass 0/7 (  0.0%)  elapsed 405s  eta 5376s
+[  8/100] 1c56ad9f  WRONG_OUTPUT        pass 0/8 (  0.0%)  elapsed 432s  eta 4962s
+[  9/100] 1da012fc  WRONG_OUTPUT        pass 0/9 (  0.0%)  elapsed 441s  eta 4459s
+[ 10/100] 1f0c79e5  EMPTY_OR_INVALID    pass 0/10 (  0.0%)  elapsed 495s  eta 4451s
+[ 11/100] 22233c11  EMPTY_OR_INVALID    pass 0/11 (  0.0%)  elapsed 615s  eta 4977s
+[ 12/100] 2281f1f4  EMPTY_OR_INVALID    pass 0/12 (  0.0%)  elapsed 698s  eta 5121s
+[ 13/100] 22a4bbc2  EMPTY_OR_INVALID    pass 0/13 (  0.0%)  elapsed 713s  eta 4772s
+[ 14/100] 230f2e48  RUNTIME_ERROR       pass 0/14 (  0.0%)  elapsed 833s  eta 5118s
+[ 15/100] 253bf280  EMPTY_OR_INVALID    pass 0/15 (  0.0%)  elapsed 953s  eta 5400s
+[ 16/100] 256b0a75  EMPTY_OR_INVALID    pass 0/16 (  0.0%)  elapsed 1073s  eta 5635s
+[ 17/100] 27a77e38  WRONG_OUTPUT        pass 0/17 (  0.0%)  elapsed 1081s  eta 5280s
+[ 18/100] 2dd70a9a  RUNTIME_ERROR       pass 0/18 (  0.0%)  elapsed 1106s  eta 5040s
+[ 19/100] 30f42897  EMPTY_OR_INVALID    pass 0/19 (  0.0%)  elapsed 1123s  eta 4787s
+[ 20/100] 332202d5  RUNTIME_ERROR       pass 0/20 (  0.0%)  elapsed 1136s  eta 4545s
+[ 21/100] 332efdb3  EMPTY_OR_INVALID    pass 0/21 (  0.0%)  elapsed 1156s  eta 4348s
+[ 22/100] 3391f8c0  EMPTY_OR_INVALID    pass 0/22 (  0.0%)  elapsed 1169s  eta 4146s
+[ 23/100] 34cfa167  RUNTIME_ERROR       pass 0/23 (  0.0%)  elapsed 1182s  eta 3958s
+[ 24/100] 3631a71a  SHAPE_MISMATCH      pass 0/24 (  0.0%)  elapsed 1188s  eta 3762s
+[ 25/100] 42a50994  EMPTY_OR_INVALID    pass 0/25 (  0.0%)  elapsed 1308s  eta 3924s
+[ 26/100] 444801d8  EMPTY_OR_INVALID    pass 0/26 (  0.0%)  elapsed 1333s  eta 3795s
+[ 27/100] 447fd412  WRONG_OUTPUT        pass 0/27 (  0.0%)  elapsed 1345s  eta 3636s
+[ 28/100] 456873bc  EMPTY_OR_INVALID    pass 0/28 (  0.0%)  elapsed 1465s  eta 3767s
+[ 29/100] 496994bd  WRONG_OUTPUT        pass 0/29 (  0.0%)  elapsed 1473s  eta 3607s
+[ 30/100] 4a1cacc2  WRONG_OUTPUT        pass 0/30 (  0.0%)  elapsed 1558s  eta 3634s
+[ 31/100] 50846271  RUNTIME_ERROR       pass 0/31 (  0.0%)  elapsed 1564s  eta 3480s
+[ 32/100] 50cb2852  EMPTY_OR_INVALID    pass 0/32 (  0.0%)  elapsed 1684s  eta 3578s
+[ 33/100] 551d5bf1  RUNTIME_ERROR       pass 0/33 (  0.0%)  elapsed 1688s  eta 3427s
+[ 34/100] 5582e5ca  RUNTIME_ERROR       pass 0/34 (  0.0%)  elapsed 1699s  eta 3298s
+[ 35/100] 56dc2b01  WRONG_OUTPUT        pass 0/35 (  0.0%)  elapsed 1710s  eta 3176s
+[ 36/100] 58c02a16  WRONG_OUTPUT        pass 0/36 (  0.0%)  elapsed 1717s  eta 3053s
+[ 37/100] 5b692c0f  EMPTY_OR_INVALID    pass 0/37 (  0.0%)  elapsed 1838s  eta 3129s
+[ 38/100] 5c0a986e  EMPTY_OR_INVALID    pass 0/38 (  0.0%)  elapsed 1851s  eta 3021s
+[ 39/100] 67385a82  WRONG_OUTPUT        pass 0/39 (  0.0%)  elapsed 1859s  eta 2908s
+[ 40/100] 689c358e  RUNTIME_ERROR       pass 0/40 (  0.0%)  elapsed 1870s  eta 2804s
+[ 41/100] 694f12f3  WRONG_OUTPUT        pass 0/41 (  0.0%)  elapsed 1875s  eta 2697s
+[ 42/100] 696d4842  RUNTIME_ERROR       pass 0/42 (  0.0%)  elapsed 1879s  eta 2595s
+[ 43/100] 6cf79266  SHAPE_MISMATCH      pass 0/43 (  0.0%)  elapsed 2000s  eta 2651s
+[ 44/100] 6d58a25d  WRONG_OUTPUT        pass 0/44 (  0.0%)  elapsed 2005s  eta 2552s
+[ 45/100] 6e82a1ae  EMPTY_OR_INVALID    pass 0/45 (  0.0%)  elapsed 2017s  eta 2465s
+[ 46/100] 72207abc  EMPTY_OR_INVALID    pass 0/46 (  0.0%)  elapsed 2035s  eta 2389s
+[ 47/100] 72322fa7  EMPTY_OR_INVALID    pass 0/47 (  0.0%)  elapsed 2045s  eta 2306s
+[ 48/100] 73c3b0d8  RUNTIME_ERROR       pass 0/48 (  0.0%)  elapsed 2064s  eta 2236s
+[ 49/100] 760b3cac  EMPTY_OR_INVALID    pass 0/49 (  0.0%)  elapsed 2184s  eta 2274s
+[ 50/100] 78e78cff  EMPTY_OR_INVALID    pass 0/50 (  0.0%)  elapsed 2192s  eta 2192s
+[ 51/100] 794b24be  WRONG_OUTPUT        pass 0/51 (  0.0%)  elapsed 2200s  eta 2113s
+[ 52/100] 79fb03f4  EMPTY_OR_INVALID    pass 0/52 (  0.0%)  elapsed 2214s  eta 2044s
+[ 53/100] 82819916  SHAPE_MISMATCH      pass 0/53 (  0.0%)  elapsed 2225s  eta 1973s
+[ 54/100] 8403a5d5  WRONG_OUTPUT        pass 0/54 (  0.0%)  elapsed 2230s  eta 1900s
+[ 55/100] 8eb1be9a  EMPTY_OR_INVALID    pass 0/55 (  0.0%)  elapsed 2278s  eta 1864s
+[ 56/100] 92e50de0  RUNTIME_ERROR       pass 0/56 (  0.0%)  elapsed 2284s  eta 1794s
+[ 57/100] 94414823  WRONG_OUTPUT        pass 0/57 (  0.0%)  elapsed 2300s  eta 1735s
+[ 58/100] 97d7923e  EMPTY_OR_INVALID    pass 0/58 (  0.0%)  elapsed 2306s  eta 1670s
+[ 59/100] 9b30e358  WRONG_OUTPUT        pass 0/59 (  0.0%)  elapsed 2309s  eta 1605s
+[ 60/100] 9caf5b84  RUNTIME_ERROR       pass 0/60 (  0.0%)  elapsed 2319s  eta 1546s
+[ 61/100] 9ddd00f0  EMPTY_OR_INVALID    pass 0/61 (  0.0%)  elapsed 2328s  eta 1488s
+[ 62/100] 9edfc990  EMPTY_OR_INVALID    pass 0/62 (  0.0%)  elapsed 2448s  eta 1500s
+[ 63/100] a79310a0  SHAPE_MISMATCH      pass 0/63 (  0.0%)  elapsed 2458s  eta 1443s
+[ 64/100] a8d7556c  EMPTY_OR_INVALID    pass 0/64 (  0.0%)  elapsed 2463s  eta 1385s
+[ 65/100] a934301b  RUNTIME_ERROR       pass 0/65 (  0.0%)  elapsed 2469s  eta 1329s
+[ 66/100] abc82100  WRONG_OUTPUT        pass 0/66 (  0.0%)  elapsed 2476s  eta 1275s
+[ 67/100] ac3e2b04  EMPTY_OR_INVALID    pass 0/67 (  0.0%)  elapsed 2515s  eta 1239s
+[ 68/100] ad3b40cf  EMPTY_OR_INVALID    pass 0/68 (  0.0%)  elapsed 2558s  eta 1204s
+[ 69/100] b25e450b  EMPTY_OR_INVALID    pass 0/69 (  0.0%)  elapsed 2574s  eta 1156s
+[ 70/100] b457fec5  WRONG_OUTPUT        pass 0/70 (  0.0%)  elapsed 2578s  eta 1105s
+[ 71/100] b5bb5719  EMPTY_OR_INVALID    pass 0/71 (  0.0%)  elapsed 2595s  eta 1060s
+^CTraceback (most recent call last):
