@@ -23,6 +23,33 @@ Code training alone does not give visual rule extraction. Instruction tuning alo
 does not either. The substrate-curriculum is the only path off the 0% floor we have
 evidence for.
 
+**Qualitative validation (re-confirmed with V1 run on its own prompt format)**:
+V1 produces *substrate vocabulary* in its solver code that neither Coder nor base
+Qwen ever produces:
+- "Find the noise color... identify horizontal lines (rows where > half cells
+  are same non-noise color)"
+- "Find bounding box of all 8s... Identify non-8 colored boundary cells (the
+  frame colors)... Identify corners... Determine orientation: horizontal or
+  vertical"
+- "Find rows that are all zero - separators... Separators divide into groups...
+  For each group, find the 5-ranges"
+- "Find separator rows (all 6s)... Bands are between separators... For each band,
+  find the color that appears as a column-block"
+
+This is **post-substrate-literacy reasoning** — decomposing grids by structure
+(separators, markers, bands, frames, noise vs signal) rather than by surface
+pixel patterns. Coder writes `if cell == 5: cell = 2`. V1 writes `find separator
+rows, identify bands, for each band find dominant column color`. That's the
+difference the curriculum bought us, and it's structural — visible in the code
+even on failed puzzles.
+
+**V1's failure mode is "can see the structure, can't always pick the right
+transformation."** That's the right kind of failure to have at this stage; it
+means the substrate layer landed and the rule-extraction layer needs more
+capacity / examples / better targets. Coder's failure mode was "doesn't see
+structure at all" — that's the kind of failure you can't recover from with
+more training of the same kind.
+
 ### 1.2 Start from Qwen2.5-Coder-7B-Instruct, NOT base Qwen2.5-7B-Instruct
 
 On the same 20 puzzles, Coder produced **one clean self-contained solver in 20/20 cases**.
@@ -182,21 +209,28 @@ container before loading the adapter. **Without this, you cannot reproduce a
 trained model.** We learned this when V1 stopped reproducing its 24% — it wasn't
 that V1 broke, it's that the inference path we used didn't match the training path.
 
-### 2.2 Attention implementation drift is real
+### 2.2 Attention implementation drift — possibly real, mostly secondary
 
 Training: flash-attn (default in axolotl + Qwen recipe)
 V1 eval: `attn_implementation="sdpa"`
 V2 eval: `attn_implementation="eager"` (after vLLM broke cuDNN)
 
 Each combination gives subtly different attention scores. Across 32 transformer
-layers, these compound. In practice we observed:
-- Greedy decoding with eager attention produced systematic typos (`inrange` instead
-  of `in range`) that did not appear at training time
-- Solve rate visibly differs between sdpa and eager on the same checkpoint
+layers, these compound. **Initially blamed eager attention** for systematic typos
+like `inrange` instead of `in range` that appeared when we ran V1 under V2's
+prompt format. **This was wrong** — the typos came from V1 being given an
+out-of-distribution prompt (asking for `infer_T` when V1 was trained on
+monolithic `def solve`), not from attention drift.
 
-**Match the training-time attention implementation at inference.** If flash-attn
-won't install on the eval pod, you have an environment problem, not an inference
-problem — fix it.
+When V1 was run with its OWN prompt format (sdpa attention, same checkpoint),
+output was clean: ~1 typo across 18 generated solvers (`opp dc = 1` with a space).
+**Prompt-format mismatch dominates attention-implementation drift as a cause of
+output corruption.** Fix the prompt first; only suspect attention if clean prompts
+still produce token-level garbage.
+
+Match the training-time attention implementation when reasonable, but a small
+attention-impl difference between two clean inference paths is unlikely to be
+the bug if you're seeing badly corrupted output.
 
 ### 2.3 Preflight discipline saves hours
 
